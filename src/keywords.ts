@@ -74,23 +74,9 @@ export function detectResearchKeyword(text: string): { detected: boolean; match?
 }
 
 export const NIA_NUDGE_MESSAGE = `[NIA KNOWLEDGE TRIGGER]
-The user is asking for research, documentation, or codebase exploration. You have access to **Nia** tools via MCP.
-
-**Available Nia tools:**
-- \`nia.search\` - Semantic search across indexed repos, docs, and papers
-- \`nia.nia_research\` - Web search (quick) or deep AI research (deep/oracle modes)
-- \`nia.index\` - Index new GitHub repos, documentation sites, or arXiv papers
-- \`nia.nia_read\` - Read specific files from indexed sources
-- \`nia.nia_grep\` - Regex search across indexed codebases
-- \`nia.nia_explore\` - Browse file trees of indexed repos/docs
-- \`nia.manage_resource\` - List/check status of indexed sources
-
-**Workflow:**
-1. Check what's indexed: \`nia.manage_resource(action: "list")\`
-2. Search or research based on the user's question
-3. Read specific files if needed for deeper context
-
-Use these tools to provide accurate, up-to-date information instead of relying solely on training data.`;
+The user is asking for research, documentation, or codebase exploration.
+You have access to Nia MCP tools (nia.search, nia.nia_research, nia.index, nia.nia_read, nia.nia_grep, nia.nia_explore, nia.manage_resource).
+Refer to your Nia instructions for the detailed workflow. Use these tools to provide accurate, up-to-date information.`;
 
 export const NIA_SAVE_NUDGE_MESSAGE = `[NIA CONTEXT SAVE TRIGGER]
 The user wants to save this conversation to continue later or hand off to another agent.
