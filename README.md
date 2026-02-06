@@ -1,12 +1,15 @@
 # nia-opencode
 
-OpenCode plugin that integrates [Nia Knowledge Agent](https://trynia.ai) for research, documentation, and codebase exploration.
+Installer and plugin for integrating [Nia Knowledge Agent](https://trynia.ai) with [OpenCode](https://opencode.ai). Provides research, documentation lookup, and codebase exploration capabilities.
 
-## Features
+## How It Works
 
-- **Keyword Detection**: Automatically detects research-related queries and prompts the agent to use Nia tools
-- **MCP Integration**: Connects to Nia's MCP server for semantic search, documentation indexing, and AI research
-- **Zero Config**: Works out of the box with automatic MCP server setup
+The installer detects your OpenCode version and chooses the best integration method:
+
+| OpenCode Version | Integration                                     | How Nia Tools Are Delivered                                                                                                |
+| ---------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **>= v1.1.50**   | [Agent Skills](https://opencode.ai/docs/skills) | Installs [nia-skill](https://github.com/nozomio-labs/nia-skill) via `npx skills add` — bash scripts calling Nia's REST API |
+| **< v1.1.50**    | MCP + Plugin                                    | Registers Nia MCP server + keyword detection plugin + remote instructions                                                  |
 
 ## Installation
 
@@ -15,9 +18,12 @@ bunx nia-opencode@latest install
 ```
 
 The installer will:
-1. Prompt for your Nia API key
-2. Create `~/.config/opencode/nia.json` with your config
-3. Add the plugin and MCP server to your OpenCode config
+
+1. Detect your OpenCode version
+2. Prompt for your Nia API key
+3. Store the API key at `~/.config/nia/api_key`
+4. Install the Nia skill (modern) or configure MCP server + plugin (legacy)
+5. Clean up any outdated configuration from previous installs
 
 ### Non-Interactive Installation
 
@@ -25,13 +31,68 @@ The installer will:
 bunx nia-opencode@latest install --no-tui --api-key nk_your_api_key
 ```
 
+### Uninstall
+
+```bash
+bunx nia-opencode@latest uninstall
+```
+
+Removes all Nia configuration: skill files, MCP server entries, plugin entries, instructions references, API keys, and any legacy AGENTS.md content.
+
+## Agent Skills Path (OpenCode >= v1.1.50)
+
+On latest OpenCode versions, the installer runs:
+
+```bash
+npx skills add nozomio-labs/nia-skill -g -a opencode -y
+```
+
+This installs the [nia-skill](https://github.com/nozomio-labs/nia-skill) globally for OpenCode. The agent automatically discovers it through the built-in `skill` tool and loads it on-demand when relevant.
+
+No MCP server or plugin is needed — the skill provides bash scripts that call Nia's REST API directly. The scripts read your API key from `~/.config/nia/api_key`, which the installer stores automatically.
+
+### What You Can Do
+
+Once installed, the agent can:
+
+- Index and search GitHub repositories, documentation sites, and arXiv papers
+- Perform web search and deep AI-powered research
+- Read files, grep code, and explore file trees across indexed sources
+- Search npm, PyPI, crates.io, and Go package source code
+- Save and share context across agents (Cursor, Claude Code, Windsurf, etc.)
+- Analyze dependencies from manifest files
+
+See the [nia-skill README](https://github.com/nozomio-labs/nia-skill) for full documentation.
+
 ### Manual Setup
 
-1. Add to your `~/.config/opencode/opencode.json`:
+If you prefer to set things up manually instead of using the installer:
+
+1. **Store your API key:**
+
+```bash
+mkdir -p ~/.config/nia
+echo "nk_your_api_key" > ~/.config/nia/api_key
+```
+
+1. **Install the skill:**
+
+```bash
+npx skills add nozomio-labs/nia-skill -g -a opencode -y
+```
+
+1. **Ensure `curl` and `jq` are installed** (required by the nia-skill bash scripts).
+
+## MCP Path (OpenCode < v1.1.50)
+
+On older OpenCode versions, the installer configures three things:
+
+### 1. MCP Server
+
+Adds a remote Nia MCP server to `~/.config/opencode/opencode.json`:
 
 ```json
 {
-  "plugin": ["nia-opencode@latest"],
   "mcp": {
     "nia": {
       "type": "remote",
@@ -45,27 +106,10 @@ bunx nia-opencode@latest install --no-tui --api-key nk_your_api_key
 }
 ```
 
-2. Set your API key (choose one):
+### 2. Plugin (Keyword Detection)
 
-**Environment variable:**
-```bash
-export NIA_API_KEY="nk_your_api_key"
-```
+Registers the `nia-opencode` plugin which hooks into `chat.message` events. When the user says things like:
 
-**Config file** (`~/.config/opencode/nia.json`):
-```json
-{
-  "apiKey": "nk_your_api_key"
-}
-```
-
-## Usage
-
-Once installed, the plugin automatically detects research-related queries and prompts the agent to use Nia tools.
-
-### Trigger Keywords
-
-The plugin activates when you say things like:
 - "Research how React hooks work"
 - "Look up the Next.js documentation"
 - "Search the codebase for authentication"
@@ -73,52 +117,101 @@ The plugin activates when you say things like:
 - "Grep for error handling patterns"
 - "Index this repo"
 
-### Available Nia Tools
+...the plugin injects a nudge telling the agent to use the Nia MCP tools.
 
-When triggered, the agent has access to:
+### 3. Remote Instructions
 
-| Tool | Description |
-|------|-------------|
-| `nia.search` | Semantic search across indexed repos, docs, papers |
-| `nia.nia_research` | Web search (quick) or deep AI research (deep/oracle) |
-| `nia.index` | Index GitHub repos, docs sites, or arXiv papers |
-| `nia.nia_read` | Read files from indexed sources |
-| `nia.nia_grep` | Regex search across codebases |
-| `nia.nia_explore` | Browse file trees |
-| `nia.manage_resource` | List/manage indexed sources |
+Adds a remote instructions URL to the `instructions` config array, providing the agent with a Nia-first workflow guide.
 
-## Configuration
+### Available MCP Tools
 
-### `~/.config/opencode/nia.json`
+| Tool                  | Description                                          |
+| --------------------- | ---------------------------------------------------- |
+| `nia.search`          | Semantic search across indexed repos, docs, papers   |
+| `nia.nia_research`    | Web search (quick) or deep AI research (deep/oracle) |
+| `nia.index`           | Index GitHub repos, docs sites, or arXiv papers      |
+| `nia.nia_read`        | Read files from indexed sources                      |
+| `nia.nia_grep`        | Regex search across codebases                        |
+| `nia.nia_explore`     | Browse file trees                                    |
+| `nia.manage_resource` | List/manage indexed sources                          |
+| `nia.context`         | Save/load cross-agent context                        |
+
+### Legacy Configuration
+
+#### `~/.config/opencode/nia.json`
 
 ```json
 {
   "apiKey": "nk_...",
-  "mcpUrl": "https://apigcp.trynia.ai/mcp",
   "keywords": {
     "enabled": true,
-    "patterns": [
-      "my custom pattern"
-    ]
+    "patterns": ["my custom pattern"]
   }
 }
 ```
 
-### Options
+| Option              | Default | Description                              |
+| ------------------- | ------- | ---------------------------------------- |
+| `apiKey`            | -       | Your Nia API key                         |
+| `keywords.enabled`  | `true`  | Enable/disable keyword detection         |
+| `keywords.patterns` | `[]`    | Additional regex patterns to trigger Nia |
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `apiKey` | - | Your Nia API key |
-| `mcpUrl` | `https://apigcp.trynia.ai/mcp` | MCP server URL |
-| `keywords.enabled` | `true` | Enable/disable keyword detection |
-| `keywords.patterns` | `[]` | Additional regex patterns to trigger Nia |
-
-## Debugging
-
-Enable debug logging:
+#### Debugging
 
 ```bash
 NIA_DEBUG=true opencode
+```
+
+### Manual Setup (Legacy)
+
+If you prefer to set things up manually instead of using the installer:
+
+1. **Store your API key**
+
+```bash
+cat > ~/.config/opencode/nia.json << 'EOF'
+{
+  "apiKey": "nk_your_api_key",
+  "keywords": {
+    "enabled": true
+  }
+}
+EOF
+```
+
+1. **Add the following to your `~/.config/opencode/opencode.json`:**
+
+```json
+{
+  "plugin": ["nia-opencode@latest"],
+  "instructions": [
+    "https://raw.githubusercontent.com/nozomio-labs/nia-opencode/main/instructions/nia-mcp-instructions.md"
+  ],
+  "mcp": {
+    "nia": {
+      "type": "remote",
+      "url": "https://apigcp.trynia.ai/mcp",
+      "headers": {
+        "Authorization": "Bearer <nk_your_api_key>"
+      },
+      "oauth": false
+    }
+  }
+}
+```
+
+## CLI Reference
+
+```
+nia-opencode - Nia Knowledge Agent for OpenCode
+
+Commands:
+  install                Install and configure Nia for OpenCode
+    --no-tui             Non-interactive mode
+    --api-key <key>      Provide API key directly
+
+  uninstall              Remove all Nia configuration
+    --no-tui             Non-interactive mode
 ```
 
 ## Get Your API Key
