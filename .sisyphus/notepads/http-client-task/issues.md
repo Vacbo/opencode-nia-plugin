@@ -1,1 +1,2 @@
 - 2026-03-18: `bun run build` is currently blocked by the pre-existing missing module in `src/tools/nia-research.test.ts`, so advisor work was verified with targeted tests and clean file diagnostics instead of a green full build.
+- 2026-03-19: `bun test src/tools/nia-tracer.test.ts` passes, but repo-wide `bun run build` and LSP diagnostics still report missing standard-lib globals (`Boolean`, `Set`, `Promise`) from the current TypeScript/Bun typing setup, outside the tracer-specific changes.

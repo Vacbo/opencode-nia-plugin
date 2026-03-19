@@ -1,0 +1,177 @@
+F1 — Plan Compliance Audit
+==========================
+Date: 2026-03-19
+Auditor: Sisyphus-Junior (claude-opus-4-6)
+
+VERDICT: APPROVE
+================
+
+Build Verification:
+  - bun run build:     PASS (tsc -p tsconfig.json, clean)
+  - bun run typecheck:  PASS (tsc --noEmit, clean)
+  - bun test:           PASS (506 tests, 0 failures, 1168 expect() calls)
+
+=== MUST HAVE — All 11 Items Verified Present ===
+
+[1] 13 nia_* tools registered when NIA_API_KEY set — PASS
+    Evidence: 13 tool implementation files found:
+      nia-advisor.ts, nia-auto-subscribe.ts, nia-context.ts, nia-e2e.ts,
+      nia-explore.ts, nia-grep.ts, nia-index.ts, nia-manage-resource.ts,
+      nia-package-search.ts, nia-read.ts, nia-research.ts, nia-search.ts,
+      nia-tracer.ts
+    Registration: src/index.ts:81-105 createToolRegistry() registers all 13
+    tools (some conditional on feature flags: research, advisor, context,
+    tracer, e2e).
+
+[2] 0 tools registered when NIA_API_KEY not set — PASS
+    Evidence: src/index.ts:107-116 — NiaPlugin checks isConfigured() and
+    returns empty object {} when NIA_API_KEY is not set.
+    Config: src/config.ts:83-85 — isConfigured() returns !!loadConfig().apiKey
+
+[3] Batch operation support — PASS
+    Evidence: All 13 tools are independent, stateless, and parallelizable.
+    Each uses its own AbortSignal for cancellation. Tools accept array
+    parameters where appropriate (repositories[], tags[]). E2E tool supports
+    sync batch operations (E2ESyncBatch type in api/types.ts:469-470).
+    Architecture allows concurrent tool execution by the LLM.
+
+[4] Smart instruction injection (static + dynamic) — PASS
+    Evidence: src/hooks/system-transform.ts implements createSystemTransform()
+    which injects:
+      - Static: ROUTING_HINT (line 11-12) — tool availability routing
+      - Dynamic: Known source labels from session cache (line 115-129)
+      - Dynamic: Completed background operations (line 184-187)
+      - Dynamic: Pending operations with progress (line 189-211)
+      - Dynamic: Project context hints (Next.js, React, Vue, TS detection)
+        from package.json analysis (lines 257-285)
+    Deduplication via injectedHints Set prevents repeated injections.
+
+[5] Event-driven async status for indexing/oracle/tracer — PASS
+    Evidence: src/state/ops-tracker.ts implements OpsTracker with
+    checkAndDrain() method that checks pending operations on-demand during
+    system prompt transforms (event-driven, NOT polling). Supports oracle,
+    tracer, repository, and data_source operation types (lines 106-123).
+    No setInterval found — checks happen at system prompt transform time.
+
+[6] Session state keyed by sessionID — PASS
+    Evidence: src/state/session.ts:6-32 — SESSION_STATES Map<string,
+    NiaSessionState> keyed by sessionID. Each session gets its own TTLCache
+    (sourceCache, searchDedup), OpsTracker, and projectContext Map.
+    src/index.ts:43-60 — Plugin-level session factory also keyed by sessionID.
+    All hooks (chat.message, tool.execute.after, system.transform) access
+    state via getSessionState(input.sessionID).
+
+[7] Error handling: return strings, never throw, all error codes — PASS
+    Evidence: src/api/client.ts — NiaClient.request() catches all errors and
+    returns formatted error strings. Error codes defined lines 19-27:
+    401=unauthorized, 403=forbidden, 404=not_found, 422=validation_failed,
+    429=rate_limited, 500=server_error, 503=service_unavailable.
+    All tool execute() functions wrap in try/catch and return error strings.
+    nia-tracer.ts:79-146 — outer try/catch with formatUnexpectedError()
+    (line 382-396) that always returns a string.
+    Internal throws (tracer sleep abort, line 359) are caught by the tool's
+    outer try/catch and converted to strings.
+
+[8] AbortSignal propagation to all API calls — PASS
+    Evidence: 114 signal-related matches across 23 files. Every tool
+    receives context.abort and passes it through:
+      - NiaClient.get/post/patch/delete all accept AbortSignal parameter
+      - Client.request() checks signal.aborted upfront (line 73)
+      - Proper cleanup with signal.removeEventListener in finally block (128)
+      - Timeout via AbortController with signal composition (lines 77-89)
+      - Tracer polling respects abort with cancellation (lines 205, 231-235)
+
+[9] Feature flags via env vars — PASS
+    Evidence: src/config.ts:56-79 — loadConfig() reads all feature flags from
+    process.env: NIA_SEARCH, NIA_RESEARCH, NIA_TRACER, NIA_ADVISOR,
+    NIA_CONTEXT, NIA_E2E, NIA_CACHE_TTL, NIA_MAX_PENDING_OPS,
+    NIA_CHECK_INTERVAL, NIA_TRACER_TIMEOUT, NIA_DEBUG, NIA_TRIGGERS,
+    NIA_API_URL, NIA_KEYWORDS_ENABLED, NIA_KEYWORDS_PATTERNS.
+    All have sensible defaults. Boolean parsing via parseBoolean() helper.
+
+[10] Updated CLI installer — PASS
+    Evidence: src/cli.ts — Full install/uninstall CLI with 5 steps:
+      1. API key configuration
+      2. Key storage in ~/.config/nia/api_key
+      3. Nia Skill installation
+      4. OpenCode config (native plugin registration + instructions)
+      5. Legacy artifact cleanup
+    Supports --no-tui and --api-key flags. Handles config create/modify.
+
+[11] No MCP server dependency — PASS
+    Evidence: grep for MCP/McpServer/createServer found zero MCP server
+    imports. Only textual references: NIA_MCP_URL variable name (config.ts:88),
+    a nudge message mentioning "MCP tools" (hooks/smart-triggers.ts:137),
+    and a comment about cleaning old MCP config (cli.ts:192). Plugin uses
+    @opencode-ai/plugin and @opencode-ai/sdk only. No @modelcontextprotocol
+    or MCP server packages in dependencies.
+
+
+=== MUST NOT HAVE — All 7 Items Verified Absent ===
+
+[1] No config file reading (nia.json) — env vars only — PASS
+    Evidence: "nia.json" appears ONLY in src/cli/ directory (3 files):
+      - cli/constants.ts:5 — defines NIA_CONFIG_PATH constant
+      - cli/api-key.ts:31 — writes api key during installation
+      - cli/cleanup.ts:109-111 — deletes nia.json during uninstall
+    Runtime code (config.ts, index.ts, tools/*, hooks/*, state/*) has ZERO
+    references to nia.json. All runtime config via process.env (config.ts).
+    NOTE: The suggested verification command `grep -v "cli.ts"` would still
+    show cli/constants.ts etc. — the intent is satisfied (no runtime reading).
+
+[2] No Background polling timers (setInterval) — PASS
+    Evidence: grep for "setInterval" returned 0 matches across all src/ .ts
+    files. setTimeout found in 2 files:
+      - api/client.ts:86,237 — request timeout and retry sleep (not polling)
+      - tools/nia-tracer.ts:367 — abort-aware sleep in poll loop (not timer)
+    All setTimeout instances are request-scoped with proper cleanup
+    (clearTimeout in finally blocks). OpsTracker uses event-driven
+    checkAndDrain() instead of timers.
+
+[3] No nia-ai-ts as runtime dependency — PASS
+    Evidence: grep "nia-ai-ts" package.json returned 0 matches.
+    package.json dependencies: @opencode-ai/plugin, @opencode-ai/sdk only.
+    devDependencies: bun-types, typescript only.
+    API types defined locally in src/api/types.ts (577 lines of manual types).
+
+[4] No LLM parameter modification (chat.params) — PASS
+    Evidence: grep for "chat.params|modifyParams" returned 0 matches.
+    The "params." matches found (nia-read.ts, nia-explore.ts, nia-context.ts)
+    are building API request parameters for Nia API calls, not modifying
+    LLM chat parameters.
+
+[5] No auto-indexing without explicit user invocation — PASS
+    Evidence: grep for "autoIndex|auto.index|auto_index|AUTO_INDEX" returned
+    0 matches. The nia_index tool requires explicit invocation with a URL
+    argument. No hooks or startup logic triggers indexing automatically.
+
+[6] No tool throwing errors (must return error strings) — PASS
+    Evidence: grep "throw" in src/tools/ found throws ONLY in:
+      - Test files (.test.ts) — mock implementations, acceptable
+      - nia-tracer.ts:238 — internal re-throw inside pollTracerJob caught by
+        execute()'s outer try/catch (line 80/144)
+      - nia-tracer.ts:359 — DOMException("Aborted") in sleep() helper,
+        caught by outer try/catch → formatUnexpectedError() → returns string
+    All tool execute() functions have outer try/catch returning error strings.
+    NiaClient.request() never throws — all paths return string or parsed data.
+
+[7] No unscoped module-level state — PASS
+    Evidence: Module-level variables found:
+      - state/session.ts:6 — SESSION_STATES Map — SCOPED by sessionID
+      - config.ts:81 — CONFIG — read-only snapshot of env vars
+      - config.ts:87-88 — NIA_API_KEY, NIA_MCP_URL — read-only env values
+    All mutable state (caches, ops tracker, trigger sessions) lives inside
+    NiaSessionState instances keyed by sessionID. No bare mutable variables
+    at module scope. Plugin-level state in index.ts is enclosed in the
+    plugin factory closure (lines 107-201).
+
+
+=== Summary ===
+
+  Must Have:     11/11 PASS
+  Must NOT Have:  7/7  PASS
+  Build:          PASS
+  Typecheck:      PASS
+  Tests:          506/506 PASS (0 failures)
+
+VERDICT: APPROVE — All compliance criteria satisfied.

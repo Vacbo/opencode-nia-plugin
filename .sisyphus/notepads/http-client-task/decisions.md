@@ -8,3 +8,4 @@
 - 2026-03-18: `nia_tracer` maps tool arg `tracer_mode` to the API payload field `mode`, defaulting to `tracer-fast` for new jobs while keeping `job_id` calls focused on status polling.
 - 2026-03-18: Aborts during tracer polling trigger a best-effort `DELETE /github/tracer/{job_id}` request without reusing the aborted signal, so server-side cancel still has a chance to succeed.
 - 2026-03-18: `nia_advisor` posts to `/advisor` via `NiaClient` and always renders `AdvisorResult.recommendations` into markdown instead of returning the raw API object, matching the plugin's string-first tool contract.
+- 2026-03-19: `nia_tracer` no longer owns any polling loop or sleep helper; async completion is left to the caller plus the system-transform pending-ops flow.

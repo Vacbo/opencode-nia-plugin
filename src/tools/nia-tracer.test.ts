@@ -61,7 +61,7 @@ describe("nia_tracer tool", () => {
 
     const niaTracerTool = createNiaTracerTool({
       client,
-      config: { apiKey: "nia-key", tracerEnabled: true, tracerTimeout: 45, checkInterval: 0 },
+      config: { apiKey: "nia-key", tracerEnabled: true, tracerTimeout: 45 },
     });
     const context = createContext();
 
@@ -105,7 +105,7 @@ describe("nia_tracer tool", () => {
 
     const niaTracerTool = createNiaTracerTool({
       client,
-      config: { apiKey: "nia-key", tracerEnabled: true, tracerTimeout: 120, checkInterval: 0 },
+      config: { apiKey: "nia-key", tracerEnabled: true, tracerTimeout: 120 },
     });
 
     const result = await niaTracerTool.execute(
@@ -121,9 +121,10 @@ describe("nia_tracer tool", () => {
     expect(result).toContain("job_deep_1");
     expect(result).toContain("queued");
     expect(result).toContain("Re-run this tool with `job_id`");
+    expect(result).toContain("check status");
   });
 
-  it("polls an existing tracer job until completion", async () => {
+  it("checks an existing tracer job once and reports when it is still running", async () => {
     let capturedTimeouts: number[] = [];
     let calls = 0;
 
@@ -135,15 +136,40 @@ describe("nia_tracer tool", () => {
         capturedTimeouts.push(timeout ?? 0);
         expect(signal).toBeDefined();
         calls += 1;
+        return {
+          job_id: "job_poll_1",
+          status: "running",
+          query: "Explain retries",
+        };
+      },
+    };
 
-        if (calls === 1) {
-          return {
-            job_id: "job_poll_1",
-            status: "running",
-            query: "Explain retries",
-          };
-        }
+    const niaTracerTool = createNiaTracerTool({
+      client,
+      config: { apiKey: "nia-key", tracerEnabled: true, tracerTimeout: 5 },
+    });
 
+    const result = await niaTracerTool.execute(
+      niaTracerArgsSchema.parse({ job_id: "job_poll_1" }),
+      createContext()
+    );
+
+    expect(calls).toBe(1);
+    expect(capturedTimeouts).toEqual([5_000]);
+    expect(result).toContain("job_poll_1");
+    expect(result).toContain("running");
+    expect(result).toContain("still `running`");
+  });
+
+  it("returns completed results from a single job status check", async () => {
+    let calls = 0;
+
+    const client: MockClient = {
+      post: async () => {
+        throw new Error("should not create a new job when job_id is provided");
+      },
+      get: async () => {
+        calls += 1;
         return {
           job_id: "job_poll_1",
           status: "completed",
@@ -155,7 +181,7 @@ describe("nia_tracer tool", () => {
 
     const niaTracerTool = createNiaTracerTool({
       client,
-      config: { apiKey: "nia-key", tracerEnabled: true, tracerTimeout: 5, checkInterval: 0 },
+      config: { apiKey: "nia-key", tracerEnabled: true, tracerTimeout: 5 },
     });
 
     const result = await niaTracerTool.execute(
@@ -163,38 +189,28 @@ describe("nia_tracer tool", () => {
       createContext()
     );
 
-    expect(calls).toBe(2);
-    expect(capturedTimeouts).toEqual([5_000, 5_000]);
+    expect(calls).toBe(1);
     expect(result).toContain("job_poll_1");
     expect(result).toContain("completed");
     expect(result).toContain("Retry logic backs off");
   });
 
-  it("cancels the server-side job when polling is aborted", async () => {
+  it("returns abort_error when a single status check is aborted", async () => {
     const controller = new AbortController();
-    const deleteCalls: Array<{ path: string; signal: AbortSignal | undefined; timeout: number | undefined }> = [];
 
     const client: MockClient = {
       post: async () => {
-        throw new Error("should not create a new job when polling");
+        throw new Error("should not create a new job when checking status");
       },
       get: async () => {
         controller.abort();
-        return {
-          job_id: "job_abort_1",
-          status: "running",
-          query: "Trace cancellation",
-        };
-      },
-      delete: async (path, _body, signal, timeout) => {
-        deleteCalls.push({ path, signal, timeout });
-        return { deleted: true };
+        throw new DOMException("Aborted", "AbortError");
       },
     };
 
     const niaTracerTool = createNiaTracerTool({
       client,
-      config: { apiKey: "nia-key", tracerEnabled: true, tracerTimeout: 30, checkInterval: 1 },
+      config: { apiKey: "nia-key", tracerEnabled: true, tracerTimeout: 30 },
     });
 
     const result = await niaTracerTool.execute(
@@ -203,9 +219,6 @@ describe("nia_tracer tool", () => {
     );
 
     expect(result).toContain("abort_error");
-    expect(deleteCalls).toHaveLength(1);
-    expect(deleteCalls[0]).toMatchObject({ path: "/github/tracer/job_abort_1", timeout: 10_000 });
-    expect(deleteCalls[0]?.signal).toBeUndefined();
   });
 
   for (const error of [

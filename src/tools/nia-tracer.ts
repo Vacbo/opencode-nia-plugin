@@ -7,9 +7,7 @@ import { CONFIG, type NiaConfig } from "../config.js";
 const z = tool.schema;
 
 const ABORT_ERROR = "abort_error [nia_tracer]: request aborted";
-const CANCEL_TIMEOUT_MS = 10_000;
 const DEFAULT_TIMEOUT_SECONDS = 120;
-const DEFAULT_POLL_INTERVAL_SECONDS = 15;
 const TERMINAL_STATUSES = new Set(["completed", "failed", "error", "cancelled"]);
 
 export type TracerMode = "tracer-fast" | "tracer-deep";
@@ -23,7 +21,7 @@ type TracerClient = {
   delete?: (path: string, body?: unknown, signal?: AbortSignal, timeout?: number) => Promise<unknown>;
 };
 
-type TracerConfig = Pick<NiaConfig, "apiKey" | "tracerEnabled" | "apiUrl" | "tracerTimeout" | "checkInterval">;
+type TracerConfig = Pick<NiaConfig, "apiKey" | "tracerEnabled" | "apiUrl" | "tracerTimeout">;
 
 type TracerJobResponse = {
   id?: string;
@@ -62,7 +60,10 @@ const niaTracerArgsShape = {
   job_id: z.string().trim().min(1).optional(),
 };
 
-export const niaTracerArgsSchema = z.object(niaTracerArgsShape).superRefine((args, context) => {
+export const niaTracerArgsSchema = z.object(niaTracerArgsShape).superRefine((
+  args: any,
+  context: any
+) => {
   if (!args.job_id && !args.query) {
     context.addIssue({
       code: "custom",
@@ -90,7 +91,6 @@ export function createNiaTracerTool(options: CreateNiaTracerToolOptions = {}) {
         }
 
         const timeoutMs = resolveTracerTimeoutMs(config);
-        const pollIntervalMs = resolvePollIntervalMs(config);
         const client = options.client ?? new NiaClient({
           apiKey: config.apiKey!,
           baseUrl: config.apiUrl,
@@ -98,7 +98,13 @@ export function createNiaTracerTool(options: CreateNiaTracerToolOptions = {}) {
         });
 
         if (args.job_id) {
-          const response = await pollTracerJob(client, args.job_id, context.abort, timeoutMs, pollIntervalMs);
+          const response = (await client.get(
+            `/github/tracer/${encodeURIComponent(args.job_id)}`,
+            undefined,
+            context.abort,
+            timeoutMs
+          )) as string | TracerJobResponse;
+
           if (typeof response === "string") {
             return response;
           }
@@ -135,12 +141,7 @@ export function createNiaTracerTool(options: CreateNiaTracerToolOptions = {}) {
           return "invalid_response: missing job_id in Nia tracer response";
         }
 
-        const polled = await pollTracerJob(client, jobId, context.abort, timeoutMs, pollIntervalMs);
-        if (typeof polled === "string") {
-          return polled;
-        }
-
-        return formatTracerResponse(polled, { mode: args.tracer_mode, query: args.query });
+        return formatQueuedResponse(response, args.tracer_mode, args.query);
       } catch (error) {
         return formatUnexpectedError(error, context.abort.aborted);
       }
@@ -158,7 +159,6 @@ function resolveConfig(config?: Partial<TracerConfig>): TracerConfig {
     tracerEnabled: config?.tracerEnabled ?? CONFIG.tracerEnabled,
     apiUrl: config?.apiUrl ?? CONFIG.apiUrl,
     tracerTimeout: config?.tracerTimeout ?? CONFIG.tracerTimeout,
-    checkInterval: config?.checkInterval ?? CONFIG.checkInterval,
   };
 }
 
@@ -179,75 +179,12 @@ function resolveTracerTimeoutMs(config: Partial<TracerConfig>): number {
   return Math.max(1, timeoutSeconds * 1000);
 }
 
-function resolvePollIntervalMs(config: Partial<TracerConfig>): number {
-  const intervalSeconds = config.checkInterval ?? DEFAULT_POLL_INTERVAL_SECONDS;
-  return Math.max(0, intervalSeconds * 1000);
-}
-
 function buildCreateBody(args: NiaTracerArgs): Record<string, unknown> {
   return {
     query: args.query,
     repositories: args.repositories,
     mode: args.tracer_mode,
   };
-}
-
-async function pollTracerJob(
-  client: TracerClient,
-  jobId: string,
-  signal: AbortSignal,
-  timeoutMs: number,
-  pollIntervalMs: number
-): Promise<string | TracerJobResponse> {
-  const deadline = Date.now() + timeoutMs;
-
-  while (true) {
-    if (signal.aborted) {
-      await cancelTracerJob(client, jobId);
-      return ABORT_ERROR;
-    }
-
-    const response = (await client.get(
-      `/github/tracer/${encodeURIComponent(jobId)}`,
-      undefined,
-      signal,
-      timeoutMs
-    )) as string | TracerJobResponse;
-
-    if (typeof response === "string") {
-      return response;
-    }
-
-    if (hasInlineResult(response) || isTerminalStatus(response.status)) {
-      return response;
-    }
-
-    const remainingMs = deadline - Date.now();
-    if (remainingMs <= 0) {
-      return `timeout_error [timeout=${timeoutMs}ms]: tracer job ${jobId} is still ${response.status ?? "running"}`;
-    }
-
-    try {
-      await sleep(Math.min(pollIntervalMs, remainingMs), signal);
-    } catch (error) {
-      if (signal.aborted || isAbortError(error)) {
-        await cancelTracerJob(client, jobId);
-        return ABORT_ERROR;
-      }
-
-      throw error;
-    }
-  }
-}
-
-async function cancelTracerJob(client: TracerClient, jobId: string): Promise<void> {
-  if (!client.delete) {
-    return;
-  }
-
-  try {
-    await client.delete(`/github/tracer/${encodeURIComponent(jobId)}`, undefined, undefined, CANCEL_TIMEOUT_MS);
-  } catch {}
 }
 
 function formatQueuedResponse(response: TracerJobResponse, mode: TracerMode, query?: string): string {
@@ -258,7 +195,7 @@ function formatQueuedResponse(response: TracerJobResponse, mode: TracerMode, que
     return message;
   }
 
-  return `${message}\n\nRe-run this tool with \`job_id\` set to ${inlineCode(jobId)} to poll for completion.`;
+  return `${message}\n\nRe-run this tool with \`job_id\` set to ${inlineCode(jobId)} to check status.`;
 }
 
 function formatTracerResponse(response: TracerJobResponse, options: FormatTracerResponseOptions = {}): string {
@@ -352,31 +289,6 @@ function isTerminalStatus(status: string | undefined): boolean {
 
 function inlineCode(value: string): string {
   return `\`${value.replaceAll("`", "\\`")}\``;
-}
-
-async function sleep(ms: number, signal: AbortSignal): Promise<void> {
-  if (signal.aborted) {
-    throw new DOMException("Aborted", "AbortError");
-  }
-
-  if (ms <= 0) {
-    return;
-  }
-
-  await new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      signal.removeEventListener("abort", onAbort);
-      resolve();
-    }, ms);
-
-    const onAbort = () => {
-      clearTimeout(timer);
-      signal.removeEventListener("abort", onAbort);
-      reject(new DOMException("Aborted", "AbortError"));
-    };
-
-    signal.addEventListener("abort", onAbort, { once: true });
-  });
 }
 
 function formatUnexpectedError(error: unknown, wasAborted: boolean): string {
