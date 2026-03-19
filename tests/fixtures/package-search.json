@@ -1,0 +1,23 @@
+{
+  "results": [
+    {
+      "package_name": "openai",
+      "version": "1.12.0",
+      "description": "Official OpenAI API client for Node.js and browsers",
+      "repository_url": "https://github.com/openai/openai-node",
+      "code_results": [
+        {
+          "file_path": "src/index.ts",
+          "content": "export class OpenAI {\n  constructor(apiKey: string) {\n    this.apiKey = apiKey;\n  }\n  async createChatCompletion(messages) {\n    return this.request('/chat/completions', { method: 'POST', body: { messages } });\n  }\n}",
+          "score": 0.95
+        },
+        {
+          "file_path": "src/streaming.ts",
+          "content": "export async function* streamChatCompletions(client, messages) {\n  const response = await client.createChatCompletion(messages, { stream: true });\n  for await (const chunk of response) {\n    yield chunk;\n  }\n}",
+          "score": 0.91
+        }
+      ]
+    }
+  ],
+  "total": 1
+}

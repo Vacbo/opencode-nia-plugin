@@ -1,0 +1,10 @@
+{
+  "error": "rate_limit_exceeded",
+  "message": "Too many requests. Please retry after 60 seconds.",
+  "status_code": 429,
+  "details": {
+    "retry_after": 60,
+    "limit": 100,
+    "current": 103
+  }
+}

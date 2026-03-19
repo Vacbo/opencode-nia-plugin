@@ -1,0 +1,10 @@
+{
+  "id": "ds-anthropic-docs",
+  "type": "data_source",
+  "url": "https://docs.anthropic.com",
+  "display_name": "Anthropic Docs",
+  "crawl_entire_domain": true,
+  "status": "ready",
+  "indexed_at": "2025-03-10T14:22:00Z",
+  "page_count": 342
+}

@@ -1,0 +1,15 @@
+{
+  "answer": "To implement tool calling in the AI SDK, you need to define a tools object with the available functions and pass it to the model. The model can then decide when to call these tools based on the user's request.",
+  "sources": [
+    {
+      "id": "src-003",
+      "source_id": "anthropic-docs",
+      "source_type": "data_source",
+      "title": "Tool Use Feature",
+      "content": "Claude can use tools to interact with external systems and APIs...",
+      "url": "https://docs.anthropic.com/en/docs/build-with-claude/tool-use",
+      "score": 0.92
+    }
+  ],
+  "citations": ["anthropic-docs"]
+}

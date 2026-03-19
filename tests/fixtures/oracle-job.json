@@ -1,0 +1,19 @@
+{
+  "id": "oracle-job-001",
+  "status": "completed",
+  "query": "Compare React Server Components vs traditional SSR",
+  "created_at": "2025-03-18T09:00:00Z",
+  "completed_at": "2025-03-18T09:05:30Z",
+  "result": "# Comparison: React Server Components vs Traditional SSR\n\n## Summary\n\nReact Server Components (RSC) run only on the server and never ship to the client, while traditional SSR renders the entire component tree on the server and sends HTML to the client...\n\n## Key Advantages of RSC\n\n1. **Zero Bundle Size** - Server components don't add to JavaScript bundle\n2. **Direct Backend Access** - Query databases directly without API layers\n3. **Automatic Code Splitting** - Client components are automatically split\n\n## Trade-offs\n\n- No direct interactivity in server components\n- Requires learning new patterns\n- More complex mental model",
+  "sources": [
+    {
+      "id": "src-005",
+      "source_id": "vercel/next.js",
+      "source_type": "repository",
+      "title": "Server Components Documentation",
+      "content": "Server Components allow you to write UI that can be rendered and optionally cached on the server...",
+      "file_path": "docs/app-router.md",
+      "score": 0.96
+    }
+  ]
+}

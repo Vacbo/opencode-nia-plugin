@@ -1,0 +1,2 @@
+- 2026-03-18: `src/api/client.ts` uses constructor-time `process.env.NIA_API_URL` fallback so tests and runtime can override the base URL without recompiling.
+- 2026-03-18: Reusing `Response` instances in mock fetches can consume bodies across retries; cloning responses in tests keeps retry assertions stable.

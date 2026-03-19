@@ -1,0 +1,17 @@
+{
+  "id": "job-deep-001",
+  "status": "completed",
+  "result": "# Comparison: React Server Components vs Traditional SSR\n\n## Overview\n\nReact Server Components (RSC) represent a paradigm shift in how React applications handle rendering...\n\n## Key Differences\n\n| Aspect | RSC | Traditional SSR |\n|--------|-----|-----------------|\n| Rendering | Server-only components | Full component tree |\n| Client Bundle | Smaller (no server components) | Larger |\n| Data Fetching | Direct DB access | API calls |\n| Interactivity | Client components only | Full hydration |\n\n## When to Use RSC\n\n- Content-heavy pages\n- Database-heavy operations\n- Sensitive data handling\n\n## When to Use Traditional SSR\n\n- High interactivity needs\n- Real-time updates\n- Complex client state",
+  "sources": [
+    {
+      "id": "src-004",
+      "source_id": "vercel/next.js",
+      "source_type": "repository",
+      "title": "Server Components",
+      "content": "Server Components allow you to render components on the server...",
+      "file_path": "packages/next/src/server/app-render.tsx",
+      "score": 0.94
+    }
+  ],
+  "citations": ["vercel/next.js"]
+}

@@ -1,0 +1,28 @@
+{
+  "results": [
+    {
+      "id": "src-001",
+      "source_id": "vercel/ai",
+      "source_type": "repository",
+      "title": "Streaming Implementation",
+      "content": "The streaming API allows you to stream text responses from the model in real-time...",
+      "url": "https://github.com/vercel/ai/blob/main/packages/core/src/stream-text.ts",
+      "file_path": "packages/core/src/stream-text.ts",
+      "score": 0.95,
+      "highlights": ["streaming API", "stream text responses"]
+    },
+    {
+      "id": "src-002",
+      "source_id": "vercel/ai",
+      "source_type": "repository",
+      "title": "useChat Hook",
+      "content": "The useChat hook provides a simple way to handle chat interactions with streaming support...",
+      "url": "https://github.com/vercel/ai/blob/main/packages/react/src/use-chat.tsx",
+      "file_path": "packages/react/src/use-chat.tsx",
+      "score": 0.88,
+      "highlights": ["useChat hook", "streaming support"]
+    }
+  ],
+  "query": "How does streaming work in the AI SDK?",
+  "total": 2
+}

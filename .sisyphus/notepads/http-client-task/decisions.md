@@ -1,0 +1,2 @@
+- 2026-03-18: Public `NiaClient` methods return `T | string` so callers get structured error strings instead of thrown exceptions.
+- 2026-03-18: Retry handling is limited to `429`, `500`, and `503`, with `Retry-After` honored for `429` and exponential backoff used otherwise.

@@ -1,0 +1,9 @@
+{
+  "id": "ctx-001",
+  "title": "Auth implementation notes",
+  "summary": "Implemented OAuth2 flow with refresh tokens",
+  "content": "## OAuth2 Implementation Details\n\n### Flow\n1. User clicks login → redirect to auth provider\n2. Auth provider returns authorization code\n3. Exchange code for access token + refresh token\n4. Store refresh token securely\n5. Use refresh token to get new access tokens\n\n### Security Considerations\n- Store refresh tokens in encrypted format\n- Implement token rotation\n- Set appropriate expiration times\n- Validate redirect URIs",
+  "tags": ["auth", "oauth", "security"],
+  "created_at": "2025-03-01T08:00:00Z",
+  "updated_at": "2025-03-15T12:30:00Z"
+}

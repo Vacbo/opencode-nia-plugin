@@ -1,0 +1,23 @@
+{
+  "results": [
+    {
+      "title": "GPT-5 Announced: OpenAI's Next Generation Model",
+      "url": "https://openai.com/blog/gpt5-announcement",
+      "snippet": "OpenAI announces GPT-5 with enhanced reasoning capabilities and multimodal understanding...",
+      "score": 0.98
+    },
+    {
+      "title": "Claude 4: Anthropic's Latest Reasoning Model",
+      "url": "https://www.anthropic.com/claude-4",
+      "snippet": "Claude 4 introduces new capabilities in code generation and mathematical reasoning...",
+      "score": 0.95
+    },
+    {
+      "title": "Google Gemini 2.5 Pro",
+      "url": "https://deepmind.google/gemini-2-5-pro",
+      "snippet": "Google's latest Gemini model achieves state-of-the-art results on coding benchmarks...",
+      "score": 0.91
+    }
+  ],
+  "query": "latest LLM developments 2025"
+}
