@@ -1,0 +1,1 @@
+- 2026-03-18: `bun run build` is currently blocked by the pre-existing missing module in `src/tools/nia-research.test.ts`, so advisor work was verified with targeted tests and clean file diagnostics instead of a green full build.

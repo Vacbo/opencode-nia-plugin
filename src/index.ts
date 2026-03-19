@@ -8,6 +8,7 @@ import { log } from "./services/logger.js";
 import { createNiaE2ETool } from "./tools/nia-e2e.js";
 import { createNiaIndexTool } from "./tools/nia-index.js";
 import { createNiaManageResourceTool } from "./tools/nia-manage-resource.js";
+import { createNiaResearchTool } from "./tools/nia-research.js";
 import { createNiaTracerTool } from "./tools/nia-tracer.js";
 
 function createClient(): NiaClient | undefined {
@@ -39,6 +40,7 @@ export const NiaPlugin: Plugin = async (ctx: PluginInput) => {
     tool: {
       nia_index: createNiaIndexTool(createClient),
       nia_manage_resource: createNiaManageResourceTool(createClient),
+      nia_research: createNiaResearchTool(),
       nia_tracer: createNiaTracerTool(),
       ...(e2eTool ? { nia_e2e: e2eTool } : {}),
     },
