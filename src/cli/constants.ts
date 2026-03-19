@@ -10,5 +10,4 @@ export const PLUGIN_NAME = "nia-opencode@latest";
 export const NIA_SKILL_REPO = "nozomio-labs/nia-skill";
 export const NIA_SKILL_NAME = "nia";
 export const SKILLS_MIN_VERSION = "1.1.50";
-export const NIA_INSTRUCTIONS_URL =
-  "https://raw.githubusercontent.com/nozomio-labs/nia-opencode/main/instructions/nia-mcp-instructions.md";
+export const NIA_INSTRUCTIONS_PATH = "nia-opencode/instructions/nia-tools.md";

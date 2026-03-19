@@ -10,3 +10,4 @@
 - 2026-03-18: `nia_advisor` fits the existing tool pattern best when it parses args with Zod, forwards `context.abort` straight into `client.post()`, and returns client error strings verbatim instead of wrapping them.
 - 2026-03-18: Advisor markdown is easiest to verify when tests assert both payload forwarding and human-readable sections like query metadata, recommendation bullets, source paths, and confidence percentages.
 - 2026-03-19: `nia_research` fits the existing tool pattern by validating `query` unless `job_id` is supplied, formatting quick/deep/oracle responses as markdown, and keeping oracle non-blocking by returning the initial `job_id` for follow-up status checks.
+- 2026-03-19: The plugin entrypoint stays testable when it builds a per-plugin `NiaClient`, session-state factory, and ops tracker, then passes explicit config overrides into tool factories instead of relying on module-level config snapshots.

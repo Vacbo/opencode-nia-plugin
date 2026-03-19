@@ -50,28 +50,6 @@ export function cleanupAgentsMd(): boolean {
   }
 }
 
-export function removeMcpFromConfig(configPath: string): boolean {
-  try {
-    const config = readConfig(configPath);
-    if (!config) return false;
-
-    const mcp = config.mcp as Record<string, unknown> | undefined;
-    if (mcp?.nia) {
-      delete mcp.nia;
-      if (Object.keys(mcp).length === 0) {
-        delete config.mcp;
-      }
-      writeConfig(configPath, config);
-      console.log("  Removed MCP server 'nia' from config");
-    }
-
-    return true;
-  } catch (err) {
-    console.error("  Failed to remove MCP from config:", err);
-    return false;
-  }
-}
-
 export function removePluginFromConfig(configPath: string): boolean {
   try {
     const config = readConfig(configPath);
@@ -106,8 +84,7 @@ export function removeInstructionsFromConfig(configPath: string): boolean {
     const instructions = config.instructions as string[] | undefined;
     if (instructions) {
       const filtered = instructions.filter(
-        (i) =>
-          !i.includes("nia-mcp-instructions") && !i.includes("nia-opencode"),
+        (i) => !i.includes("nia-opencode"),
       );
       if (filtered.length !== instructions.length) {
         if (filtered.length === 0) {
