@@ -1,0 +1,226 @@
+import { describe, expect, it } from "bun:test";
+
+import { NiaClient, type FetchFn } from "../api/client";
+import { createPackageSearchTool } from "./nia-package-search";
+import type { ToolContext } from "@opencode-ai/plugin";
+import type { PackageSearchResponse } from "../api/types";
+
+function jsonResponse(status: number, body?: unknown): Response {
+  return new Response(body === undefined ? null : JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+function createFetchMock(handler: (url: string, init: RequestInit) => Response | Promise<Response>): FetchFn {
+  return async (input: RequestInfo | URL, init?: RequestInit) => handler(String(input), init ?? {});
+}
+
+function createClient(handler: (url: string, init: RequestInit) => Response | Promise<Response>): NiaClient {
+  return new NiaClient({ apiKey: "nk_test", fetchFn: createFetchMock(handler) });
+}
+
+function createMockContext(): ToolContext {
+  return {
+    sessionID: "ses_1",
+    messageID: "msg_1",
+    agent: "test",
+    directory: "/tmp",
+    worktree: "/tmp",
+    abort: new AbortController().signal,
+    metadata: () => {},
+    ask: async () => {},
+  };
+}
+
+const FIXTURE_RESPONSE: PackageSearchResponse = {
+  results: [
+    {
+      package_name: "openai",
+      version: "1.12.0",
+      description: "Official OpenAI API client",
+      repository_url: "https://github.com/openai/openai-node",
+      code_results: [
+        {
+          file_path: "src/index.ts",
+          content: "export class OpenAI { constructor(apiKey: string) {} }",
+          score: 0.95,
+        },
+        {
+          file_path: "src/streaming.ts",
+          content: "export async function* stream() {}",
+          score: 0.91,
+        },
+      ],
+    },
+  ],
+  total: 1,
+};
+
+describe("nia_package_search tool", () => {
+  it("posts to /package-search/hybrid with correct body", async () => {
+    let capturedUrl = "";
+    let capturedBody = "";
+
+    const client = createClient((url, init) => {
+      capturedUrl = url;
+      capturedBody = init.body as string;
+      return jsonResponse(200, FIXTURE_RESPONSE);
+    });
+
+    const tool = createPackageSearchTool(client);
+    const result = await tool.execute(
+      {
+        registry: "npm",
+        package_name: "openai",
+        semantic_queries: "chat completion streaming",
+        pattern: "createChatCompletion",
+      },
+      createMockContext(),
+    );
+
+    expect(capturedUrl).toContain("/package-search/hybrid");
+    const body = JSON.parse(capturedBody);
+    expect(body.registry).toBe("npm");
+    expect(body.package_name).toBe("openai");
+    expect(body.semantic_queries).toEqual(["chat completion streaming"]);
+    expect(result).toContain("openai");
+    expect(result).toContain("1.12.0");
+    expect(result).toContain("src/index.ts");
+  });
+
+  it("requires registry", async () => {
+    const client = createClient(() => jsonResponse(200, {}));
+    const tool = createPackageSearchTool(client);
+
+    const result = await tool.execute(
+      { registry: "" as any, package_name: "openai" },
+      createMockContext(),
+    );
+
+    expect(result).toContain("error");
+    expect(result).toContain("registry");
+  });
+
+  it("requires package_name", async () => {
+    const client = createClient(() => jsonResponse(200, {}));
+    const tool = createPackageSearchTool(client);
+
+    const result = await tool.execute(
+      { registry: "npm", package_name: "" },
+      createMockContext(),
+    );
+
+    expect(result).toContain("error");
+    expect(result).toContain("package_name");
+  });
+
+  it("supports pypi registry", async () => {
+    let capturedBody = "";
+
+    const client = createClient((_url, init) => {
+      capturedBody = init.body as string;
+      return jsonResponse(200, { results: [], total: 0 });
+    });
+
+    const tool = createPackageSearchTool(client);
+    await tool.execute(
+      { registry: "pypi", package_name: "requests" },
+      createMockContext(),
+    );
+
+    expect(JSON.parse(capturedBody).registry).toBe("pypi");
+  });
+
+  it("supports crates registry", async () => {
+    let capturedBody = "";
+
+    const client = createClient((_url, init) => {
+      capturedBody = init.body as string;
+      return jsonResponse(200, { results: [], total: 0 });
+    });
+
+    const tool = createPackageSearchTool(client);
+    await tool.execute(
+      { registry: "crates", package_name: "serde" },
+      createMockContext(),
+    );
+
+    expect(JSON.parse(capturedBody).registry).toBe("crates");
+  });
+
+  it("supports go registry", async () => {
+    let capturedBody = "";
+
+    const client = createClient((_url, init) => {
+      capturedBody = init.body as string;
+      return jsonResponse(200, { results: [], total: 0 });
+    });
+
+    const tool = createPackageSearchTool(client);
+    await tool.execute(
+      { registry: "go", package_name: "gin" },
+      createMockContext(),
+    );
+
+    expect(JSON.parse(capturedBody).registry).toBe("go");
+  });
+
+  it("handles empty results", async () => {
+    const client = createClient(() => jsonResponse(200, { results: [], total: 0 }));
+    const tool = createPackageSearchTool(client);
+
+    const result = await tool.execute(
+      { registry: "npm", package_name: "nonexistent-pkg" },
+      createMockContext(),
+    );
+
+    expect(result).toContain("No results");
+  });
+
+  it("handles multiple semantic queries", async () => {
+    let capturedBody = "";
+
+    const client = createClient((_url, init) => {
+      capturedBody = init.body as string;
+      return jsonResponse(200, { results: [], total: 0 });
+    });
+
+    const tool = createPackageSearchTool(client);
+    await tool.execute(
+      {
+        registry: "npm",
+        package_name: "openai",
+        semantic_queries: "streaming,chat completion,embeddings",
+      },
+      createMockContext(),
+    );
+
+    const body = JSON.parse(capturedBody);
+    expect(body.semantic_queries).toEqual(["streaming", "chat completion", "embeddings"]);
+  });
+
+  it("returns API error strings", async () => {
+    const client = createClient(() => jsonResponse(422, { message: "invalid registry" }));
+    const tool = createPackageSearchTool(client);
+
+    const result = await tool.execute(
+      { registry: "npm", package_name: "test" },
+      createMockContext(),
+    );
+
+    expect(result).toContain("validation_failed");
+  });
+
+  it("returns 401 error", async () => {
+    const client = createClient(() => jsonResponse(401, { message: "bad key" }));
+    const tool = createPackageSearchTool(client);
+
+    const result = await tool.execute(
+      { registry: "npm", package_name: "test" },
+      createMockContext(),
+    );
+
+    expect(result).toContain("unauthorized");
+  });
+});

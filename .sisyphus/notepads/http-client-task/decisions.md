@@ -1,2 +1,9 @@
 - 2026-03-18: Public `NiaClient` methods return `T | string` so callers get structured error strings instead of thrown exceptions.
 - 2026-03-18: Retry handling is limited to `429`, `500`, and `503`, with `Retry-After` honored for `429` and exponential backoff used otherwise.
+- 2026-03-18: `nia_index` returns immediately after the create call and reports a queued `source_id` instead of polling for readiness, keeping indexing non-blocking.
+- 2026-03-18: `nia_manage_resource` uses one action-driven schema with runtime argument validation, and all delete paths are guarded behind `context.ask()` before calling the API.
+- 2026-03-18: `nia_search` normalizes all search response shapes into markdown sections and truncates oversized output with a `[truncated]` marker instead of returning raw JSON.
+- 2026-03-18: The new `nia_e2e` tool is gated inside `createNiaE2ETool()` via `loadConfig().e2eEnabled`, keeping feature-flag checks at registration time instead of inside each action handler.
+
+- 2026-03-18: `nia_tracer` maps tool arg `tracer_mode` to the API payload field `mode`, defaulting to `tracer-fast` for new jobs while keeping `job_id` calls focused on status polling.
+- 2026-03-18: Aborts during tracer polling trigger a best-effort `DELETE /github/tracer/{job_id}` request without reusing the aborted signal, so server-side cancel still has a chance to succeed.
