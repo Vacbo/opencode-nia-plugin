@@ -435,7 +435,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Files: `src/config.ts`, `src/config.test.ts`
   - Pre-commit: `bun test src/config.test.ts`
 
-- [ ] 5. nia-search: import from shared format.ts, delete private copies
+- [x] 5. nia-search: import from shared format.ts, delete private copies
 
   **What to do**:
   - RED: Add test asserting nia-search error output uses `"search_error:"` prefix (may already exist)
@@ -486,7 +486,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Files: `src/tools/nia-search.ts`
   - Pre-commit: `bun test src/tools/nia-search.test.ts`
 
-- [ ] 6. nia-research: import from shared format.ts, delete private copies
+- [x] 6. nia-research: import from shared format.ts, delete private copies
 
   **What to do**:
   - Same pattern as Task 5, but for `src/tools/nia-research.ts`
@@ -527,7 +527,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Files: `src/tools/nia-research.ts`
   - Pre-commit: `bun test src/tools/nia-research.test.ts`
 
-- [ ] 7. nia-advisor: import from shared format.ts, delete private copies
+- [x] 7. nia-advisor: import from shared format.ts, delete private copies
 
   **What to do**:
   - Same pattern as Task 5, but for `src/tools/nia-advisor.ts`
@@ -568,7 +568,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Files: `src/tools/nia-advisor.ts`
   - Pre-commit: `bun test src/tools/nia-advisor.test.ts`
 
-- [ ] 8. nia-tracer: import from shared format.ts, delete private copies
+- [x] 8. nia-tracer: import from shared format.ts, delete private copies
 
   **What to do**:
   - Same pattern as Task 5, but for `src/tools/nia-tracer.ts`
