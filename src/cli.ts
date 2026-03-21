@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { Command } from "commander";
 import { storeApiKeyNiaSkill } from "./cli/api-key.js";
 import {
@@ -9,12 +7,8 @@ import {
 	removeNiaConfig,
 	removePluginFromConfig,
 } from "./cli/cleanup.js";
-import { findOpencodeConfig, stripJsoncComments } from "./cli/config.js";
-import {
-	NIA_INSTRUCTIONS_PATH,
-	OPENCODE_CONFIG_DIR,
-	PLUGIN_NAME,
-} from "./cli/constants.js";
+import { findOpencodeConfig } from "./cli/config.js";
+import { PLUGIN_NAME } from "./cli/constants.js";
 import { confirm, createReadline, prompt } from "./cli/prompt.js";
 import { installSkill, removeSkill } from "./cli/skill.js";
 import { getVersion } from "./cli/version.js";
@@ -22,91 +16,6 @@ import { getVersion } from "./cli/version.js";
 interface InstallOptions {
 	tui: boolean;
 	apiKey?: string;
-}
-
-function addPluginToConfig(configPath: string): boolean {
-	try {
-		const content = readFileSync(configPath, "utf-8");
-
-		if (content.includes(PLUGIN_NAME)) {
-			console.log("  Plugin already registered in config");
-			return true;
-		}
-
-		// Parse JSON (support JSONC by stripping comments)
-		let config: Record<string, unknown>;
-		try {
-			const jsonContent = stripJsoncComments(content);
-			config = JSON.parse(jsonContent);
-		} catch {
-			console.error("  Failed to parse config file");
-			return false;
-		}
-
-		const plugins = (config.plugin as string[]) || [];
-		plugins.push(PLUGIN_NAME);
-		config.plugin = plugins;
-
-		writeFileSync(configPath, JSON.stringify(config, null, 2));
-		console.log(`  Added plugin to ${configPath}`);
-		return true;
-	} catch (err) {
-		console.error("  Failed to update config:", err);
-		return false;
-	}
-}
-
-function addInstructionsToConfig(configPath: string): boolean {
-	try {
-		const content = readFileSync(configPath, "utf-8");
-
-		if (
-			content.includes("nia-opencode") ||
-			content.includes(NIA_INSTRUCTIONS_PATH)
-		) {
-			console.log("  Nia instructions already in config");
-			return true;
-		}
-
-		let config: Record<string, unknown>;
-		try {
-			const jsonContent = stripJsoncComments(content);
-			config = JSON.parse(jsonContent);
-		} catch {
-			console.error("  Failed to parse config file");
-			return false;
-		}
-
-		const instructions = (config.instructions as string[]) || [];
-		instructions.push(NIA_INSTRUCTIONS_PATH);
-		config.instructions = instructions;
-
-		writeFileSync(configPath, JSON.stringify(config, null, 2));
-		console.log("  Added Nia instructions to config");
-		return true;
-	} catch (err) {
-		console.error("  Failed to add instructions:", err);
-		return false;
-	}
-}
-
-function createNewConfig(): boolean {
-	try {
-		mkdirSync(OPENCODE_CONFIG_DIR, { recursive: true });
-
-		const configPath = join(OPENCODE_CONFIG_DIR, "opencode.json");
-		const config: Record<string, unknown> = {
-			plugin: [PLUGIN_NAME],
-			instructions: [NIA_INSTRUCTIONS_PATH],
-		};
-
-		writeFileSync(configPath, JSON.stringify(config, null, 2));
-		console.log(`  Created ${configPath}`);
-		return true;
-	} catch (err) {
-		console.error("  Failed to create config:", err);
-		return false;
-	}
 }
 
 async function install(options: InstallOptions): Promise<number> {
@@ -150,49 +59,28 @@ async function install(options: InstallOptions): Promise<number> {
 	console.log("\nStep 3: Install Nia Skill");
 	installSkill();
 
-	// ── Step 4: Configure OpenCode with native plugin ──────────────────────
-	console.log("\nStep 4: Configure OpenCode (Native Plugin)");
+	// ── Step 4: Verify plugin is in config ──────────────────────────────────
+	console.log("\nStep 4: Verify OpenCode Config");
 	const configPath = findOpencodeConfig();
 
 	if (configPath) {
-		if (options.tui && rl) {
-			const shouldModify = await confirm(rl, `Modify ${configPath}?`);
-			if (shouldModify) {
-				addPluginToConfig(configPath);
-				addInstructionsToConfig(configPath);
-			} else {
-				console.log("  Skipped.");
-			}
+		const { readFileSync } = await import("node:fs");
+		const content = readFileSync(configPath, "utf-8");
+		if (content.includes(PLUGIN_NAME)) {
+			console.log(`  Plugin already registered in ${configPath}`);
 		} else {
-			addPluginToConfig(configPath);
-			addInstructionsToConfig(configPath);
+			console.log(`  Plugin not found in ${configPath}`);
+			console.log(`  Add "${PLUGIN_NAME}" to the "plugin" array in your config manually.`);
 		}
 	} else {
-		if (options.tui && rl) {
-			const shouldCreate = await confirm(
-				rl,
-				"No OpenCode config found. Create one?",
-			);
-			if (shouldCreate) {
-				createNewConfig();
-			} else {
-				console.log("  Skipped.");
-			}
-		} else {
-			createNewConfig();
-		}
+		console.log("  No OpenCode config found.");
+		console.log(`  Create ~/.config/opencode/opencode.json with:`);
+		console.log(`  { "plugin": ["${PLUGIN_NAME}"] }`);
 	}
 
 	// ── Step 5: Cleanup legacy artifacts ───────────────────────────────────
 	console.log("\nStep 5: Clean Up Legacy Config");
 	cleanupAgentsMd();
-
-	const existingConfigPath = findOpencodeConfig();
-	if (existingConfigPath) {
-		// Clean up any old MCP config if it exists
-		removePluginFromConfig(existingConfigPath);
-		removeInstructionsFromConfig(existingConfigPath);
-	}
 
 	// ── Summary ───────────────────────────────────────────────────────────
 	console.log("\n" + "-".repeat(50));
