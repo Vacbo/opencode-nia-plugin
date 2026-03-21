@@ -528,3 +528,146 @@
 - The regex pattern matches paths containing "oracle", "tracer", or "universal" as path segments
 - `Math.max(this.timeout, LONG_TIMEOUT_MS)` ensures at least 120s for these endpoints
 - This fixes timeout issues for universal search operations that take longer than 30s
+
+## Task 20: Adopt CLI library (commander) to replace manual argument parsing
+
+### What was done
+- Added `commander@14.0.3` as a dependency
+- Extracted `createProgram()` function from module-level side effects, exported for testing
+- Replaced 46 lines of manual arg parsing (printHelp + argv slicing + if/else chain) with 30 lines of commander setup
+- Added entry-point guard (`isDirectExecution`) so module import in tests doesn't trigger parsing
+- Removed `process.exit()` from action handlers to prevent test process termination
+- Created `src/cli.test.ts` with 5 tests: help output, install with flags, install minimal, uninstall, unknown command
+
+### Key decisions
+- **commander over yargs/citty**: Simpler API, better TypeScript support, widest adoption
+- **`--no-tui` handled by commander's boolean negation**: commander parses `--no-tui` as `tui: false` automatically
+- **No `process.exit()` in actions**: Avoids killing test runners; module-level code uses `parseAsync()` which exits naturally
+- **Entry-point guard**: `process.argv[1]?.endsWith("cli.js") || .endsWith("cli.ts")` prevents parse on test import
+- **`exitOverride()` + `configureOutput()`**: Standard commander testing pattern to capture help/error output without process exit
+
+### Test approach
+- TDD: wrote 5 failing tests first (RED), then installed commander and refactored (GREEN)
+- Mocked all side-effect modules (api-key, cleanup, config, skill, prompt) to isolate CLI parsing
+- Help test: commander throws on exitOverride when help displayed, verify output contains "install", "uninstall", "nia-opencode"
+- Unknown command test: verify commander rejects unknown commands and includes the bad command name in error output
+- Install/uninstall tests: verify flag parsing works without throwing
+
+### Verification
+- `bun test src/cli.test.ts` - 5 pass, 0 fail
+- `bun run src/cli.ts --help` - displays proper usage
+- `bun run src/cli.ts install --help` - displays install-specific options
+- install/uninstall business logic completely unchanged (lines 110-269)
+
+### Notes
+- commander automatically adds `--version`, `help` subcommand, and `-h` flag
+- The `--no-tui` flag leverages commander's built-in boolean negation (`--no-X` sets `X: false`)
+- config.test.ts has 5 pre-existing failures (JSONC stripping regression) - not caused by this change
+- Build errors (vitest types, BoundedMap, index.ts) are all pre-existing
+
+
+## Task 22 blocker research: `/advisor` API contract
+
+### What the current implementation sends
+- `src/tools/nia-advisor.ts` currently builds `{ query, codebase?, search_scope?, output_format? }`
+- `codebase` is currently modeled as an optional **string**
+- `search_scope` is currently modeled as an optional **string**
+- `output_format` is currently modeled as an unconstrained optional **string**
+- `src/api/types.ts` currently models the response as `AdvisorResult { id, query, recommendations[], created_at }`
+
+### Local repo evidence of mismatch
+- `instructions/nia-tools.md` documents the tool as:
+  - `query` required
+  - `codebase` optional string
+  - `search_scope` enum: `narrow | broad | auto`
+  - `output_format` enum: `concise | detailed | structured`
+- That local tool doc does **not** match the live API documentation or live behavior.
+- `tests/integration/real-api.test.ts:262` already locks in that the live endpoint currently returns `422` for the existing tool payload.
+
+### Official docs evidence
+- `https://docs.trynia.ai/api-reference/advisor/context-aware-code-advisor` exposes an OpenAPI spec for `POST /advisor`.
+- The documented request model is `AdvisorRequest`.
+- Documented required fields:
+  - `query: string`
+  - `codebase: CodebaseContext` (**required object**, not string)
+- Documented optional fields:
+  - `search_scope: SearchScope | null`
+  - `output_format: explanation | checklist | diff | structured` (default `explanation`)
+
+### Documented request shapes
+- `codebase` must be an object with optional fields:
+  - `files: Record<string, string>`
+  - `file_tree: string | null`
+  - `dependencies: Record<string, string> | null`
+  - `git_diff: string | null`
+  - `summary: string | null`
+  - `focus_paths: string[] | null`
+- `search_scope` must be an object with optional fields:
+  - `repositories: string[] | null`
+  - `data_sources: string[] | null`
+- `output_format` must be one of:
+  - `explanation`
+  - `checklist`
+  - `diff`
+  - `structured`
+
+### Documented response shape
+- The docs define `AdvisorResponse` as:
+  - `advice: string` (required)
+  - `sources_searched: number` (default `0`)
+  - `output_format: string` (default `explanation`)
+- This does **not** match the repo's current `AdvisorResult` type (`recommendations[]`, `id`, `created_at`, etc.).
+
+### Live API validation results
+- Reproduced the existing 422 with the current tool-style payload:
+  - Request body: `{"query":"How should I validate live API integration tests for a TypeScript plugin?","codebase":"opencode-nia-plugin","output_format":"checklist"}`
+  - Response body: `{"detail":[{"type":"model_attributes_type","loc":["body","codebase"],"msg":"Input should be a valid dictionary or object to extract fields from","input":"opencode-nia-plugin"}]}`
+- Reproduced `search_scope` mismatch with a string payload:
+  - Request body used `"search_scope":"repo"`
+  - Response body: `{"detail":[{"type":"model_attributes_type","loc":["body","search_scope"],"msg":"Input should be a valid dictionary or object to extract fields from","input":"repo"}]}`
+- Reproduced `output_format` enum validation:
+  - Request body used `"output_format":"markdown"`
+  - Response body: `{"detail":[{"type":"literal_error","loc":["body","output_format"],"msg":"Input should be 'explanation', 'checklist', 'diff' or 'structured'","input":"markdown","ctx":{"expected":"'explanation', 'checklist', 'diff' or 'structured'"}}]}`
+- Verified a documented-shape request succeeds:
+  - Minimal passing body: `{"query":"...","codebase":{"summary":"TypeScript plugin for OpenCode with integration tests against Nia API"},"output_format":"checklist"}`
+  - Live response shape was `{ advice, sources_searched, output_format }`
+- Verified `search_scope` object shape also succeeds:
+  - Passing example: `{"query":"...","codebase":{"summary":"..."},"search_scope":{"repositories":["nozomio-labs/nia-opencode"]},"output_format":"explanation"}`
+
+### Practical conclusion for the fix task
+- The 422 is caused primarily because the plugin sends `codebase` as a string, but the API expects a structured `CodebaseContext` object.
+- The plugin also models `search_scope` incorrectly as a string; it must be an object with `repositories` and/or `data_sources` arrays.
+- The plugin's response type is also stale: the live API returns a single `advice` string, not `recommendations[]`.
+- `output_format="checklist"` is valid in the live API; the failure in the current live integration test is from `codebase`, not from `checklist`.
+
+## Task 22: Fix nia_advisor request shape to match live API contract
+
+### What was done
+- Updated `src/api/types.ts`: Added `CodebaseContext`, `SearchScope`, `AdvisorOutputFormat` types; changed `AdvisorResult` from `{ id, query, recommendations[], created_at }` to `{ advice, sources_searched, output_format }`
+- Updated `src/tools/nia-advisor.ts`: Changed args schema to use objects instead of strings for `codebase` and `search_scope`; changed `output_format` to enum; updated `formatResponse` to handle new response shape
+- Updated `src/tools/nia-advisor.test.ts`: Updated tests to use new request/response shapes; added validation tests for output_format enum
+
+### Request shape changes
+- `codebase`: Changed from `string` to `CodebaseContext` object with optional fields: files, file_tree, dependencies, git_diff, summary, focus_paths
+- `search_scope`: Changed from `string` to `SearchScope` object: `{ repositories?: string[]; data_sources?: string[] } | null`
+- `output_format`: Changed from unconstrained string to enum: "explanation" | "checklist" | "diff" | "structured"
+- `query`: Kept as required string
+
+### Response shape changes
+- Changed from `{ id, query, recommendations[], created_at }` to `{ advice: string, sources_searched: string[], output_format: string }`
+- Updated formatResponse to display advice, sources_searched, and output_format
+
+### Key decisions
+- Kept error handling pattern unchanged (already standardized in Task 7)
+- Kept abort handling unchanged
+- Kept config checks unchanged
+- Added validation tests for output_format enum to ensure invalid values are rejected
+
+### Verification
+- `bun test src/tools/nia-advisor.test.ts` - 8 pass, 0 fail
+- All tests use new request/response shapes
+- New tests verify output_format enum validation
+
+### Notes
+- This fixes the 422 error that was occurring because the plugin sent `codebase` as a string instead of an object
+- The live API now returns proper responses with the correct request shape

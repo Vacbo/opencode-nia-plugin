@@ -1116,7 +1116,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Files: `src/api/client.ts`, `src/api/client.test.ts`
   - Pre-commit: `bun test src/api/client.test.ts`
 
-- [ ] 21. Research Nia advisor API contract
+- [x] 21. Research Nia advisor API contract
 
   **What to do**:
   - Use librarian agent to find Nia API documentation for the `/v2/advisor` endpoint
@@ -1165,7 +1165,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
 
   **Commit**: NO (research only, no code changes)
 
-- [ ] 22. Fix nia_advisor request shape (BLOCKED by Task 21)
+- [x] 22. Fix nia_advisor request shape (BLOCKED by Task 21)
 
   **What to do**:
   - Based on Task 21 research, fix the request body in `src/tools/nia-advisor.ts` to match the actual API contract
@@ -1218,7 +1218,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Files: `src/tools/nia-advisor.ts`, `src/tools/nia-advisor.test.ts`, `tests/integration/real-api.test.ts`
   - Pre-commit: `bun test src/tools/nia-advisor.test.ts`
 
-- [ ] 23. Adopt CLI library + add CLI tests (TDD)
+- [x] 23. Adopt CLI library + add CLI tests (TDD)
 
   **What to do**:
   - Research: evaluate `commander`, `yargs`, and `citty` for fit. Choose based on: ESM support, Bun compatibility, minimal size, TypeScript types. Document choice.

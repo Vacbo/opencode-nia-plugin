@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { Command } from "commander";
 import { storeApiKeyNiaSkill } from "./cli/api-key.js";
 import {
 	cleanupAgentsMd,
@@ -268,49 +269,37 @@ async function uninstall(options: { tui: boolean }): Promise<number> {
 	return 0;
 }
 
-function printHelp(): void {
-	console.log(`
-nia-opencode - Nia Knowledge Agent for OpenCode
+export function createProgram(): Command {
+	const program = new Command();
 
-Commands:
-  install                Install and configure Nia for OpenCode
-    --no-tui             Non-interactive mode
-    --api-key <key>      Provide API key directly
+	program
+		.name("nia-opencode")
+		.description("Nia Knowledge Agent for OpenCode")
+		.version("0.1.5");
 
-  uninstall              Remove all Nia configuration
-    --no-tui             Non-interactive mode
+	program
+		.command("install")
+		.description("Install and configure Nia for OpenCode")
+		.option("--no-tui", "Non-interactive mode")
+		.option("--api-key <key>", "Provide API key directly")
+		.action(async (opts: { tui: boolean; apiKey?: string }) => {
+			await install({ tui: opts.tui, apiKey: opts.apiKey });
+		});
 
-Examples:
-  bunx nia-opencode@latest install
-  bunx nia-opencode@latest install --no-tui --api-key nk_xxx
-  bunx nia-opencode@latest uninstall
-`);
+	program
+		.command("uninstall")
+		.description("Remove all Nia configuration")
+		.option("--no-tui", "Non-interactive mode")
+		.action(async (opts: { tui: boolean }) => {
+			await uninstall({ tui: opts.tui });
+		});
+
+	return program;
 }
 
-const args = process.argv.slice(2);
+const isDirectExecution =
+	process.argv[1]?.endsWith("cli.js") || process.argv[1]?.endsWith("cli.ts");
 
-if (
-	args.length === 0 ||
-	args[0] === "help" ||
-	args[0] === "--help" ||
-	args[0] === "-h"
-) {
-	printHelp();
-	process.exit(0);
-}
-
-if (args[0] === "install") {
-	const noTui = args.includes("--no-tui");
-	const apiKeyIndex = args.indexOf("--api-key");
-	const apiKey = apiKeyIndex !== -1 ? args[apiKeyIndex + 1] : undefined;
-
-	install({ tui: !noTui, apiKey }).then((code) => process.exit(code));
-} else if (args[0] === "uninstall") {
-	const noTui = args.includes("--no-tui");
-
-	uninstall({ tui: !noTui }).then((code) => process.exit(code));
-} else {
-	console.error(`Unknown command: ${args[0]}`);
-	printHelp();
-	process.exit(1);
+if (isDirectExecution) {
+	createProgram().parseAsync();
 }

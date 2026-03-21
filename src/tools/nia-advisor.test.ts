@@ -13,14 +13,14 @@ function createContext(signal?: AbortSignal): ToolContext {
 }
 
 describe("nia_advisor tool", () => {
-  it("formats advisor recommendations as markdown", async () => {
+  it("formats advisor advice as markdown", async () => {
     let capturedPath = "";
     let capturedBody: Record<string, unknown> | undefined;
     const client = {
       post: async (path: string, body?: unknown) => {
         capturedPath = path;
         capturedBody = body as Record<string, unknown>;
-        return { id: "adv_1", query: "How should I harden this API client?", created_at: "2026-03-18T12:00:00Z", recommendations: [{ type: "suggestion", message: "Add request-scoped retries with exponential backoff.", source: "src/api/client.ts", confidence: 0.97 }, { type: "warning", message: "Avoid leaking raw upstream errors to callers.", confidence: 0.88 }] };
+        return { advice: "Add request-scoped retries with exponential backoff. Avoid leaking raw upstream errors to callers.", sources_searched: ["src/api/client.ts"], output_format: "explanation" };
       },
     };
     const niaAdvisorTool = createNiaAdvisorTool(client as unknown as NiaClient, TEST_CONFIG);
@@ -29,23 +29,34 @@ describe("nia_advisor tool", () => {
     expect(capturedPath).toBe("/advisor");
     expect(capturedBody).toEqual({ query: "How should I harden this API client?" });
     expect(result).toContain("# Nia Advisor");
-    expect(result).toContain("## Recommendations");
+    expect(result).toContain("## Advice");
     expect(result).toContain("Add request-scoped retries");
+    expect(result).toContain("Sources Searched");
     expect(result).toContain("src/api/client.ts");
-    expect(result).toContain("97%");
-    expect(result).not.toContain('"recommendations"');
   });
 
   it("forwards optional params and includes them in markdown", async () => {
     let capturedBody: Record<string, unknown> | undefined;
     const niaAdvisorTool = createNiaAdvisorTool({
-      post: async (_path: string, body?: unknown) => { capturedBody = body as Record<string, unknown>; return { id: "adv_2", query: "Recommend a refactor plan", created_at: "2026-03-18T12:30:00Z", recommendations: [{ type: "info", message: "Break the tool into request, formatting, and validation modules.", source: "src/tools/nia-search.ts", confidence: 0.74 }] }; },
+      post: async (_path: string, body?: unknown) => { capturedBody = body as Record<string, unknown>; return { advice: "Break the tool into request, formatting, and validation modules.", sources_searched: ["src/tools/nia-search.ts"], output_format: "checklist" }; },
     } as unknown as NiaClient, TEST_CONFIG);
-    const result = await niaAdvisorTool.execute(niaAdvisorArgsSchema.parse({ query: "Recommend a refactor plan", codebase: "opencode-nia-plugin", search_scope: "repo", output_format: "markdown" }), createContext());
-    expect(capturedBody).toEqual({ query: "Recommend a refactor plan", codebase: "opencode-nia-plugin", search_scope: "repo", output_format: "markdown" });
-    expect(result).toContain("- Codebase: `opencode-nia-plugin`");
-    expect(result).toContain("- Search scope: `repo`");
-    expect(result).toContain("- Requested output: `markdown`");
+    const result = await niaAdvisorTool.execute(niaAdvisorArgsSchema.parse({ query: "Recommend a refactor plan", codebase: { summary: "opencode-nia-plugin" }, search_scope: { repositories: ["repo"] }, output_format: "checklist" }), createContext());
+    expect(capturedBody).toEqual({ query: "Recommend a refactor plan", codebase: { summary: "opencode-nia-plugin" }, search_scope: { repositories: ["repo"] }, output_format: "checklist" });
+    expect(result).toContain("- Codebase context provided");
+    expect(result).toContain("- Search scope: repos: repo");
+    expect(result).toContain("- Requested output: `checklist`");
+  });
+
+  it("validates output_format enum rejects invalid values", async () => {
+    const result = niaAdvisorArgsSchema.safeParse({ query: "test", output_format: "markdown" });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts valid output_format enum values", async () => {
+    for (const format of ["explanation", "checklist", "diff", "structured"] as const) {
+      const result = niaAdvisorArgsSchema.safeParse({ query: "test", output_format: format });
+      expect(result.success).toBe(true);
+    }
   });
 
   for (const error of ["unauthorized [401]: bad key", "rate_limited [429]: slow down", "server_error [500]: upstream exploded"] as const) {
