@@ -2,7 +2,10 @@ import { describe, expect, it } from "bun:test";
 
 import { NiaClient, type FetchFn } from "../api/client.js";
 import type { ToolContext } from "@opencode-ai/plugin";
+import type { NiaConfig } from "../config.js";
 import { createNiaReadTool } from "./nia-read.js";
+
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
 
 function jsonResponse(status: number, body?: unknown): Response {
   return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -56,9 +59,9 @@ describe("nia_read", () => {
       ]),
     });
 
-    const tool = createNiaReadTool(client);
+    const tool = createNiaReadTool(client, TEST_CONFIG);
     const result = await tool.execute(
-      { source_id: "repo-1", path: "src/index.ts" },
+      { source_id: "repo-1", source_type: "repository", path: "src/index.ts" },
       mockContext(),
     );
 
@@ -85,9 +88,9 @@ describe("nia_read", () => {
       },
     });
 
-    const tool = createNiaReadTool(client);
+    const tool = createNiaReadTool(client, TEST_CONFIG);
     await tool.execute(
-      { source_id: "repo-1", path: "file.ts", line_start: 5, line_end: 10 },
+      { source_id: "repo-1", source_type: "repository", path: "file.ts", line_start: 5, line_end: 10 },
       mockContext(),
     );
 
@@ -113,9 +116,9 @@ describe("nia_read", () => {
       ]),
     });
 
-    const tool = createNiaReadTool(client);
+    const tool = createNiaReadTool(client, TEST_CONFIG);
     const result = await tool.execute(
-      { source_id: "repo-1", path: "big.bin" },
+      { source_id: "repo-1", source_type: "repository", path: "big.bin" },
       mockContext(),
     );
 
@@ -130,7 +133,7 @@ describe("nia_read", () => {
       fetchFn: mockFetch([]),
     });
 
-    const tool = createNiaReadTool(client);
+    const tool = createNiaReadTool(client, TEST_CONFIG);
     const result = await tool.execute({ path: "file.ts" }, mockContext());
 
     expect(result).toContain("validation_error");
@@ -149,9 +152,9 @@ describe("nia_read", () => {
       ]),
     });
 
-    const tool = createNiaReadTool(client);
+    const tool = createNiaReadTool(client, TEST_CONFIG);
     const result = await tool.execute(
-      { source_id: "repo-1", path: "missing.ts" },
+      { source_id: "repo-1", source_type: "repository", path: "missing.ts" },
       mockContext(),
     );
 
@@ -185,7 +188,7 @@ describe("nia_read", () => {
       },
     });
 
-    const tool = createNiaReadTool(client);
+    const tool = createNiaReadTool(client, TEST_CONFIG);
     const result = await tool.execute(
       { source_type: "repository", identifier: "owner/repo", path: "README.md" },
       mockContext(),
@@ -211,7 +214,7 @@ describe("nia_read", () => {
       },
     });
 
-    const tool = createNiaReadTool(client);
+    const tool = createNiaReadTool(client, TEST_CONFIG);
     const result = await tool.execute(
       { source_id: "ds-1", source_type: "data_source", path: "index.html" },
       mockContext(),

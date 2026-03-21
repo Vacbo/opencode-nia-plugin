@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { PendingOperation } from "../api/types.js";
+import { jobManager } from "../state/job-manager.js";
 import { getSessionState } from "../state/session.js";
 
 const DEFAULT_SESSION_ID = "__system__";
@@ -72,6 +73,11 @@ export async function transformSystemPrompt(
   const pendingOperationsHint = buildPendingOperationsHint(sessionState.pendingOps.getAllOperations(), injectedHints);
   if (pendingOperationsHint) {
     additions.push(pendingOperationsHint);
+  }
+
+  const pendingJobs = jobManager.getPendingJobs(context.sessionID ?? DEFAULT_SESSION_ID);
+  if (pendingJobs.length > 0) {
+    additions.push(formatPendingJobsHint(pendingJobs));
   }
 
   const projectHint = await getProjectHint(context, sessionState.projectContext, options.readTextFile ?? readFileUtf8);
@@ -218,6 +224,16 @@ function formatPendingOperation(operation: PendingOperation): string | undefined
 
   const progressSuffix = typeof operation.progress === "number" ? ` (${Math.round(operation.progress)}%)` : "";
   return `${operation.name} is ${operation.status ?? "pending"}${progressSuffix}`;
+}
+
+function formatPendingJobsHint(jobs: { jobId: string; type: string }[]): string {
+  const lines = ["⏳ Waiting for Nia operations to complete:"];
+  for (const job of jobs) {
+    const label = job.type === "oracle" ? "Oracle research" : "Tracer analysis";
+    lines.push(`- ${label} (Job ID: ${job.jobId})`);
+  }
+  lines.push("", "Results will be delivered via promptAsync when ready.");
+  return lines.join("\n");
 }
 
 async function getProjectHint(

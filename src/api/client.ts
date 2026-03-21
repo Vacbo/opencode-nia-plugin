@@ -1,3 +1,5 @@
+import type { SSEEvent } from "./types";
+
 export type FetchFn = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
 type QueryValue = string | number | boolean | Array<string | number | boolean> | null | undefined;
@@ -61,6 +63,99 @@ export class NiaClient {
 
   delete<T>(path: string, body?: unknown, signal?: AbortSignal, timeout?: number): Promise<T | string> {
     return this.request<T>("DELETE", path, body, signal, timeout);
+  }
+
+  async *stream(
+    path: string,
+    params?: QueryParams,
+    signal?: AbortSignal
+  ): AsyncGenerator<SSEEvent, void, unknown> {
+    if (signal?.aborted) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const onAbort = () => controller.abort(signal?.reason);
+
+    if (signal) {
+      signal.addEventListener("abort", onAbort, { once: true });
+    }
+
+    try {
+      const response = await this.fetchFn(this.buildUrl(path, params), {
+        method: "GET",
+        headers: {
+          Accept: "text/event-stream",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const message = await this.parseErrorMessage(response.clone());
+        yield { type: "error", error: this.formatApiError(response, message) };
+        return;
+      }
+
+      if (!response.body) {
+        yield { type: "error", error: "stream_error: response body is null" };
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let eventType: SSEEvent["type"] = "content";
+
+      try {
+        while (true) {
+          if (signal?.aborted || controller.signal.aborted) {
+            yield { type: "error", error: "abort_error: stream cancelled" };
+            break;
+          }
+
+          const { done, value } = await reader.read();
+
+          if (done) {
+            break;
+          }
+
+          buffer += decoder.decode(value, { stream: true });
+
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            if (line.startsWith("event:")) {
+              const typeStr = line.slice(6).trim();
+              if (typeStr === "thinking" || typeStr === "searching" || typeStr === "reading" ||
+                  typeStr === "analyzing" || typeStr === "content" || typeStr === "done" || typeStr === "error") {
+                eventType = typeStr;
+              }
+            } else if (line.startsWith("data:")) {
+              const data = line.slice(5).trim();
+              if (data) {
+                yield { type: eventType, data, content: data };
+              }
+            }
+          }
+        }
+
+        if (buffer.trim()) {
+          const line = buffer.trim();
+          if (line.startsWith("data:")) {
+            const data = line.slice(5).trim();
+            if (data) {
+              yield { type: eventType, data, content: data };
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    } finally {
+      signal?.removeEventListener("abort", onAbort);
+    }
   }
 
   private async request<T>(

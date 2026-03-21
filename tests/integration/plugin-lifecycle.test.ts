@@ -8,9 +8,13 @@ import { NiaClient, type FetchFn } from "../../src/api/client";
 import NiaPlugin from "../../src/index";
 import { NIA_NUDGE_MESSAGE } from "../../src/hooks/smart-triggers";
 import { OpsTracker } from "../../src/state/ops-tracker";
+import { resetSessionStates } from "../../src/state/session";
+import type { NiaConfig } from "../../src/config";
 import { createNiaIndexTool } from "../../src/tools/nia-index";
 import { createNiaManageResourceTool } from "../../src/tools/nia-manage-resource";
 import { createNiaSearchTool } from "../../src/tools/nia-search";
+
+const TEST_CONFIG = { apiKey: "test-key", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
 
 type MockResponse = {
   status: number;
@@ -108,6 +112,7 @@ describe("plugin lifecycle integration", () => {
 
   afterEach(() => {
     process.env = originalEnv;
+    resetSessionStates();
   });
 
   it("registers all 13 tools and hooks when initialized with an API key", async () => {
@@ -172,12 +177,9 @@ describe("plugin lifecycle integration", () => {
       throw new Error(`Unhandled request: ${method} ${parsedUrl.pathname}`);
     };
 
-    const searchTool = createNiaSearchTool({
-      client: createMockClient(handler),
-      config: { apiKey: "test-key", searchEnabled: true },
-    });
-    const indexTool = createNiaIndexTool(createMockClient(handler));
-    const manageResourceTool = createNiaManageResourceTool(createMockClient(handler));
+    const searchTool = createNiaSearchTool(createMockClient(handler) as unknown as NiaClient, TEST_CONFIG);
+    const indexTool = createNiaIndexTool(createMockClient(handler) as unknown as NiaClient, TEST_CONFIG);
+    const manageResourceTool = createNiaManageResourceTool(createMockClient(handler) as unknown as NiaClient, TEST_CONFIG);
 
     const [searchResult, indexResult, statusResult] = await Promise.all([
       searchTool.execute(parseArgs(searchTool, { query: "bun docs" }), createContext()),

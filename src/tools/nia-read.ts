@@ -1,11 +1,12 @@
 import { tool } from "@opencode-ai/plugin";
 import type { NiaClient } from "../api/client.js";
 import type { FileContentResponse } from "../api/types.js";
+import type { NiaConfig } from "../config.js";
 import { resolveSource } from "./source-resolver.js";
 
 const MAX_CONTENT_BYTES = 50 * 1024;
 
-export function createNiaReadTool(client: NiaClient) {
+export function createNiaReadTool(client: NiaClient, config: NiaConfig) {
   return tool({
     description:
       "Read file content from a Nia-indexed repository or data source. " +

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
 import NiaPlugin from "./index";
 import { NIA_NUDGE_MESSAGE } from "./hooks/smart-triggers";
+import { getSessionState, resetSessionStates } from "./state/session";
 
 const ALL_TOOL_NAMES = [
   "nia_search",
@@ -39,6 +40,7 @@ describe("Nia plugin entrypoint", () => {
 
   afterEach(() => {
     process.env = originalEnv;
+    resetSessionStates();
   });
 
   it("registers all 13 tools and hooks when configured", async () => {
@@ -47,9 +49,29 @@ describe("Nia plugin entrypoint", () => {
     const hooks = await NiaPlugin({ directory: "/tmp/project" } as never);
 
     expect(Object.keys(hooks.tool ?? {}).sort()).toEqual([...ALL_TOOL_NAMES].sort());
+    expect(typeof hooks.event).toBe("function");
     expect(typeof hooks["chat.message"]).toBe("function");
     expect(typeof hooks["tool.execute.after"]).toBe("function");
     expect(typeof hooks["experimental.chat.system.transform"]).toBe("function");
+  });
+
+  it("cleans up session state when the plugin is disposed", async () => {
+    process.env.NIA_API_KEY = "test-key";
+
+    const hooks = await NiaPlugin({ directory: "/tmp/project" } as never);
+    const sessionState = getSessionState("session-disposed");
+    sessionState.toolExecuteAfterCount = 1;
+
+    await hooks.event?.({
+      event: {
+        type: "server.instance.disposed",
+        properties: { directory: "/tmp/project" },
+      },
+    } as never);
+
+    const refreshedState = getSessionState("session-disposed");
+    expect(refreshedState).not.toBe(sessionState);
+    expect(refreshedState.toolExecuteAfterCount).toBe(0);
   });
 
   it("returns empty hooks when the API key is missing", async () => {

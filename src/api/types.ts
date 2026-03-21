@@ -532,6 +532,36 @@ export interface RateLimitError extends ApiError {
 }
 
 // =============================================================================
+// SSE Event Types
+// =============================================================================
+
+/** SSE event type for streaming responses */
+export type SSEEventType =
+  | "thinking"   // Agent is reasoning
+  | "searching"  // Performing search
+  | "reading"    // Reading file/content
+  | "analyzing"  // Analyzing results
+  | "content"    // Streaming content chunk
+  | "done"       // Stream complete
+  | "error";     // Error occurred
+
+/** SSE event for streaming responses */
+export interface SSEEvent {
+  /** Event type */
+  type: SSEEventType;
+  /** Raw data string */
+  data?: string;
+  /** Formatted content for display */
+  content?: string;
+  /** 0-100 progress indicator */
+  progress?: number;
+  /** Error message when type="error" */
+  error?: string;
+  /** Source identifier for content events */
+  source?: string;
+}
+
+// =============================================================================
 // Index Request Types
 // =============================================================================
 

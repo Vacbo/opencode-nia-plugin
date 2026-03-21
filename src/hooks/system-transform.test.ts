@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { jobManager } from "../state/job-manager.js";
 import { getSessionState } from "../state/session.js";
 import { createSystemTransform } from "./system-transform.js";
 
@@ -120,5 +121,44 @@ describe("createSystemTransform", () => {
     expect(result.some((entry) => entry.includes("Pending background work"))).toBe(true);
     expect(result.some((entry) => entry.includes("Docs import"))).toBe(true);
     expect(result.some((entry) => entry.includes("42%"))).toBe(true);
+  });
+
+  it("injects pending jobs hint when NiaJobManager has active fire-and-forget jobs", async () => {
+    const workspace = createWorkspace({
+      dependencies: {
+        typescript: "^5.9.0",
+      },
+    });
+    const sessionID = "system-transform-jobs";
+
+    jobManager.clearJobs();
+    jobManager.submitJob("oracle", "oracle-abc-123", sessionID, "test");
+    jobManager.submitJob("tracer", "tracer-def-456", sessionID, "test");
+
+    const transform = createSystemTransform();
+    const result = await transform(["Base system prompt"], { sessionID, cwd: workspace });
+
+    expect(result.some((entry) => entry.includes("⏳ Waiting for Nia operations to complete"))).toBe(true);
+    expect(result.some((entry) => entry.includes("Oracle research (Job ID: oracle-abc-123)"))).toBe(true);
+    expect(result.some((entry) => entry.includes("Tracer analysis (Job ID: tracer-def-456)"))).toBe(true);
+    expect(result.some((entry) => entry.includes("Results will be delivered via promptAsync when ready"))).toBe(true);
+
+    jobManager.clearJobs();
+  });
+
+  it("does not inject pending jobs hint when no jobs are active", async () => {
+    const workspace = createWorkspace({
+      dependencies: {
+        typescript: "^5.9.0",
+      },
+    });
+    const sessionID = "system-transform-no-jobs";
+
+    jobManager.clearJobs();
+
+    const transform = createSystemTransform();
+    const result = await transform(["Base system prompt"], { sessionID, cwd: workspace });
+
+    expect(result.every((entry) => !entry.includes("⏳ Waiting for Nia operations"))).toBe(true);
   });
 });

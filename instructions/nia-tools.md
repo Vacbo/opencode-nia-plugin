@@ -127,7 +127,7 @@ Web search and AI-powered deep research.
   - `quick`: Fast web search (default)
   - `deep`: Comprehensive research with synthesis
   - `oracle`: Expert-level analysis with citations
-- `job_id` (string, optional): For checking status of long-running research
+- `job_id` (string, optional): For checking status of oracle research (rarely needed — results auto-deliver)
 - `num_results` (number, optional): Number of sources to analyze (default: 5)
 
 **When to use:** 
@@ -135,7 +135,7 @@ Web search and AI-powered deep research.
 - `deep`: Comprehensive topic research when indexed sources insufficient
 - `oracle`: Complex analysis requiring expert synthesis
 
-**Long-running:** Deep and oracle modes return a `job_id`. Use it to check status: `nia_research(job_id='...')`.
+**Non-blocking (oracle mode):** Oracle returns immediately with a Job ID. Results are delivered automatically via a system reminder when the SSE stream completes — no polling needed. Continue with other work while oracle processes.
 
 ---
 
@@ -206,11 +206,11 @@ Deep code analysis and tracing across repositories.
 - `tracer_mode` (enum, optional):
   - `tracer-fast`: Quick analysis (default)
   - `tracer-deep`: Comprehensive cross-repo tracing
-- `job_id` (string, optional): For checking status of long-running traces
+- `job_id` (string, optional): For checking status of deep traces (rarely needed — results auto-deliver)
 
 **When to use:** Complex code analysis requiring understanding relationships across files/repos. Find all call sites, trace data flow, analyze dependencies.
 
-**Long-running:** Tracer-deep returns a `job_id`. Check status with `nia_tracer(job_id='...')`.
+**Non-blocking (tracer-deep):** Tracer-deep returns immediately with a Job ID. Results are delivered automatically via a system reminder when the SSE stream completes — no polling needed. Continue with other work while tracer processes.
 
 ---
 
@@ -298,32 +298,74 @@ Before ANY WebFetch or WebSearch call, verify:
 - **Secondary**: nia_advisor (best practice comparison)
 - **Pattern**: grep (find patterns) → tracer (analyze flow) → advisor (validate)
 
-## Long-Running Operations
+## Deep-First Non-Blocking Operations
 
-Some tools return a `job_id` for asynchronous processing:
+Oracle research and tracer-deep use a **fire-and-forget** pattern. The tool returns immediately, and results are delivered automatically when ready — no polling loop needed.
 
-### nia_research (mode: deep, oracle)
-```
-1. First call: nia_research(query="...", mode="deep") → returns { job_id: "abc123" }
-2. Poll: nia_research(job_id="abc123") → returns status or results when complete
-3. Typical duration: 30 seconds to 5 minutes
-```
+### How It Works
 
-### nia_tracer (mode: tracer-deep)
 ```
-1. First call: nia_tracer(query="...", tracer_mode="tracer-deep") → returns { job_id: "xyz789" }
-2. Poll: nia_tracer(job_id="xyz789") → returns status or results
-3. Typical duration: 1 to 10 minutes depending on codebase size
-```
-
-### nia_index
-```
-1. Call: nia_index(url="...") → returns immediately, processing continues
-2. Poll: manage_resource(action="status", source_id="...") to check indexing progress
-3. Typical duration: 1 to 5 minutes depending on source size
+1. Agent calls tool (oracle or tracer-deep)
+2. Tool submits job to Nia API, starts SSE stream in background
+3. Tool returns IMMEDIATELY: "Oracle research started. Job ID: abc-123"
+4. Agent continues with other work
+5. SSE stream completes in background
+6. Results delivered automatically via system reminder:
+   <system-reminder>[NIA ORACLE COMPLETE]
+   ... full results ...
+   </system-reminder>
 ```
 
-**Best practice**: For long-running operations, save intermediate state to nia_context and inform the user of expected wait time.
+### Parallel Deep Calls
+
+Agents can fire multiple deep operations simultaneously:
+
+```
+# These all return immediately — no blocking
+nia_research(query="Map the authentication flow", mode="oracle")
+→ "Oracle research started. Job ID: oracle-1"
+
+nia_tracer(query="Trace auth token refresh", tracer_mode="tracer-deep", repositories=["acme/app"])
+→ "Deep tracer analysis started. Job ID: tracer-1"
+
+nia_research(query="Compare JWT vs session tokens", mode="oracle")
+→ "Oracle research started. Job ID: oracle-2"
+
+# Agent continues working immediately
+# Results arrive via system reminders as each completes
+```
+
+### Pending Job Awareness
+
+While deep operations are running, the system prompt automatically includes a pending job hint:
+
+```
+⏳ Waiting for Nia operations to complete:
+- Oracle research (Job ID: oracle-1)
+- Tracer analysis (Job ID: tracer-1)
+- Oracle research (Job ID: oracle-2)
+
+Results will be delivered via promptAsync when ready.
+```
+
+This hint appears on every turn while jobs are active, preventing premature session completion.
+
+### nia_index (Tracked via OpsTracker)
+
+Index operations are tracked separately and their status appears in system prompts as pending background work:
+
+```
+1. Call: nia_index(url="...") → returns immediately with source_id
+2. Status checked automatically via system.transform
+3. Completion notified via system prompt: "Background completions: ..."
+```
+
+### Best Practices for Deep Operations
+
+1. **Fire early, use results later** — start oracle/tracer-deep at the beginning of a task, use results when they arrive
+2. **Parallel is free** — multiple deep calls run simultaneously with no overhead
+3. **Don't poll** — results arrive automatically; checking job_id manually is rarely needed
+4. **Continue working** — the agent should proceed with synchronous tasks while deep operations run
 
 ## Anti-Patterns and Common Mistakes
 
@@ -337,9 +379,9 @@ Some tools return a `job_id` for asynchronous processing:
    - Wrong: Immediately `nia_index` on every request
    - Right: Check `manage_resource(list)` - source may already be indexed
 
-3. **Ignoring job_id for long operations**
-   - Wrong: Calling `nia_research(mode="oracle")` once and expecting immediate results
-   - Right: Capture job_id, poll for completion, or use nia_e2e for session management
+3. **Polling for deep operation results**
+   - Wrong: Calling `nia_research(mode="oracle")` then immediately polling with `job_id`
+   - Right: Results auto-deliver via system reminder. Continue with other work while waiting.
 
 4. **Using wrong search mode**
    - Wrong: `nia_search(query="function handleError", search_mode="semantic")` for exact symbol
@@ -362,7 +404,7 @@ Some tools return a `job_id` for asynchronous processing:
 1. **Check indexed sources first** - Every. Single. Time.
 2. **Use targeted queries** - Filter source lists and searches
 3. **Save context** - Make research reusable across sessions
-4. **Poll long operations** - Use job_id correctly
+4. **Fire deep operations early** - Start oracle/tracer-deep first, results auto-deliver later
 5. **Index strategically** - Root URLs for docs, not individual pages
 6. **Match tool to task** - grep for patterns, search for semantics, read for content
 
@@ -384,9 +426,9 @@ NIA ROUTING (memorize this):
 │  FIND PACKAGES    → nia_package_search                      │
 │  AUTO-SUBSCRIBE   → nia_auto_subscribe                      │
 │  CODE TRACING     → nia_tracer                              │
-│  E2E SESSION      → nia_e2e                                   │
+│  E2E SESSION      → nia_e2e                                 │
 ├─────────────────────────────────────────────────────────────┤
-│  LONG-RUNNING: Capture job_id, poll for completion            │
+│  DEEP OPS: Fire-and-forget. Results auto-deliver.           │
 │  WEBFETCH LAST: Only after Nia sources exhausted            │
 └─────────────────────────────────────────────────────────────┘
 ```

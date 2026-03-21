@@ -1,0 +1,47 @@
+# Docker Compose configuration for nia-opencode plugin testing
+# Provides isolated test environment with proper environment setup
+
+services:
+  nia-plugin-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nia-opencode-test
+    environment:
+      # Test environment settings
+      - NODE_ENV=test
+      - CI=true
+      - NIA_DEBUG=true
+      
+      # Feature flags for testing (all enabled for full coverage)
+      - NIA_RESEARCH=true
+      - NIA_ADVISOR=true
+      - NIA_CONTEXT=true
+      - NIA_TRACER=true
+      - NIA_E2E=true
+      
+      # Mock API key for tests (tests use mocks, not real API)
+      - NIA_API_KEY=nk_test_mock_key_for_testing
+      
+      # Bun test configuration
+      - BUN_TEST_TIMEOUT=30000
+    volumes:
+      # Mount for test results/output
+      - ./test-results:/app/test-results
+    command: bun test
+    
+  # Optional: Service for running specific test files
+  nia-plugin-test-specific:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nia-opencode-test-specific
+    environment:
+      - NODE_ENV=test
+      - CI=true
+      - NIA_DEBUG=true
+      - NIA_API_KEY=nk_test_mock_key_for_testing
+    profiles:
+      - specific
+    # Override command at runtime: docker compose run nia-plugin-test-specific bun test src/tools/nia-search.test.ts
+    command: ["sh", "-c", "echo 'Run with: docker compose run nia-plugin-test-specific bun test <path>'"]

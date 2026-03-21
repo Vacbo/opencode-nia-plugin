@@ -1,11 +1,12 @@
 import { tool } from "@opencode-ai/plugin";
 import type { NiaClient } from "../api/client.js";
 import type { GrepResultItem } from "../api/types.js";
+import type { NiaConfig } from "../config.js";
 import { resolveSource } from "./source-resolver.js";
 
 const MAX_MATCHES = 100;
 
-export function createNiaGrepTool(client: NiaClient) {
+export function createNiaGrepTool(client: NiaClient, config: NiaConfig) {
   return tool({
     description:
       "Search for code patterns in a Nia-indexed repository via grep. " +

@@ -1,7 +1,7 @@
 import { tool, type ToolContext } from "@opencode-ai/plugin";
 
 import type { NiaClient } from "../api/client.js";
-import { loadConfig } from "../config.js";
+import type { NiaConfig } from "../config.js";
 import type { E2ESession } from "../api/types.js";
 
 type E2EAction = "create_session" | "get_session" | "purge" | "sync";
@@ -93,12 +93,21 @@ async function handlePurge(client: NiaClient, args: E2EArgs, context: Permission
     return "error: source_id is required for purge action";
   }
 
-  await context.ask({
-    permission: `Purge E2E data for source ${args.source_id}`,
-    patterns: [`nia:e2e:purge:${args.source_id}`],
-    always: ["nia:e2e:purge"],
-    metadata: { sourceId: args.source_id },
-  });
+  let permission: unknown;
+  try {
+    permission = await context.ask({
+      permission: `Purge E2E data for source ${args.source_id}`,
+      patterns: [`nia:e2e:purge:${args.source_id}`],
+      always: ["nia:e2e:purge"],
+      metadata: { sourceId: args.source_id },
+    });
+  } catch {
+    return "error: permission denied";
+  }
+
+  if (permission === false) {
+    return "error: permission denied";
+  }
 
   const result = await client.delete<Record<string, unknown>>(
     `/daemon/e2e/sources/${args.source_id}/data`,
@@ -136,8 +145,8 @@ const ACTION_HANDLERS: Record<E2EAction, (client: NiaClient, args: E2EArgs, cont
   sync: handleSync,
 };
 
-export function createNiaE2ETool(client: NiaClient, enabled = loadConfig().e2eEnabled) {
-  if (!enabled) {
+export function createNiaE2ETool(client: NiaClient, config: NiaConfig) {
+  if (!config.e2eEnabled) {
     return undefined;
   }
 

@@ -2,7 +2,11 @@ import { describe, expect, it, mock } from "bun:test";
 import type { ToolContext } from "@opencode-ai/plugin";
 import { z } from "zod";
 
-import { createNiaManageResourceTool, type ManageResourceClient } from "./nia-manage-resource";
+import type { NiaClient } from "../api/client";
+import type { NiaConfig } from "../config";
+import { createNiaManageResourceTool } from "./nia-manage-resource";
+
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
 
 function parseArgs<TArgs extends z.ZodRawShape>(definition: { args: TArgs }, input: unknown): z.infer<z.ZodObject<TArgs>> {
   return z.object(definition.args).parse(input);
@@ -22,19 +26,19 @@ function createContext(overrides: Partial<ToolContext> = {}): ToolContext {
   };
 }
 
-const unusedGet: ManageResourceClient["get"] = async () => {
+const unusedGet: NiaClient["get"] = async () => {
   throw new Error("not used");
 };
 
-const unusedPatch: ManageResourceClient["patch"] = async () => {
+const unusedPatch: NiaClient["patch"] = async () => {
   throw new Error("not used");
 };
 
-const unusedDelete: ManageResourceClient["delete"] = async () => {
+const unusedDelete: NiaClient["delete"] = async () => {
   throw new Error("not used");
 };
 
-const unusedPost: ManageResourceClient["post"] = async () => {
+const unusedPost: NiaClient["post"] = async () => {
   throw new Error("not used");
 };
 
@@ -54,8 +58,8 @@ describe("createNiaManageResourceTool", () => {
       patch: unusedPatch,
       delete: unusedDelete,
       post: unusedPost,
-    } satisfies ManageResourceClient;
-    const tool = createNiaManageResourceTool(client);
+    } as unknown as NiaClient;
+    const tool = createNiaManageResourceTool(client as unknown as NiaClient, TEST_CONFIG);
 
     const result = await tool.execute(parseArgs(tool, { action: "list" }), createContext());
 
@@ -72,8 +76,8 @@ describe("createNiaManageResourceTool", () => {
       patch: unusedPatch,
       delete: unusedDelete,
       post: unusedPost,
-    } satisfies ManageResourceClient;
-    const tool = createNiaManageResourceTool(client);
+    } as unknown as NiaClient;
+    const tool = createNiaManageResourceTool(client as unknown as NiaClient, TEST_CONFIG);
 
     const result = await tool.execute(
       parseArgs(tool, { action: "status", resource_type: "repository", resource_id: "repo_1" }),
@@ -96,8 +100,8 @@ describe("createNiaManageResourceTool", () => {
       },
       delete: unusedDelete,
       post: unusedPost,
-    } satisfies ManageResourceClient;
-    const tool = createNiaManageResourceTool(client);
+    } as unknown as NiaClient;
+    const tool = createNiaManageResourceTool(client as unknown as NiaClient, TEST_CONFIG);
 
     const result = await tool.execute(
       parseArgs(tool, {
@@ -129,8 +133,8 @@ describe("createNiaManageResourceTool", () => {
         return { deleted: true } as T;
       },
       post: unusedPost,
-    } satisfies ManageResourceClient;
-    const tool = createNiaManageResourceTool(client);
+    } as unknown as NiaClient;
+    const tool = createNiaManageResourceTool(client as unknown as NiaClient, TEST_CONFIG);
 
     const result = await tool.execute(
       parseArgs(tool, { action: "delete", resource_type: "repository", resource_id: "repo_1" }),
@@ -155,8 +159,8 @@ describe("createNiaManageResourceTool", () => {
         return { deleted: true } as T;
       },
       post: unusedPost,
-    } satisfies ManageResourceClient;
-    const tool = createNiaManageResourceTool(client);
+    } as unknown as NiaClient;
+    const tool = createNiaManageResourceTool(client as unknown as NiaClient, TEST_CONFIG);
 
     const result = await tool.execute(
       parseArgs(tool, { action: "delete", resource_type: "data_source", resource_id: "doc_1" }),
@@ -184,8 +188,8 @@ describe("createNiaManageResourceTool", () => {
         calls.push({ method: "POST", path, body });
         return { id: "cat_1" } as T;
       },
-    } satisfies ManageResourceClient;
-    const tool = createNiaManageResourceTool(client);
+    } as unknown as NiaClient;
+    const tool = createNiaManageResourceTool(client as unknown as NiaClient, TEST_CONFIG);
 
     const context = createContext();
     const listResult = await tool.execute(parseArgs(tool, { action: "category_list" }), context);

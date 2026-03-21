@@ -2,6 +2,7 @@ import { tool, type ToolContext } from "@opencode-ai/plugin";
 
 import type { NiaClient } from "../api/client.js";
 import type { ContextListResponse, ContextResponse } from "../api/types.js";
+import type { NiaConfig } from "../config.js";
 
 type ContextAction = "save" | "list" | "retrieve" | "search" | "update" | "delete";
 
@@ -120,12 +121,21 @@ async function handleUpdate(client: NiaClient, args: ContextArgs, context: ToolC
 async function handleDelete(client: NiaClient, args: ContextArgs, context: ToolContext): Promise<string> {
   if (!args.id?.trim()) return "error: id is required for delete action";
 
-  await context.ask({
-    permission: `Delete context ${args.id}`,
-    patterns: [`nia:context:delete:${args.id}`],
-    always: ["nia:context:delete"],
-    metadata: { contextId: args.id },
-  });
+  let permission: unknown;
+  try {
+    permission = await context.ask({
+      permission: `Delete context ${args.id}`,
+      patterns: [`nia:context:delete:${args.id}`],
+      always: ["nia:context:delete"],
+      metadata: { contextId: args.id },
+    });
+  } catch {
+    return "error: permission denied";
+  }
+
+  if (permission === false) {
+    return "error: permission denied";
+  }
 
   const result = await client.delete<{ deleted: boolean }>(`/contexts/${args.id}`, undefined, context.abort);
   if (typeof result === "string") return result;
@@ -142,7 +152,7 @@ const ACTION_HANDLERS: Record<ContextAction, (client: NiaClient, args: ContextAr
   delete: handleDelete,
 };
 
-export function createContextTool(client: NiaClient) {
+export function createNiaContextTool(client: NiaClient, config: NiaConfig) {
   return tool({
     description:
       "Manage Nia knowledge contexts. Save, list, retrieve, search, update, or delete context entries that persist across sessions and agents.",

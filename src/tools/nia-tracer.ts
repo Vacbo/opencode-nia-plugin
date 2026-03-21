@@ -1,8 +1,9 @@
 import { tool } from "@opencode-ai/plugin";
 
-import { NiaClient } from "../api/client.js";
+import type { NiaClient } from "../api/client.js";
 import type { TracerResultItem } from "../api/types.js";
-import { CONFIG, type NiaConfig } from "../config.js";
+import type { NiaConfig } from "../config.js";
+import { jobManager } from "../state/job-manager.js";
 
 const z = tool.schema;
 
@@ -14,14 +15,6 @@ export type TracerMode = "tracer-fast" | "tracer-deep";
 
 type TracerQueryValue = string | number | boolean | Array<string | number | boolean> | null | undefined;
 type TracerQueryParams = Record<string, TracerQueryValue>;
-
-type TracerClient = {
-  post: (path: string, body?: unknown, signal?: AbortSignal, timeout?: number) => Promise<unknown>;
-  get: (path: string, params?: TracerQueryParams, signal?: AbortSignal, timeout?: number) => Promise<unknown>;
-  delete?: (path: string, body?: unknown, signal?: AbortSignal, timeout?: number) => Promise<unknown>;
-};
-
-type TracerConfig = Pick<NiaConfig, "apiKey" | "tracerEnabled" | "apiUrl" | "tracerTimeout">;
 
 type TracerJobResponse = {
   id?: string;
@@ -48,11 +41,6 @@ export interface NiaTracerArgs {
   job_id?: string;
 }
 
-export interface CreateNiaTracerToolOptions {
-  config?: Partial<TracerConfig>;
-  client?: TracerClient;
-}
-
 const niaTracerArgsShape = {
   query: z.string().trim().min(1).optional(),
   repositories: z.array(z.string().trim().min(1)).optional(),
@@ -73,7 +61,7 @@ export const niaTracerArgsSchema = z.object(niaTracerArgsShape).superRefine((
   }
 });
 
-export function createNiaTracerTool(options: CreateNiaTracerToolOptions = {}) {
+export function createNiaTracerTool(client: NiaClient, config: NiaConfig) {
   return tool({
     description: "Search public GitHub repositories with Nia Tracer in fast or deep mode.",
     args: niaTracerArgsShape,
@@ -84,18 +72,15 @@ export function createNiaTracerTool(options: CreateNiaTracerToolOptions = {}) {
           return ABORT_ERROR;
         }
 
-        const config = resolveConfig(options.config);
-        const configError = validateConfig(config);
-        if (configError) {
-          return configError;
+        if (!config.tracerEnabled) {
+          return "config_error: nia tracer is disabled";
         }
 
-        const timeoutMs = resolveTracerTimeoutMs(config);
-        const client = options.client ?? new NiaClient({
-          apiKey: config.apiKey!,
-          baseUrl: config.apiUrl,
-          timeout: timeoutMs,
-        });
+        if (!config.apiKey) {
+          return "config_error: NIA_API_KEY is not set";
+        }
+
+        const timeoutMs = Math.max(1, (config.tracerTimeout ?? DEFAULT_TIMEOUT_SECONDS) * 1000);
 
         if (args.job_id) {
           const response = (await client.get(
@@ -112,6 +97,29 @@ export function createNiaTracerTool(options: CreateNiaTracerToolOptions = {}) {
           return formatTracerResponse(response, { query: args.query });
         }
 
+        if (args.tracer_mode === "tracer-deep") {
+          const response = (await client.post(
+            "/github/tracer/jobs",
+            buildCreateBody(args),
+            context.abort,
+            timeoutMs
+          )) as string | TracerJobResponse;
+
+          if (typeof response === "string") {
+            return response;
+          }
+
+          const jobId = getJobId(response);
+          if (!jobId) {
+            return "invalid_response: missing job_id in Nia tracer response";
+          }
+
+          jobManager.submitJob("tracer", jobId, context.sessionID, context.agent);
+          jobManager.consumeSSE(jobId, client);
+
+          return `Deep tracer analysis started. Results will be delivered when complete. Job ID: ${jobId}`;
+        }
+
         const response = (await client.post(
           "/github/tracer",
           buildCreateBody(args),
@@ -121,15 +129,6 @@ export function createNiaTracerTool(options: CreateNiaTracerToolOptions = {}) {
 
         if (typeof response === "string") {
           return response;
-        }
-
-        if (args.tracer_mode === "tracer-deep") {
-          const jobId = getJobId(response);
-          if (!jobId) {
-            return "invalid_response: missing job_id in Nia tracer response";
-          }
-
-          return formatQueuedResponse(response, args.tracer_mode, args.query);
         }
 
         if (hasInlineResult(response) || isTerminalStatus(response.status)) {
@@ -147,36 +146,6 @@ export function createNiaTracerTool(options: CreateNiaTracerToolOptions = {}) {
       }
     },
   });
-}
-
-export const niaTracerTool = createNiaTracerTool();
-
-export default niaTracerTool;
-
-function resolveConfig(config?: Partial<TracerConfig>): TracerConfig {
-  return {
-    apiKey: config?.apiKey ?? CONFIG.apiKey,
-    tracerEnabled: config?.tracerEnabled ?? CONFIG.tracerEnabled,
-    apiUrl: config?.apiUrl ?? CONFIG.apiUrl,
-    tracerTimeout: config?.tracerTimeout ?? CONFIG.tracerTimeout,
-  };
-}
-
-function validateConfig(config: TracerConfig): string | undefined {
-  if (!config.tracerEnabled) {
-    return "config_error: nia tracer is disabled";
-  }
-
-  if (!config.apiKey) {
-    return "config_error: NIA_API_KEY is not set";
-  }
-
-  return undefined;
-}
-
-function resolveTracerTimeoutMs(config: Partial<TracerConfig>): number {
-  const timeoutSeconds = config.tracerTimeout ?? DEFAULT_TIMEOUT_SECONDS;
-  return Math.max(1, timeoutSeconds * 1000);
 }
 
 function buildCreateBody(args: NiaTracerArgs): Record<string, unknown> {

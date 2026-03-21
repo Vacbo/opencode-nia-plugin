@@ -21,10 +21,11 @@ export async function resolveSource(
   signal?: AbortSignal,
 ): Promise<ResolvedSource | string> {
   if (args.source_id) {
-    const mapping = args.source_type
-      ? SOURCE_TYPE_MAP[args.source_type]
-      : SOURCE_TYPE_MAP.repository;
+    if (!args.source_type) {
+      return "validation_error: source_type is required when source_id is provided";
+    }
 
+    const mapping = SOURCE_TYPE_MAP[args.source_type];
     if (!mapping) {
       return `validation_error: unknown source_type "${args.source_type}"`;
     }

@@ -1,46 +1,53 @@
 # Task 19: Build Verification Evidence
 
-## Date: 2026-03-19
+## Date: 2026-03-19 (Wave 4 post-implementation rerun)
 
 ## 1. Build Verification
-Command: `bun run build`
-Result: SUCCESS
-- dist/index.js created
-- dist/index.d.ts created
-- All TypeScript compiled successfully
+Command: `bun run build` (tsc -p tsconfig.json)
+Exit code: 0
+Result: PASS — no errors
 
 ## 2. Typecheck Verification
-Command: `bun run typecheck`
-Result: SUCCESS (0 errors)
-- tsc --noEmit passed with no errors
+Command: `bun run typecheck` (tsc --noEmit -p tsconfig.json)
+Exit code: 0
+Result: PASS — no errors
 
-## 3. Test Suite Verification
-Command: `bun test`
-Result: SUCCESS
-- 498 tests passed
-- 0 tests failed
-- 1146 expect() calls verified
+## 3. Test Suite (run separately)
+674 tests passed, 0 failed, 1412 expect() calls
 
 ## 4. NPM Pack Verification
 Command: `npm pack --dry-run`
-Result: SUCCESS
-- Package: @vacbo/opencode-nia-plugin@0.1.5
-- Includes dist/ directory (122 files)
-- Includes instructions/ directory
-  - instructions/nia-mcp-instructions.md
-  - instructions/nia-tools.md
+Exit code: 0
+Package: @vacbo/opencode-nia-plugin@0.1.5
+Packed size: 79.9 kB
+Unpacked size: 418.4 kB
+Total files: 144
+
+### Package Contents
+- package.json (1.1kB)
+- README.md (6.9kB)
+- dist/ — compiled JS + declaration files (140 files)
+- instructions/nia-mcp-instructions.md (3.4kB)
+- instructions/nia-tools.md (20.8kB)
 
 ## 5. Package.json Fields Verification
-Verified fields:
 - main: "dist/index.js" ✓
 - types: "dist/index.d.ts" ✓
+- exports: { ".": "./dist/index.js" } ✓
 - files: ["dist", "instructions"] ✓
 - opencode.type: "plugin" ✓
 
 ## Summary
-All verification checks PASSED:
-- [x] Build produces dist/index.js
+- [x] Build passes with 0 errors
 - [x] Typecheck passes with 0 errors
-- [x] All tests pass (498/498)
-- [x] npm pack includes dist/ and instructions/
-- [x] package.json fields correct
+- [x] All 674 tests pass
+- [x] npm pack exit code 0
+- [x] dist/ directory included
+- [x] instructions/ directory included
+- [x] README.md auto-included
+- [x] No source maps in package
+
+## Note: Test Files in Package
+Test files (*.test.js, *.test.d.ts) are compiled to dist/ by tsc and included via
+the "dist" glob in the files array. This is a minor packaging hygiene issue — could
+be addressed later via .npmignore or tsconfig.build.json. Not a blocker.

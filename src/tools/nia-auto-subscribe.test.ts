@@ -1,7 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
 import { NiaClient, type FetchFn } from "../api/client";
-import { createAutoSubscribeTool } from "./nia-auto-subscribe";
+import type { NiaConfig } from "../config";
+import { createNiaAutoSubscribeTool } from "./nia-auto-subscribe";
+
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
 import type { ToolContext } from "@opencode-ai/plugin";
 
 function jsonResponse(status: number, body?: unknown): Response {
@@ -62,7 +65,7 @@ describe("nia_auto_subscribe tool", () => {
         return jsonResponse(200, FIXTURE_DRY_RUN_RESPONSE);
       });
 
-      const tool = createAutoSubscribeTool(client);
+      const tool = createNiaAutoSubscribeTool(client, TEST_CONFIG);
       const result = await tool.execute(
         {
           manifest_content: '{"dependencies":{"react":"^18.2.0"}}',
@@ -84,7 +87,7 @@ describe("nia_auto_subscribe tool", () => {
       let askCalled = false;
 
       const client = createClient(() => jsonResponse(200, FIXTURE_DRY_RUN_RESPONSE));
-      const tool = createAutoSubscribeTool(client);
+      const tool = createNiaAutoSubscribeTool(client, TEST_CONFIG);
 
       await tool.execute(
         {
@@ -104,7 +107,7 @@ describe("nia_auto_subscribe tool", () => {
       let askCalled = false;
 
       const client = createClient(() => jsonResponse(200, FIXTURE_SUBSCRIBE_RESPONSE));
-      const tool = createAutoSubscribeTool(client);
+      const tool = createNiaAutoSubscribeTool(client, TEST_CONFIG);
 
       const ctx = createMockContext({
         ask: async () => { askCalled = true; },
@@ -123,6 +126,58 @@ describe("nia_auto_subscribe tool", () => {
       expect(result).toContain("react");
     });
 
+    it("does not subscribe when permission is rejected (throws)", async () => {
+      let postCalled = false;
+
+      const client = createClient(() => {
+        postCalled = true;
+        return jsonResponse(200, FIXTURE_SUBSCRIBE_RESPONSE);
+      });
+
+      const tool = createNiaAutoSubscribeTool(client, TEST_CONFIG);
+
+      const result = await tool.execute(
+        {
+          manifest_content: '{"dependencies":{"react":"^18.2.0"}}',
+          manifest_type: "package.json",
+          dry_run: "false",
+        },
+        createMockContext({
+          ask: async () => {
+            throw new Error("permission denied");
+          },
+        }),
+      );
+
+      expect(result).toBe("error: permission denied");
+      expect(postCalled).toBe(false);
+    });
+
+    it("does not subscribe when permission returns false", async () => {
+      let postCalled = false;
+
+      const client = createClient(() => {
+        postCalled = true;
+        return jsonResponse(200, FIXTURE_SUBSCRIBE_RESPONSE);
+      });
+
+      const tool = createNiaAutoSubscribeTool(client, TEST_CONFIG);
+
+      const result = await tool.execute(
+        {
+          manifest_content: '{"dependencies":{"react":"^18.2.0"}}',
+          manifest_type: "package.json",
+          dry_run: "false",
+        },
+        createMockContext({
+          ask: async () => false as never,
+        }),
+      );
+
+      expect(result).toBe("error: permission denied");
+      expect(postCalled).toBe(false);
+    });
+
     it("sends dry_run=false in request body", async () => {
       let capturedBody = "";
 
@@ -131,7 +186,7 @@ describe("nia_auto_subscribe tool", () => {
         return jsonResponse(200, FIXTURE_SUBSCRIBE_RESPONSE);
       });
 
-      const tool = createAutoSubscribeTool(client);
+      const tool = createNiaAutoSubscribeTool(client, TEST_CONFIG);
 
       await tool.execute(
         {
@@ -149,7 +204,7 @@ describe("nia_auto_subscribe tool", () => {
   describe("validation", () => {
     it("requires manifest_content", async () => {
       const client = createClient(() => jsonResponse(200, {}));
-      const tool = createAutoSubscribeTool(client);
+      const tool = createNiaAutoSubscribeTool(client, TEST_CONFIG);
 
       const result = await tool.execute(
         { manifest_content: "", manifest_type: "package.json" },
@@ -162,7 +217,7 @@ describe("nia_auto_subscribe tool", () => {
 
     it("requires manifest_type", async () => {
       const client = createClient(() => jsonResponse(200, {}));
-      const tool = createAutoSubscribeTool(client);
+      const tool = createNiaAutoSubscribeTool(client, TEST_CONFIG);
 
       const result = await tool.execute(
         { manifest_content: "{}", manifest_type: "" },
@@ -183,7 +238,7 @@ describe("nia_auto_subscribe tool", () => {
         return jsonResponse(200, { dependencies: [], total_new: 0, total_existing: 0 });
       });
 
-      const tool = createAutoSubscribeTool(client);
+      const tool = createNiaAutoSubscribeTool(client, TEST_CONFIG);
       await tool.execute(
         { manifest_content: "requests==2.31.0", manifest_type: "requirements.txt" },
         createMockContext(),
@@ -200,7 +255,7 @@ describe("nia_auto_subscribe tool", () => {
         return jsonResponse(200, { dependencies: [], total_new: 0, total_existing: 0 });
       });
 
-      const tool = createAutoSubscribeTool(client);
+      const tool = createNiaAutoSubscribeTool(client, TEST_CONFIG);
       await tool.execute(
         { manifest_content: '[dependencies]\nserde = "1.0"', manifest_type: "Cargo.toml" },
         createMockContext(),
@@ -217,7 +272,7 @@ describe("nia_auto_subscribe tool", () => {
         return jsonResponse(200, { dependencies: [], total_new: 0, total_existing: 0 });
       });
 
-      const tool = createAutoSubscribeTool(client);
+      const tool = createNiaAutoSubscribeTool(client, TEST_CONFIG);
       await tool.execute(
         { manifest_content: "module example.com/foo", manifest_type: "go.mod" },
         createMockContext(),
@@ -230,7 +285,7 @@ describe("nia_auto_subscribe tool", () => {
   describe("error handling", () => {
     it("returns API error for 422", async () => {
       const client = createClient(() => jsonResponse(422, { message: "invalid manifest" }));
-      const tool = createAutoSubscribeTool(client);
+      const tool = createNiaAutoSubscribeTool(client, TEST_CONFIG);
 
       const result = await tool.execute(
         { manifest_content: "bad", manifest_type: "package.json" },
@@ -242,7 +297,7 @@ describe("nia_auto_subscribe tool", () => {
 
     it("returns API error for 401", async () => {
       const client = createClient(() => jsonResponse(401, { message: "invalid key" }));
-      const tool = createAutoSubscribeTool(client);
+      const tool = createNiaAutoSubscribeTool(client, TEST_CONFIG);
 
       const result = await tool.execute(
         { manifest_content: "{}", manifest_type: "package.json" },

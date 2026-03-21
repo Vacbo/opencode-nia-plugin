@@ -1,7 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
 import { NiaClient, type FetchFn } from "../api/client";
-import { createPackageSearchTool } from "./nia-package-search";
+import type { NiaConfig } from "../config";
+import { createNiaPackageSearchTool } from "./nia-package-search";
+
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
 import type { ToolContext } from "@opencode-ai/plugin";
 import type { PackageSearchResponse } from "../api/types";
 
@@ -68,7 +71,7 @@ describe("nia_package_search tool", () => {
       return jsonResponse(200, FIXTURE_RESPONSE);
     });
 
-    const tool = createPackageSearchTool(client);
+    const tool = createNiaPackageSearchTool(client, TEST_CONFIG);
     const result = await tool.execute(
       {
         registry: "npm",
@@ -91,7 +94,7 @@ describe("nia_package_search tool", () => {
 
   it("requires registry", async () => {
     const client = createClient(() => jsonResponse(200, {}));
-    const tool = createPackageSearchTool(client);
+    const tool = createNiaPackageSearchTool(client, TEST_CONFIG);
 
     const result = await tool.execute(
       { registry: "" as any, package_name: "openai" },
@@ -104,7 +107,7 @@ describe("nia_package_search tool", () => {
 
   it("requires package_name", async () => {
     const client = createClient(() => jsonResponse(200, {}));
-    const tool = createPackageSearchTool(client);
+    const tool = createNiaPackageSearchTool(client, TEST_CONFIG);
 
     const result = await tool.execute(
       { registry: "npm", package_name: "" },
@@ -123,7 +126,7 @@ describe("nia_package_search tool", () => {
       return jsonResponse(200, { results: [], total: 0 });
     });
 
-    const tool = createPackageSearchTool(client);
+    const tool = createNiaPackageSearchTool(client, TEST_CONFIG);
     await tool.execute(
       { registry: "pypi", package_name: "requests" },
       createMockContext(),
@@ -140,7 +143,7 @@ describe("nia_package_search tool", () => {
       return jsonResponse(200, { results: [], total: 0 });
     });
 
-    const tool = createPackageSearchTool(client);
+    const tool = createNiaPackageSearchTool(client, TEST_CONFIG);
     await tool.execute(
       { registry: "crates", package_name: "serde" },
       createMockContext(),
@@ -157,7 +160,7 @@ describe("nia_package_search tool", () => {
       return jsonResponse(200, { results: [], total: 0 });
     });
 
-    const tool = createPackageSearchTool(client);
+    const tool = createNiaPackageSearchTool(client, TEST_CONFIG);
     await tool.execute(
       { registry: "go", package_name: "gin" },
       createMockContext(),
@@ -168,7 +171,7 @@ describe("nia_package_search tool", () => {
 
   it("handles empty results", async () => {
     const client = createClient(() => jsonResponse(200, { results: [], total: 0 }));
-    const tool = createPackageSearchTool(client);
+    const tool = createNiaPackageSearchTool(client, TEST_CONFIG);
 
     const result = await tool.execute(
       { registry: "npm", package_name: "nonexistent-pkg" },
@@ -186,7 +189,7 @@ describe("nia_package_search tool", () => {
       return jsonResponse(200, { results: [], total: 0 });
     });
 
-    const tool = createPackageSearchTool(client);
+    const tool = createNiaPackageSearchTool(client, TEST_CONFIG);
     await tool.execute(
       {
         registry: "npm",
@@ -202,7 +205,7 @@ describe("nia_package_search tool", () => {
 
   it("returns API error strings", async () => {
     const client = createClient(() => jsonResponse(422, { message: "invalid registry" }));
-    const tool = createPackageSearchTool(client);
+    const tool = createNiaPackageSearchTool(client, TEST_CONFIG);
 
     const result = await tool.execute(
       { registry: "npm", package_name: "test" },
@@ -214,7 +217,7 @@ describe("nia_package_search tool", () => {
 
   it("returns 401 error", async () => {
     const client = createClient(() => jsonResponse(401, { message: "bad key" }));
-    const tool = createPackageSearchTool(client);
+    const tool = createNiaPackageSearchTool(client, TEST_CONFIG);
 
     const result = await tool.execute(
       { registry: "npm", package_name: "test" },

@@ -1,10 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { describe, expect, it } from "bun:test";
 
 import type { ToolContext } from "@opencode-ai/plugin";
 
 import { NiaClient, type FetchFn } from "../api/client";
 import type { E2ESession } from "../api/types";
+import type { NiaConfig } from "../config";
 import { createNiaE2ETool } from "./nia-e2e";
+
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
 
 function jsonResponse(status: number, body?: unknown): Response {
   return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -44,29 +47,17 @@ const SESSION_FIXTURE: E2ESession = {
 };
 
 describe("nia_e2e tool", () => {
-  const originalEnv = { ...process.env };
-
-  beforeEach(() => {
-    process.env = { ...originalEnv };
-    delete process.env.NIA_E2E;
-  });
-
-  afterEach(() => {
-    process.env = { ...originalEnv };
-  });
-
   describe("feature flag", () => {
-    it("registers by default when NIA_E2E is unset", () => {
+    it("registers when e2eEnabled is true", () => {
       const client = createClient(() => jsonResponse(200, SESSION_FIXTURE));
 
-      expect(createNiaE2ETool(client)).toBeDefined();
+      expect(createNiaE2ETool(client, TEST_CONFIG)).toBeDefined();
     });
 
-    it("returns undefined when NIA_E2E is disabled", () => {
-      process.env.NIA_E2E = "false";
+    it("returns undefined when e2eEnabled is false", () => {
       const client = createClient(() => jsonResponse(200, SESSION_FIXTURE));
 
-      expect(createNiaE2ETool(client)).toBeUndefined();
+      expect(createNiaE2ETool(client, { ...TEST_CONFIG, e2eEnabled: false })).toBeUndefined();
     });
   });
 
@@ -81,7 +72,7 @@ describe("nia_e2e tool", () => {
         return jsonResponse(201, SESSION_FIXTURE);
       });
 
-      const tool = createNiaE2ETool(client)!;
+      const tool = createNiaE2ETool(client, TEST_CONFIG)!;
       const result = await tool.execute(
         { action: "create_session", local_folder_id: "folder_123" },
         createMockContext(),
@@ -110,7 +101,7 @@ describe("nia_e2e tool", () => {
         });
       });
 
-      const tool = createNiaE2ETool(client)!;
+      const tool = createNiaE2ETool(client, TEST_CONFIG)!;
       await tool.execute(
         {
           action: "create_session",
@@ -132,7 +123,7 @@ describe("nia_e2e tool", () => {
 
     it("returns an error when local_folder_id is missing", async () => {
       const client = createClient(() => jsonResponse(200, {}));
-      const tool = createNiaE2ETool(client)!;
+      const tool = createNiaE2ETool(client, TEST_CONFIG)!;
 
       const result = await tool.execute({ action: "create_session" }, createMockContext());
 
@@ -142,7 +133,7 @@ describe("nia_e2e tool", () => {
 
     it("propagates validation failures", async () => {
       const client = createClient(() => jsonResponse(422, { message: "invalid local_folder_id" }));
-      const tool = createNiaE2ETool(client)!;
+      const tool = createNiaE2ETool(client, TEST_CONFIG)!;
 
       const result = await tool.execute(
         { action: "create_session", local_folder_id: "folder_123" },
@@ -162,7 +153,7 @@ describe("nia_e2e tool", () => {
         return jsonResponse(200, SESSION_FIXTURE);
       });
 
-      const tool = createNiaE2ETool(client)!;
+      const tool = createNiaE2ETool(client, TEST_CONFIG)!;
       const result = await tool.execute(
         { action: "get_session", session_id: "e2e_ses_123" },
         createMockContext(),
@@ -175,7 +166,7 @@ describe("nia_e2e tool", () => {
 
     it("returns an error when session_id is missing", async () => {
       const client = createClient(() => jsonResponse(200, {}));
-      const tool = createNiaE2ETool(client)!;
+      const tool = createNiaE2ETool(client, TEST_CONFIG)!;
 
       const result = await tool.execute({ action: "get_session" }, createMockContext());
 
@@ -185,7 +176,7 @@ describe("nia_e2e tool", () => {
 
     it("propagates not found responses", async () => {
       const client = createClient(() => jsonResponse(404, { message: "missing session" }));
-      const tool = createNiaE2ETool(client)!;
+      const tool = createNiaE2ETool(client, TEST_CONFIG)!;
 
       const result = await tool.execute(
         { action: "get_session", session_id: "missing" },
@@ -208,7 +199,7 @@ describe("nia_e2e tool", () => {
         return jsonResponse(200, { purged: true });
       });
 
-      const tool = createNiaE2ETool(client)!;
+      const tool = createNiaE2ETool(client, TEST_CONFIG)!;
       const result = await tool.execute(
         { action: "purge", source_id: "source_123" },
         createMockContext({
@@ -232,30 +223,45 @@ describe("nia_e2e tool", () => {
         return jsonResponse(200, { purged: true });
       });
 
-      const tool = createNiaE2ETool(client)!;
+      const tool = createNiaE2ETool(client, TEST_CONFIG)!;
 
-      let error: Error | undefined;
+      const result = await tool.execute(
+        { action: "purge", source_id: "source_123" },
+        createMockContext({
+          ask: async () => {
+            throw new Error("permission denied");
+          },
+        }),
+      );
 
-      try {
-        await tool.execute(
-          { action: "purge", source_id: "source_123" },
-          createMockContext({
-            ask: async () => {
-              throw new Error("permission denied");
-            },
-          }),
-        );
-      } catch (caught) {
-        error = caught as Error;
-      }
+      expect(result).toBe("error: permission denied");
+      expect(deleteCalled).toBe(false);
+    });
 
-      expect(error?.message).toBe("permission denied");
+    it("does not call delete when permission returns false", async () => {
+      let deleteCalled = false;
+
+      const client = createClient(() => {
+        deleteCalled = true;
+        return jsonResponse(200, { purged: true });
+      });
+
+      const tool = createNiaE2ETool(client, TEST_CONFIG)!;
+
+      const result = await tool.execute(
+        { action: "purge", source_id: "source_123" },
+        createMockContext({
+          ask: async () => false as never,
+        }),
+      );
+
+      expect(result).toBe("error: permission denied");
       expect(deleteCalled).toBe(false);
     });
 
     it("returns an error when source_id is missing", async () => {
       const client = createClient(() => jsonResponse(200, {}));
-      const tool = createNiaE2ETool(client)!;
+      const tool = createNiaE2ETool(client, TEST_CONFIG)!;
 
       const result = await tool.execute({ action: "purge" }, createMockContext());
 
@@ -265,7 +271,7 @@ describe("nia_e2e tool", () => {
 
     it("propagates API errors on purge", async () => {
       const client = createClient(() => jsonResponse(403, { message: "forbidden purge" }));
-      const tool = createNiaE2ETool(client)!;
+      const tool = createNiaE2ETool(client, TEST_CONFIG)!;
 
       const result = await tool.execute(
         { action: "purge", source_id: "source_123" },
@@ -291,7 +297,7 @@ describe("nia_e2e tool", () => {
         });
       });
 
-      const tool = createNiaE2ETool(client)!;
+      const tool = createNiaE2ETool(client, TEST_CONFIG)!;
       const result = await tool.execute(
         { action: "sync", local_folder_id: "folder_123" },
         createMockContext(),
@@ -305,7 +311,7 @@ describe("nia_e2e tool", () => {
 
     it("returns an error when local_folder_id is missing", async () => {
       const client = createClient(() => jsonResponse(200, {}));
-      const tool = createNiaE2ETool(client)!;
+      const tool = createNiaE2ETool(client, TEST_CONFIG)!;
 
       const result = await tool.execute({ action: "sync" }, createMockContext());
 
@@ -315,7 +321,7 @@ describe("nia_e2e tool", () => {
 
     it("propagates rate limit errors", async () => {
       const client = createClient(() => jsonResponse(429, { message: "slow down" }));
-      const tool = createNiaE2ETool(client)!;
+      const tool = createNiaE2ETool(client, TEST_CONFIG)!;
 
       const result = await tool.execute(
         { action: "sync", local_folder_id: "folder_123" },
@@ -329,7 +335,7 @@ describe("nia_e2e tool", () => {
   describe("invalid action", () => {
     it("returns an error for unknown actions", async () => {
       const client = createClient(() => jsonResponse(200, {}));
-      const tool = createNiaE2ETool(client)!;
+      const tool = createNiaE2ETool(client, TEST_CONFIG)!;
 
       const result = await tool.execute({ action: "unknown" as never }, createMockContext());
 

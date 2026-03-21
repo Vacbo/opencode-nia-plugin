@@ -395,4 +395,189 @@ describe("NiaClient", () => {
     expect(result).toEqual({ ok: true });
     expect(injectedCalls).toBe(1);
   });
+
+  describe("stream", () => {
+    function sseResponse(body: string): Response {
+      return new Response(body, {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      });
+    }
+
+    it("yields SSE events from stream", async () => {
+      const client = new NiaClient({
+        apiKey: "nia-key",
+        fetchFn: createFetchMock([
+          sseResponse("data: hello\ndata: world\n"),
+        ]),
+      });
+
+      const events = [];
+      for await (const event of client.stream("/oracle/jobs/job_123")) {
+        events.push(event);
+      }
+
+      expect(events).toEqual([
+        { type: "content", data: "hello", content: "hello" },
+        { type: "content", data: "world", content: "world" },
+      ]);
+    });
+
+    it("parses event type from event: field", async () => {
+      const client = new NiaClient({
+        apiKey: "nia-key",
+        fetchFn: createFetchMock([
+          sseResponse("event: thinking\ndata: analyzing...\nevent: done\ndata: complete\n"),
+        ]),
+      });
+
+      const events = [];
+      for await (const event of client.stream("/oracle/jobs/job_123")) {
+        events.push(event);
+      }
+
+      expect(events).toEqual([
+        { type: "thinking", data: "analyzing...", content: "analyzing..." },
+        { type: "done", data: "complete", content: "complete" },
+      ]);
+    });
+
+    it("sends Accept: text/event-stream header", async () => {
+      let requestInit: RequestInit | undefined;
+
+      const client = new NiaClient({
+        apiKey: "nia-key",
+        fetchFn: createFetchMock([
+          (_url, init) => {
+            requestInit = init;
+            return sseResponse("");
+          },
+        ]),
+      });
+
+      for await (const _ of client.stream("/oracle/jobs/job_123")) {
+        // consume
+      }
+
+      expect(requestInit?.headers).toMatchObject({
+        Accept: "text/event-stream",
+        Authorization: "Bearer nia-key",
+      });
+    });
+
+    it("includes query params in URL", async () => {
+      let requestUrl = "";
+
+      const client = new NiaClient({
+        apiKey: "nia-key",
+        fetchFn: createFetchMock([
+          (url) => {
+            requestUrl = url;
+            return sseResponse("");
+          },
+        ]),
+      });
+
+      for await (const _ of client.stream("/oracle/jobs", { status: "pending" })) {
+        // consume
+      }
+
+      expect(requestUrl).toContain("status=pending");
+    });
+
+    it("yields error event on non-ok response", async () => {
+      const client = new NiaClient({
+        apiKey: "nia-key",
+        fetchFn: createFetchMock([
+          jsonResponse(500, { error: "server error" }),
+        ]),
+      });
+
+      const events = [];
+      for await (const event of client.stream("/oracle/jobs/job_123")) {
+        events.push(event);
+      }
+
+      expect(events).toHaveLength(1);
+      expect(events[0].type).toBe("error");
+      expect(events[0].error).toContain("500");
+    });
+
+    it("yields error event when response body is null", async () => {
+      const client = new NiaClient({
+        apiKey: "nia-key",
+        fetchFn: createFetchMock([
+          () => new Response(null, { status: 200 }),
+        ]),
+      });
+
+      const events = [];
+      for await (const event of client.stream("/oracle/jobs/job_123")) {
+        events.push(event);
+      }
+
+      expect(events).toHaveLength(1);
+      expect(events[0].type).toBe("error");
+      expect(events[0].error).toContain("null");
+    });
+
+    it("supports abort signal", async () => {
+      const controller = new AbortController();
+
+      const client = new NiaClient({
+        apiKey: "nia-key",
+        fetchFn: createFetchMock([
+          sseResponse("data: start\n"),
+        ]),
+      });
+
+      const events = [];
+      for await (const event of client.stream("/oracle/jobs/job_123", undefined, controller.signal)) {
+        events.push(event);
+        controller.abort();
+      }
+
+      expect(events[0].type).toBe("content");
+      expect(events[1].type).toBe("error");
+      expect(events[1].error).toContain("abort");
+    });
+
+    it("skips empty data lines", async () => {
+      const client = new NiaClient({
+        apiKey: "nia-key",
+        fetchFn: createFetchMock([
+          sseResponse("data: hello\ndata:\ndata: world\n"),
+        ]),
+      });
+
+      const events = [];
+      for await (const event of client.stream("/oracle/jobs/job_123")) {
+        events.push(event);
+      }
+
+      expect(events).toEqual([
+        { type: "content", data: "hello", content: "hello" },
+        { type: "content", data: "world", content: "world" },
+      ]);
+    });
+
+    it("handles trailing data without newline", async () => {
+      const client = new NiaClient({
+        apiKey: "nia-key",
+        fetchFn: createFetchMock([
+          sseResponse("data: hello\ndata: world"),
+        ]),
+      });
+
+      const events = [];
+      for await (const event of client.stream("/oracle/jobs/job_123")) {
+        events.push(event);
+      }
+
+      expect(events).toEqual([
+        { type: "content", data: "hello", content: "hello" },
+        { type: "content", data: "world", content: "world" },
+      ]);
+    });
+  });
 });

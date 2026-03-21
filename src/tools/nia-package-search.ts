@@ -2,6 +2,7 @@ import { tool } from "@opencode-ai/plugin";
 
 import type { NiaClient } from "../api/client.js";
 import type { PackageSearchResponse, PackageSearchResultItem } from "../api/types.js";
+import type { NiaConfig } from "../config.js";
 
 type Registry = "npm" | "pypi" | "crates" | "go";
 
@@ -44,7 +45,7 @@ function formatResponse(data: PackageSearchResponse): string {
   return [`Found ${data.total} result(s):`, "", ...formatted].join("\n");
 }
 
-export function createPackageSearchTool(client: NiaClient) {
+export function createNiaPackageSearchTool(client: NiaClient, config: NiaConfig) {
   return tool({
     description:
       "Search package source code across registries (npm, pypi, crates, go). Find usage examples, API patterns, and implementation details within packages.",

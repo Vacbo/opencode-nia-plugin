@@ -2,7 +2,10 @@ import { describe, expect, it } from "bun:test";
 
 import { NiaClient, type FetchFn } from "../api/client.js";
 import type { ToolContext } from "@opencode-ai/plugin";
+import type { NiaConfig } from "../config.js";
 import { createNiaExploreTool } from "./nia-explore.js";
+
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
 
 function jsonResponse(status: number, body?: unknown): Response {
   return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -57,9 +60,9 @@ describe("nia_explore", () => {
       ]),
     });
 
-    const tool = createNiaExploreTool(client);
+    const tool = createNiaExploreTool(client, TEST_CONFIG);
     const result = await tool.execute(
-      { source_id: "repo-1" },
+      { source_id: "repo-1", source_type: "repository" },
       mockContext(),
     );
 
@@ -100,9 +103,9 @@ describe("nia_explore", () => {
       ]),
     });
 
-    const tool = createNiaExploreTool(client);
+    const tool = createNiaExploreTool(client, TEST_CONFIG);
     const result = await tool.execute(
-      { source_id: "repo-1" },
+      { source_id: "repo-1", source_type: "repository" },
       mockContext(),
     );
 
@@ -129,9 +132,9 @@ describe("nia_explore", () => {
       },
     });
 
-    const tool = createNiaExploreTool(client);
+    const tool = createNiaExploreTool(client, TEST_CONFIG);
     await tool.execute(
-      { source_id: "repo-1", path: "src/components", max_depth: 2 },
+      { source_id: "repo-1", source_type: "repository", path: "src/components", max_depth: 2 },
       mockContext(),
     );
 
@@ -151,9 +154,9 @@ describe("nia_explore", () => {
       ]),
     });
 
-    const tool = createNiaExploreTool(client);
+    const tool = createNiaExploreTool(client, TEST_CONFIG);
     const result = await tool.execute(
-      { source_id: "repo-1" },
+      { source_id: "repo-1", source_type: "repository" },
       mockContext(),
     );
 
@@ -185,7 +188,7 @@ describe("nia_explore", () => {
       },
     });
 
-    const tool = createNiaExploreTool(client);
+    const tool = createNiaExploreTool(client, TEST_CONFIG);
     const result = await tool.execute(
       { source_type: "repository", identifier: "owner/repo" },
       mockContext(),
@@ -209,7 +212,7 @@ describe("nia_explore", () => {
       },
     });
 
-    const tool = createNiaExploreTool(client);
+    const tool = createNiaExploreTool(client, TEST_CONFIG);
     const result = await tool.execute(
       { source_id: "ds-1", source_type: "data_source" },
       mockContext(),
@@ -230,9 +233,9 @@ describe("nia_explore", () => {
       ]),
     });
 
-    const tool = createNiaExploreTool(client);
+    const tool = createNiaExploreTool(client, TEST_CONFIG);
     const result = await tool.execute(
-      { source_id: "repo-1" },
+      { source_id: "repo-1", source_type: "repository" },
       mockContext(),
     );
 

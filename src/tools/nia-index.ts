@@ -1,12 +1,10 @@
 import { tool } from "@opencode-ai/plugin";
 
+import type { NiaClient } from "../api/client.js";
+import type { NiaConfig } from "../config.js";
+import { getSessionState } from "../state/session.js";
+
 export type IndexSourceType = "repository" | "data_source" | "research_paper";
-
-export type IndexClient = {
-  post<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T | string>;
-};
-
-type IndexClientResolver = IndexClient | (() => IndexClient | undefined);
 
 type IndexResponse = {
   id?: string;
@@ -49,12 +47,6 @@ export function detectSourceType(url: string): IndexSourceType {
   }
 
   return "data_source";
-}
-
-function resolveClient(clientOrResolver: IndexClientResolver): IndexClient | undefined {
-  return typeof clientOrResolver === "function"
-    ? (clientOrResolver as () => IndexClient | undefined)()
-    : clientOrResolver;
 }
 
 function normalizeRepositoryUrl(url: string): string {
@@ -105,7 +97,7 @@ function extractSourceId(response: IndexResponse): string | undefined {
   return response.source_id ?? response.id;
 }
 
-export function createNiaIndexTool(clientOrResolver: IndexClientResolver) {
+export function createNiaIndexTool(client: NiaClient, config: NiaConfig) {
   return tool({
     description: "Index a GitHub repository, docs site, or research paper in Nia.",
     args: {
@@ -116,12 +108,6 @@ export function createNiaIndexTool(clientOrResolver: IndexClientResolver) {
       name: tool.schema.string().trim().min(1).optional().describe("Optional display name for the source"),
     },
     async execute(args, context) {
-      const client = resolveClient(clientOrResolver);
-
-      if (!client) {
-        return "unauthorized [401]: NIA_API_KEY is not configured";
-      }
-
       const request = buildRequestBody(args);
       const response = await client.post<IndexResponse>(request.path, request.body, context.abort);
 
@@ -133,6 +119,17 @@ export function createNiaIndexTool(clientOrResolver: IndexClientResolver) {
 
       if (!sourceId) {
         return "invalid_response: missing source_id in Nia API response";
+      }
+
+      if (context.sessionID) {
+        const sessionState = getSessionState(context.sessionID);
+        sessionState.pendingOps.trackOperation({
+          id: sourceId,
+          type: "index",
+          name: args.name ?? args.url,
+          sourceType: request.sourceType,
+          status: "pending",
+        });
       }
 
       return JSON.stringify(

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
 import { NiaClient, type FetchFn } from "../api/client";
-import { createContextTool } from "./nia-context";
+import type { NiaConfig } from "../config";
+import { createNiaContextTool } from "./nia-context";
+
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
 import type { ToolContext } from "@opencode-ai/plugin";
 import type { ContextResponse, ContextListResponse } from "../api/types";
 
@@ -61,7 +64,7 @@ describe("nia_context tool", () => {
         return jsonResponse(201, FIXTURE_CONTEXT);
       });
 
-      const tool = createContextTool(client);
+      const tool = createNiaContextTool(client, TEST_CONFIG);
       const result = await tool.execute(
         {
           action: "save",
@@ -86,7 +89,7 @@ describe("nia_context tool", () => {
 
     it("returns validation error when title is missing", async () => {
       const client = createClient(() => jsonResponse(200, {}));
-      const tool = createContextTool(client);
+      const tool = createNiaContextTool(client, TEST_CONFIG);
 
       const result = await tool.execute(
         { action: "save", title: "", summary: "s", content: "c" },
@@ -99,7 +102,7 @@ describe("nia_context tool", () => {
 
     it("returns validation error when content is missing", async () => {
       const client = createClient(() => jsonResponse(200, {}));
-      const tool = createContextTool(client);
+      const tool = createNiaContextTool(client, TEST_CONFIG);
 
       const result = await tool.execute(
         { action: "save", title: "t", summary: "s", content: "" },
@@ -120,7 +123,7 @@ describe("nia_context tool", () => {
         return jsonResponse(200, FIXTURE_LIST);
       });
 
-      const tool = createContextTool(client);
+      const tool = createNiaContextTool(client, TEST_CONFIG);
       const result = await tool.execute(
         { action: "list", limit: "5", offset: "0" },
         createMockContext(),
@@ -133,7 +136,7 @@ describe("nia_context tool", () => {
 
     it("handles empty list", async () => {
       const client = createClient(() => jsonResponse(200, { contexts: [], total: 0 }));
-      const tool = createContextTool(client);
+      const tool = createNiaContextTool(client, TEST_CONFIG);
 
       const result = await tool.execute({ action: "list" }, createMockContext());
 
@@ -150,7 +153,7 @@ describe("nia_context tool", () => {
         return jsonResponse(200, FIXTURE_CONTEXT);
       });
 
-      const tool = createContextTool(client);
+      const tool = createNiaContextTool(client, TEST_CONFIG);
       const result = await tool.execute(
         { action: "retrieve", id: "ctx-001" },
         createMockContext(),
@@ -163,7 +166,7 @@ describe("nia_context tool", () => {
 
     it("returns error when id is missing", async () => {
       const client = createClient(() => jsonResponse(200, {}));
-      const tool = createContextTool(client);
+      const tool = createNiaContextTool(client, TEST_CONFIG);
 
       const result = await tool.execute(
         { action: "retrieve" },
@@ -176,7 +179,7 @@ describe("nia_context tool", () => {
 
     it("returns API error for 404", async () => {
       const client = createClient(() => jsonResponse(404, { message: "not found" }));
-      const tool = createContextTool(client);
+      const tool = createNiaContextTool(client, TEST_CONFIG);
 
       const result = await tool.execute(
         { action: "retrieve", id: "ctx-missing" },
@@ -196,7 +199,7 @@ describe("nia_context tool", () => {
         return jsonResponse(200, FIXTURE_LIST);
       });
 
-      const tool = createContextTool(client);
+      const tool = createNiaContextTool(client, TEST_CONFIG);
       const result = await tool.execute(
         { action: "search", query: "auth flow", limit: "5", tags: "auth,security" },
         createMockContext(),
@@ -209,7 +212,7 @@ describe("nia_context tool", () => {
 
     it("returns error when query is missing", async () => {
       const client = createClient(() => jsonResponse(200, {}));
-      const tool = createContextTool(client);
+      const tool = createNiaContextTool(client, TEST_CONFIG);
 
       const result = await tool.execute(
         { action: "search" },
@@ -234,7 +237,7 @@ describe("nia_context tool", () => {
         return jsonResponse(200, updated);
       });
 
-      const tool = createContextTool(client);
+      const tool = createNiaContextTool(client, TEST_CONFIG);
       const result = await tool.execute(
         { action: "update", id: "ctx-001", title: "Updated title" },
         createMockContext(),
@@ -247,7 +250,7 @@ describe("nia_context tool", () => {
 
     it("returns error when id is missing", async () => {
       const client = createClient(() => jsonResponse(200, {}));
-      const tool = createContextTool(client);
+      const tool = createNiaContextTool(client, TEST_CONFIG);
 
       const result = await tool.execute(
         { action: "update", title: "x" },
@@ -264,7 +267,7 @@ describe("nia_context tool", () => {
       let askCalled = false;
 
       const client = createClient(() => jsonResponse(200, { deleted: true }));
-      const tool = createContextTool(client);
+      const tool = createNiaContextTool(client, TEST_CONFIG);
 
       const ctx = createMockContext({
         ask: async () => {
@@ -281,9 +284,53 @@ describe("nia_context tool", () => {
       expect(result).toContain("deleted");
     });
 
+    it("does not call delete when permission is rejected (throws)", async () => {
+      let deleteCalled = false;
+
+      const client = createClient(() => {
+        deleteCalled = true;
+        return jsonResponse(200, { deleted: true });
+      });
+
+      const tool = createNiaContextTool(client, TEST_CONFIG);
+
+      const result = await tool.execute(
+        { action: "delete", id: "ctx-001" },
+        createMockContext({
+          ask: async () => {
+            throw new Error("permission denied");
+          },
+        }),
+      );
+
+      expect(result).toBe("error: permission denied");
+      expect(deleteCalled).toBe(false);
+    });
+
+    it("does not call delete when permission returns false", async () => {
+      let deleteCalled = false;
+
+      const client = createClient(() => {
+        deleteCalled = true;
+        return jsonResponse(200, { deleted: true });
+      });
+
+      const tool = createNiaContextTool(client, TEST_CONFIG);
+
+      const result = await tool.execute(
+        { action: "delete", id: "ctx-001" },
+        createMockContext({
+          ask: async () => false as never,
+        }),
+      );
+
+      expect(result).toBe("error: permission denied");
+      expect(deleteCalled).toBe(false);
+    });
+
     it("returns error when id is missing", async () => {
       const client = createClient(() => jsonResponse(200, {}));
-      const tool = createContextTool(client);
+      const tool = createNiaContextTool(client, TEST_CONFIG);
 
       const result = await tool.execute(
         { action: "delete" },
@@ -296,7 +343,7 @@ describe("nia_context tool", () => {
 
     it("propagates API errors on delete", async () => {
       const client = createClient(() => jsonResponse(404, { message: "not found" }));
-      const tool = createContextTool(client);
+      const tool = createNiaContextTool(client, TEST_CONFIG);
 
       const result = await tool.execute(
         { action: "delete", id: "ctx-missing" },
@@ -310,7 +357,7 @@ describe("nia_context tool", () => {
   describe("invalid action", () => {
     it("returns error for unknown action", async () => {
       const client = createClient(() => jsonResponse(200, {}));
-      const tool = createContextTool(client);
+      const tool = createNiaContextTool(client, TEST_CONFIG);
 
       const result = await tool.execute(
         { action: "unknown" as any },
@@ -325,7 +372,7 @@ describe("nia_context tool", () => {
   describe("API error handling", () => {
     it("returns formatted error string from API", async () => {
       const client = createClient(() => jsonResponse(401, { message: "invalid api key" }));
-      const tool = createContextTool(client);
+      const tool = createNiaContextTool(client, TEST_CONFIG);
 
       const result = await tool.execute(
         { action: "list" },

@@ -2,7 +2,10 @@ import { describe, expect, it } from "bun:test";
 
 import { NiaClient, type FetchFn } from "../api/client.js";
 import type { ToolContext } from "@opencode-ai/plugin";
+import type { NiaConfig } from "../config.js";
 import { createNiaGrepTool } from "./nia-grep.js";
+
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
 
 function jsonResponse(status: number, body?: unknown): Response {
   return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -53,9 +56,9 @@ describe("nia_grep", () => {
       ]),
     });
 
-    const tool = createNiaGrepTool(client);
+    const tool = createNiaGrepTool(client, TEST_CONFIG);
     const result = await tool.execute(
-      { source_id: "repo-1", pattern: "foo" },
+      { source_id: "repo-1", source_type: "repository", pattern: "foo" },
       mockContext(),
     );
 
@@ -80,9 +83,9 @@ describe("nia_grep", () => {
       ]),
     });
 
-    const tool = createNiaGrepTool(client);
+    const tool = createNiaGrepTool(client, TEST_CONFIG);
     const result = await tool.execute(
-      { source_id: "repo-1", pattern: "match" },
+      { source_id: "repo-1", source_type: "repository", pattern: "match" },
       mockContext(),
     );
 
@@ -107,10 +110,11 @@ describe("nia_grep", () => {
       },
     });
 
-    const tool = createNiaGrepTool(client);
+    const tool = createNiaGrepTool(client, TEST_CONFIG);
     await tool.execute(
       {
         source_id: "repo-1",
+        source_type: "repository",
         pattern: "hit",
         context_lines: 3,
         case_sensitive: false,
@@ -136,9 +140,9 @@ describe("nia_grep", () => {
       ]),
     });
 
-    const tool = createNiaGrepTool(client);
+    const tool = createNiaGrepTool(client, TEST_CONFIG);
     const result = await tool.execute(
-      { source_id: "repo-1", pattern: "foo" },
+      { source_id: "repo-1", source_type: "repository", pattern: "foo" },
       mockContext(),
     );
 
@@ -154,9 +158,9 @@ describe("nia_grep", () => {
       ]),
     });
 
-    const tool = createNiaGrepTool(client);
+    const tool = createNiaGrepTool(client, TEST_CONFIG);
     const result = await tool.execute(
-      { source_id: "repo-1", pattern: "nonexistent" },
+      { source_id: "repo-1", source_type: "repository", pattern: "nonexistent" },
       mockContext(),
     );
 
@@ -186,7 +190,7 @@ describe("nia_grep", () => {
       },
     });
 
-    const tool = createNiaGrepTool(client);
+    const tool = createNiaGrepTool(client, TEST_CONFIG);
     const result = await tool.execute(
       { source_type: "repository", identifier: "owner/repo", pattern: "found" },
       mockContext(),

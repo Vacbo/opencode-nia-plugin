@@ -10,10 +10,10 @@ describe("OpsTracker", () => {
     const toasts: string[] = [];
 
     const responses = new Map<string, Record<string, unknown>>([
-      ["/v2/repositories/repo-1", { status: "ready" }],
-      ["/v2/data-sources/doc-1", { status: "ready" }],
-      ["/v2/oracle/jobs/oracle-1", { status: "completed" }],
-      ["/v2/github/tracer/tracer-1", { status: "completed" }],
+      ["/repositories/repo-1", { status: "ready" }],
+      ["/data-sources/doc-1", { status: "ready" }],
+      ["/oracle/jobs/oracle-1", { status: "completed" }],
+      ["/github/tracer/tracer-1", { status: "completed" }],
     ]);
 
     const tracker = new OpsTracker({
@@ -45,10 +45,10 @@ describe("OpsTracker", () => {
     const completed = await tracker.checkAndDrain();
 
     expect(requests).toEqual([
-      "/v2/repositories/repo-1",
-      "/v2/data-sources/doc-1",
-      "/v2/oracle/jobs/oracle-1",
-      "/v2/github/tracer/tracer-1",
+      "/repositories/repo-1",
+      "/data-sources/doc-1",
+      "/oracle/jobs/oracle-1",
+      "/github/tracer/tracer-1",
     ]);
     expect(completed.map((op) => op.id)).toEqual(["repo-1", "doc-1", "oracle-1", "tracer-1"]);
     expect(tracker.getAllOperations()).toHaveLength(0);

@@ -104,19 +104,19 @@ export class OpsTracker implements IOpsTracker {
 
   private resolveRoute(operation: PendingOperation): string | { message: string } {
     if (operation.type === "oracle") {
-      return `/v2/oracle/jobs/${operation.id}`;
+      return `/oracle/jobs/${operation.id}`;
     }
 
     if (operation.type === "tracer") {
-      return `/v2/github/tracer/${operation.id}`;
+      return `/github/tracer/${operation.id}`;
     }
 
     if (operation.sourceType === "repository") {
-      return `/v2/repositories/${operation.id}`;
+      return `/repositories/${operation.id}`;
     }
 
     if (operation.sourceType === "data_source") {
-      return `/v2/data-sources/${operation.id}`;
+      return `/data-sources/${operation.id}`;
     }
 
     return { message: "missing or unsupported index source type" };

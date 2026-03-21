@@ -1,18 +1,12 @@
 import { tool } from "@opencode-ai/plugin";
 
-import { NiaClient } from "../api/client.js";
-import { CONFIG, type NiaConfig } from "../config.js";
+import type { NiaClient } from "../api/client.js";
+import type { NiaConfig } from "../config.js";
 
 import type { AdvisorResult } from "../api/types.js";
 
 const ABORT_ERROR = "abort_error [nia_advisor]: request aborted";
 const z = tool.schema;
-
-type AdvisorClient = {
-  post: (path: string, body?: unknown, signal?: AbortSignal) => Promise<unknown>;
-};
-
-type AdvisorConfig = Pick<NiaConfig, "apiKey" | "advisorEnabled" | "apiUrl">;
 
 const niaAdvisorArgsShape = {
   query: z.string().trim().min(1, "query is required"),
@@ -30,12 +24,7 @@ export interface NiaAdvisorArgs {
   output_format?: string;
 }
 
-export interface CreateNiaAdvisorToolOptions {
-  config?: Partial<AdvisorConfig>;
-  client?: AdvisorClient;
-}
-
-export function createNiaAdvisorTool(options: CreateNiaAdvisorToolOptions = {}) {
+export function createNiaAdvisorTool(client: NiaClient, config: NiaConfig) {
   return tool({
     description: "Get Nia advice for a query with markdown recommendations",
     args: niaAdvisorArgsShape,
@@ -46,16 +35,14 @@ export function createNiaAdvisorTool(options: CreateNiaAdvisorToolOptions = {}) 
           return ABORT_ERROR;
         }
 
-        const config = resolveConfig(options.config);
-        const configError = validateConfig(config);
-        if (configError) {
-          return configError;
+        if (!config.advisorEnabled) {
+          return "config_error: nia advisor is disabled";
         }
 
-        const client = options.client ?? new NiaClient({
-          apiKey: config.apiKey!,
-          baseUrl: config.apiUrl,
-        });
+        if (!config.apiKey) {
+          return "config_error: NIA_API_KEY is not set";
+        }
+
         const response = (await client.post("/advisor", buildRequestBody(args), context.abort)) as string | AdvisorResult;
 
         if (typeof response === "string") {
@@ -68,30 +55,6 @@ export function createNiaAdvisorTool(options: CreateNiaAdvisorToolOptions = {}) 
       }
     },
   });
-}
-
-export const niaAdvisorTool = createNiaAdvisorTool();
-
-export default niaAdvisorTool;
-
-function resolveConfig(config?: Partial<AdvisorConfig>): AdvisorConfig {
-  return {
-    apiKey: config?.apiKey ?? CONFIG.apiKey,
-    advisorEnabled: config?.advisorEnabled ?? CONFIG.advisorEnabled,
-    apiUrl: config?.apiUrl ?? CONFIG.apiUrl,
-  };
-}
-
-function validateConfig(config: AdvisorConfig): string | undefined {
-  if (!config.advisorEnabled) {
-    return "config_error: nia advisor is disabled";
-  }
-
-  if (!config.apiKey) {
-    return "config_error: NIA_API_KEY is not set";
-  }
-
-  return undefined;
 }
 
 function buildRequestBody(args: NiaAdvisorArgs): NiaAdvisorArgs {

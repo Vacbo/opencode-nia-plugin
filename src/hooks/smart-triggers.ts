@@ -1,4 +1,5 @@
 import { loadConfig, type NiaConfig } from "../config.js";
+import { TOOL_NAMES, NIA_TOOLS_LIST } from "../utils/constants.js";
 
 const CODE_BLOCK_PATTERN = /```[\s\S]*?```/g;
 const INLINE_CODE_PATTERN = /`[^`]+`/g;
@@ -134,15 +135,15 @@ export function detectResearchKeyword(text: string, config: TriggerConfig = load
 
 export const NIA_NUDGE_MESSAGE = `[NIA KNOWLEDGE TRIGGER]
 The user is asking for research, documentation, or codebase exploration.
-You have access to Nia MCP tools (nia.search, nia.nia_research, nia.index, nia.nia_read, nia.nia_grep, nia.nia_explore, nia.manage_resource).
+You have access to Nia MCP tools (${NIA_TOOLS_LIST}).
 Refer to your Nia instructions for the detailed workflow. Use these tools to provide accurate, up-to-date information.`;
 
 export const NIA_SAVE_NUDGE_MESSAGE = `[NIA CONTEXT SAVE TRIGGER]
 The user wants to save this conversation to continue later or hand off to another agent.
 
-**Use \`nia.context\` to save:**
+**Use \`${TOOL_NAMES.context}\` to save:**
 \`\`\`
-nia.context({
+${TOOL_NAMES.context}({
   action: "save",
   title: "Brief title describing this session",
   summary: "What was accomplished and what's pending",
@@ -166,7 +167,7 @@ export const NIA_URL_NUDGE_MESSAGE = `[NIA URL INDEXING TRIGGER]
 The user referenced a package/repository URL. Consider indexing it for better context.
 
 **Use Nia tools to index:**
-- \`nia.index\` — Index a GitHub repo, npm package, or PyPI project
-- \`nia.nia_research\` — Research the referenced library/package
+- \`${TOOL_NAMES.index}\` — Index a GitHub repo, npm package, or PyPI project
+- \`${TOOL_NAMES.research}\` — Research the referenced library/package
 
 This enables future searches to include this resource's documentation and code.`;

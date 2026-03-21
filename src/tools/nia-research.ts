@@ -1,8 +1,9 @@
 import { tool } from "@opencode-ai/plugin";
 
-import { NiaClient } from "../api/client.js";
+import type { NiaClient } from "../api/client.js";
 import type { DeepSearchResponse, OracleJobResponse, SearchResultItem, WebSearchResponse } from "../api/types.js";
-import { CONFIG, type NiaConfig } from "../config.js";
+import type { NiaConfig } from "../config.js";
+import { jobManager } from "../state/job-manager.js";
 
 const z = tool.schema;
 
@@ -10,13 +11,6 @@ const ABORT_ERROR = "abort_error [nia_research]: request aborted";
 const MAX_NUM_RESULTS = 20;
 const ORACLE_TIMEOUT_MS = 60_000;
 const TERMINAL_STATUSES = new Set(["completed", "error", "failed", "cancelled"]);
-
-type ResearchClient = {
-  post: (path: string, body?: unknown, signal?: AbortSignal, timeout?: number) => Promise<unknown>;
-  get: (path: string, params?: unknown, signal?: AbortSignal, timeout?: number) => Promise<unknown>;
-};
-
-type ResearchConfig = Pick<NiaConfig, "apiKey" | "researchEnabled" | "apiUrl">;
 
 type WebResult = {
   title?: string;
@@ -69,12 +63,7 @@ export interface NiaResearchArgs {
   num_results?: number;
 }
 
-export interface CreateNiaResearchToolOptions {
-  config?: Partial<ResearchConfig>;
-  client?: ResearchClient;
-}
-
-export function createNiaResearchTool(options: CreateNiaResearchToolOptions = {}) {
+export function createNiaResearchTool(client: NiaClient, config: NiaConfig) {
   return tool({
     description: "Run quick, deep, or oracle research with Nia.",
     args: niaResearchArgsShape,
@@ -85,18 +74,13 @@ export function createNiaResearchTool(options: CreateNiaResearchToolOptions = {}
           return ABORT_ERROR;
         }
 
-        const config = resolveConfig(options.config);
-        const configError = validateConfig(config);
-        if (configError) {
-          return configError;
+        if (!config.researchEnabled) {
+          return "config_error: nia research is disabled";
         }
 
-        const client =
-          options.client ??
-          new NiaClient({
-            apiKey: config.apiKey!,
-            baseUrl: config.apiUrl,
-          });
+        if (!config.apiKey) {
+          return "config_error: NIA_API_KEY is not set";
+        }
 
         if (args.job_id) {
           const response = (await client.get(
@@ -154,7 +138,13 @@ export function createNiaResearchTool(options: CreateNiaResearchToolOptions = {}
               return response;
             }
 
-            return formatOracleResponse(response, { query: args.query, submitted: true });
+            const jobId = getOracleJobId(response);
+            if (jobId) {
+              jobManager.submitJob("oracle", jobId, context.sessionID, context.agent);
+              jobManager.consumeSSE(jobId, client);
+            }
+
+            return `Oracle research started. Results will be delivered when complete. Job ID: ${jobId || "unknown"}`;
           }
         }
       } catch (error) {
@@ -162,30 +152,6 @@ export function createNiaResearchTool(options: CreateNiaResearchToolOptions = {}
       }
     },
   });
-}
-
-export const niaResearchTool = createNiaResearchTool();
-
-export default niaResearchTool;
-
-function resolveConfig(config?: Partial<ResearchConfig>): ResearchConfig {
-  return {
-    apiKey: config?.apiKey ?? CONFIG.apiKey,
-    researchEnabled: config?.researchEnabled ?? CONFIG.researchEnabled,
-    apiUrl: config?.apiUrl ?? CONFIG.apiUrl,
-  };
-}
-
-function validateConfig(config: ResearchConfig): string | undefined {
-  if (!config.researchEnabled) {
-    return "config_error: nia research is disabled";
-  }
-
-  if (!config.apiKey) {
-    return "config_error: NIA_API_KEY is not set";
-  }
-
-  return undefined;
 }
 
 function buildQuickBody(args: NiaResearchArgs): Record<string, unknown> {
@@ -319,10 +285,6 @@ function formatOracleResponse(
 
   if (!response.result?.trim() && sources.length === 0 && isTerminalStatus(response.status) && !response.error?.trim()) {
     sections.push("No oracle result returned.");
-  }
-
-  if (options.submitted && jobId && !isTerminalStatus(response.status)) {
-    sections.push(`Re-run this tool with \`job_id\` set to ${inlineCode(jobId)} to check status.`);
   }
 
   return sections.join("\n\n");

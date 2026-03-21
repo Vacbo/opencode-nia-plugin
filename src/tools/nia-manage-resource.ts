@@ -1,6 +1,9 @@
 import type { ToolContext } from "@opencode-ai/plugin";
 import { tool } from "@opencode-ai/plugin";
 
+import type { NiaClient } from "../api/client.js";
+import type { NiaConfig } from "../config.js";
+
 export type NiaManageAction =
   | "list"
   | "status"
@@ -12,15 +15,6 @@ export type NiaManageAction =
   | "category_delete";
 
 export type NiaResourceType = "repository" | "data_source" | "research_paper" | "category";
-
-export type ManageResourceClient = {
-  get<T>(path: string, params?: unknown, signal?: AbortSignal): Promise<T | string>;
-  patch<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T | string>;
-  delete<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T | string>;
-  post<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T | string>;
-};
-
-type ManageClientResolver = ManageResourceClient | (() => ManageResourceClient | undefined);
 
 type AskResult = boolean | void;
 
@@ -43,12 +37,6 @@ const RESOURCE_PATHS: Record<NiaResourceType, string> = {
   research_paper: "/research-papers",
   category: "/categories",
 };
-
-function resolveClient(clientOrResolver: ManageClientResolver): ManageResourceClient | undefined {
-  return typeof clientOrResolver === "function"
-    ? (clientOrResolver as () => ManageResourceClient | undefined)()
-    : clientOrResolver;
-}
 
 function jsonResult(value: unknown): string {
   return JSON.stringify(value, null, 2);
@@ -110,7 +98,7 @@ async function requestDeletePermission(
   }
 }
 
-export function createNiaManageResourceTool(clientOrResolver: ManageClientResolver) {
+export function createNiaManageResourceTool(client: NiaClient, config: NiaConfig) {
   return tool({
     description: "List, inspect, rename, subscribe to, or delete Nia resources and categories.",
     args: {
@@ -125,12 +113,6 @@ export function createNiaManageResourceTool(clientOrResolver: ManageClientResolv
       description: tool.schema.string().trim().min(1).optional().describe("Optional category description"),
     },
     async execute(args, context) {
-      const client = resolveClient(clientOrResolver);
-
-      if (!client) {
-        return "unauthorized [401]: NIA_API_KEY is not configured";
-      }
-
       switch (args.action) {
         case "list": {
           const [repositories, dataSources] = await Promise.all([

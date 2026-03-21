@@ -1,37 +1,37 @@
-import type { Plugin } from "@opencode-ai/plugin";
-import type { Part } from "@opencode-ai/sdk";
+import type { Plugin, PluginInput } from "@opencode-ai/plugin";
+import type { OpencodeClient, Part } from "@opencode-ai/sdk";
 
 import { NiaClient } from "./api/client.js";
-import type { IOpsTracker, PendingOperation } from "./api/types.js";
+
+let opencodeClient: OpencodeClient | undefined;
+
+export function getOpencodeClient(): OpencodeClient | undefined {
+  return opencodeClient;
+}
+
 import { isConfigured, loadConfig, type NiaConfig } from "./config.js";
+import { OpsTracker } from "./state/ops-tracker.js";
 import {
-  createTriggerSession,
   detectTrigger,
   NIA_NUDGE_MESSAGE,
   NIA_SAVE_NUDGE_MESSAGE,
   NIA_URL_NUDGE_MESSAGE,
-  type TriggerSession,
 } from "./hooks/smart-triggers.js";
 import { log } from "./services/logger.js";
+import { getSessionState, removeSessionState, resetSessionStates } from "./state/session.js";
 import { createNiaAdvisorTool } from "./tools/nia-advisor.js";
-import { createAutoSubscribeTool as createNiaAutoSubscribeTool } from "./tools/nia-auto-subscribe.js";
-import { createContextTool as createNiaContextTool } from "./tools/nia-context.js";
+import { createNiaAutoSubscribeTool } from "./tools/nia-auto-subscribe.js";
+import { createNiaContextTool } from "./tools/nia-context.js";
 import { createNiaE2ETool } from "./tools/nia-e2e.js";
 import { createNiaExploreTool } from "./tools/nia-explore.js";
 import { createNiaGrepTool } from "./tools/nia-grep.js";
 import { createNiaIndexTool } from "./tools/nia-index.js";
 import { createNiaManageResourceTool } from "./tools/nia-manage-resource.js";
-import { createPackageSearchTool as createNiaPackageSearchTool } from "./tools/nia-package-search.js";
+import { createNiaPackageSearchTool } from "./tools/nia-package-search.js";
 import { createNiaReadTool } from "./tools/nia-read.js";
 import { createNiaResearchTool } from "./tools/nia-research.js";
 import { createNiaSearchTool } from "./tools/nia-search.js";
 import { createNiaTracerTool } from "./tools/nia-tracer.js";
-
-type PluginSessionState = {
-  triggerSession: TriggerSession;
-  toolExecuteAfterCount: number;
-  systemTransformCount: number;
-};
 
 function createClient(config: NiaConfig): NiaClient {
   return new NiaClient({
@@ -40,71 +40,26 @@ function createClient(config: NiaConfig): NiaClient {
   });
 }
 
-function createSessionStateFactory() {
-  const sessions = new Map<string, PluginSessionState>();
-
-  return (sessionID: string): PluginSessionState => {
-    let state = sessions.get(sessionID);
-
-    if (!state) {
-      state = {
-        triggerSession: createTriggerSession(),
-        toolExecuteAfterCount: 0,
-        systemTransformCount: 0,
-      };
-      sessions.set(sessionID, state);
-    }
-
-    return state;
-  };
-}
-
-function createOpsTracker(): IOpsTracker {
-  const operations = new Map<string, PendingOperation>();
-
-  return {
-    trackOperation(operation) {
-      operations.set(operation.id, operation);
-    },
-    getOperation(id) {
-      return operations.get(id);
-    },
-    getAllOperations() {
-      return [...operations.values()];
-    },
-    removeOperation(id) {
-      operations.delete(id);
-    },
-  };
-}
-
 function createToolRegistry(config: NiaConfig, client: NiaClient) {
-  const resolveClient = () => client;
-  const researchClient = {
-    post: (path: string, body?: unknown, signal?: AbortSignal, timeout?: number) =>
-      client.post(path, body, signal, timeout),
-    get: (path: string, params?: unknown, signal?: AbortSignal, timeout?: number) =>
-      client.get(path, params as never, signal, timeout),
-  };
-
   return {
-    nia_search: createNiaSearchTool({ config, client }),
-    nia_read: createNiaReadTool(client),
-    nia_grep: createNiaGrepTool(client),
-    nia_explore: createNiaExploreTool(client),
-    nia_index: createNiaIndexTool(resolveClient),
-    nia_manage_resource: createNiaManageResourceTool(resolveClient),
-    ...(config.researchEnabled ? { nia_research: createNiaResearchTool({ config, client: researchClient }) } : {}),
-    ...(config.advisorEnabled ? { nia_advisor: createNiaAdvisorTool({ config, client }) } : {}),
-    ...(config.contextEnabled ? { nia_context: createNiaContextTool(client) } : {}),
-    nia_package_search: createNiaPackageSearchTool(client),
-    nia_auto_subscribe: createNiaAutoSubscribeTool(client),
-    ...(config.tracerEnabled ? { nia_tracer: createNiaTracerTool({ config, client }) } : {}),
-    ...(config.e2eEnabled ? { nia_e2e: createNiaE2ETool(client, config.e2eEnabled) } : {}),
+    nia_search: createNiaSearchTool(client, config),
+    nia_read: createNiaReadTool(client, config),
+    nia_grep: createNiaGrepTool(client, config),
+    nia_explore: createNiaExploreTool(client, config),
+    nia_index: createNiaIndexTool(client, config),
+    nia_manage_resource: createNiaManageResourceTool(client, config),
+    ...(config.researchEnabled ? { nia_research: createNiaResearchTool(client, config) } : {}),
+    ...(config.advisorEnabled ? { nia_advisor: createNiaAdvisorTool(client, config) } : {}),
+    ...(config.contextEnabled ? { nia_context: createNiaContextTool(client, config) } : {}),
+    nia_package_search: createNiaPackageSearchTool(client, config),
+    nia_auto_subscribe: createNiaAutoSubscribeTool(client, config),
+    ...(config.tracerEnabled ? { nia_tracer: createNiaTracerTool(client, config) } : {}),
+    ...(config.e2eEnabled ? { nia_e2e: createNiaE2ETool(client, config) } : {}),
   };
 }
 
-export const NiaPlugin: Plugin = async ({ directory }) => {
+export const NiaPlugin: Plugin = async ({ client, directory }: PluginInput) => {
+  opencodeClient = client;
   const config = loadConfig();
   const configured = isConfigured();
 
@@ -115,12 +70,21 @@ export const NiaPlugin: Plugin = async ({ directory }) => {
     return {};
   }
 
-  const client = createClient(config);
-  const getSessionState = createSessionStateFactory();
-  const opsTracker = createOpsTracker();
+  const niaClient = createClient(config);
+  const opsTracker = new OpsTracker({ checkInterval: config.checkInterval });
+  opsTracker.setClient(niaClient);
 
   return {
-    tool: createToolRegistry(config, client),
+    event: async ({ event }) => {
+      if (event.type === "session.deleted") {
+        removeSessionState(event.properties.info.id);
+      }
+
+      if (event.type === "server.instance.disposed") {
+        resetSessionStates();
+      }
+    },
+    tool: createToolRegistry(config, niaClient),
     "tool.execute.after": async (input) => {
       const sessionState = getSessionState(input.sessionID);
       sessionState.toolExecuteAfterCount += 1;

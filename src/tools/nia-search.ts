@@ -1,7 +1,7 @@
 import { tool } from "@opencode-ai/plugin";
 
-import { NiaClient } from "../api/client.js";
-import { CONFIG, type NiaConfig } from "../config.js";
+import type { NiaClient } from "../api/client.js";
+import type { NiaConfig } from "../config.js";
 
 import type {
   DeepSearchResponse,
@@ -12,15 +12,6 @@ import type {
   WebSearchResponse,
 } from "../api/types.js";
 
-const MAX_NUM_RESULTS = 20;
-const TRUNCATED_MARKER = "\n\n[truncated]";
-const ABORT_ERROR = "abort_error [nia_search]: request aborted";
-const z = tool.schema;
-
-type SearchClient = {
-  post: (path: string, body?: unknown, signal?: AbortSignal) => Promise<unknown>;
-};
-type SearchConfig = Pick<NiaConfig, "apiKey" | "searchEnabled" | "apiUrl">;
 type SearchResponse = UniversalSearchResponse | QuerySearchResponse | WebSearchResponse | DeepSearchResponse;
 
 type NormalizedResult = {
@@ -32,6 +23,11 @@ type NormalizedResult = {
   sourceType?: string;
   highlights?: string[];
 };
+
+const MAX_NUM_RESULTS = 20;
+const TRUNCATED_MARKER = "\n\n[truncated]";
+const ABORT_ERROR = "abort_error [nia_search]: request aborted";
+const z = tool.schema;
 
 const niaSearchArgsShape = {
   query: z.string().trim().min(1, "query is required"),
@@ -59,12 +55,7 @@ export interface NiaSearchArgs {
   local_folders?: string[];
 }
 
-export interface CreateNiaSearchToolOptions {
-  config?: Partial<SearchConfig>;
-  client?: SearchClient;
-}
-
-export function createNiaSearchTool(options: CreateNiaSearchToolOptions = {}) {
+export function createNiaSearchTool(client: NiaClient, config: NiaConfig) {
   return tool({
     description: "Search Nia across repos, docs, web, and research",
     args: niaSearchArgsShape,
@@ -75,16 +66,14 @@ export function createNiaSearchTool(options: CreateNiaSearchToolOptions = {}) {
           return ABORT_ERROR;
         }
 
-        const config = resolveConfig(options.config);
-        const configError = validateConfig(config);
-        if (configError) {
-          return configError;
+        if (!config.searchEnabled) {
+          return "config_error: nia search is disabled";
         }
 
-        const client = options.client ?? new NiaClient({
-          apiKey: config.apiKey!,
-          baseUrl: config.apiUrl,
-        });
+        if (!config.apiKey) {
+          return "config_error: NIA_API_KEY is not set";
+        }
+
         const response = (await client.post(
           `/search/${args.search_mode}`,
           buildRequestBody(args),
@@ -101,30 +90,6 @@ export function createNiaSearchTool(options: CreateNiaSearchToolOptions = {}) {
       }
     },
   });
-}
-
-export const niaSearchTool = createNiaSearchTool();
-
-export default niaSearchTool;
-
-function resolveConfig(config?: Partial<SearchConfig>): SearchConfig {
-  return {
-    apiKey: config?.apiKey ?? CONFIG.apiKey,
-    searchEnabled: config?.searchEnabled ?? CONFIG.searchEnabled,
-    apiUrl: config?.apiUrl ?? CONFIG.apiUrl,
-  };
-}
-
-function validateConfig(config: SearchConfig): string | undefined {
-  if (!config.searchEnabled) {
-    return "config_error: nia search is disabled";
-  }
-
-  if (!config.apiKey) {
-    return "config_error: NIA_API_KEY is not set";
-  }
-
-  return undefined;
 }
 
 function buildRequestBody(args: NiaSearchArgs): NiaSearchArgs {

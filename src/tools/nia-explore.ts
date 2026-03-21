@@ -1,6 +1,7 @@
 import { tool } from "@opencode-ai/plugin";
 import type { NiaClient } from "../api/client.js";
 import type { RepositoryTreeNode, RepositoryTreeResponse } from "../api/types.js";
+import type { NiaConfig } from "../config.js";
 import { resolveSource } from "./source-resolver.js";
 
 function formatTree(nodes: RepositoryTreeNode[], indent = ""): string {
@@ -16,7 +17,7 @@ function formatTree(nodes: RepositoryTreeNode[], indent = ""): string {
   return lines.join("\n");
 }
 
-export function createNiaExploreTool(client: NiaClient) {
+export function createNiaExploreTool(client: NiaClient, config: NiaConfig) {
   return tool({
     description:
       "Explore the file tree of a Nia-indexed repository or data source. " +
