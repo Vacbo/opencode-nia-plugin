@@ -92,7 +92,12 @@ export async function transformSystemPrompt(
   return [...additions, ...prompt];
 }
 
-function getInjectedHints(projectContext: Map<string, unknown>): Set<string> {
+interface ProjectContextMap {
+  get(key: string): unknown | undefined;
+  set(key: string, value: unknown): unknown;
+}
+
+function getInjectedHints(projectContext: ProjectContextMap): Set<string> {
   const existing = projectContext.get(INJECTED_HINTS_KEY);
   if (existing instanceof Set) {
     return existing as Set<string>;
@@ -238,7 +243,7 @@ function formatPendingJobsHint(jobs: { jobId: string; type: string }[]): string 
 
 async function getProjectHint(
   context: SystemTransformContext,
-  projectContext: Map<string, unknown>,
+  projectContext: ProjectContextMap,
   readTextFile: (path: string) => Promise<string>,
 ): Promise<string | undefined> {
   const root = context.cwd ?? context.worktree ?? context.directory;

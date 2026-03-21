@@ -109,7 +109,7 @@ export class BoundedMap<K, V> {
 		return value;
 	}
 
-	set(key: K, value: V): void {
+	set(key: K, value: V): this {
 		this.store.delete(key);
 		this.store.set(key, value);
 
@@ -118,6 +118,8 @@ export class BoundedMap<K, V> {
 			if (oldest === undefined) break;
 			this.store.delete(oldest);
 		}
+		
+		return this;
 	}
 
 	has(key: K): boolean {
@@ -134,5 +136,27 @@ export class BoundedMap<K, V> {
 
 	entries(): IterableIterator<[K, V]> {
 		return this.store.entries();
+	}
+
+	keys(): IterableIterator<K> {
+		return this.store.keys();
+	}
+
+	values(): IterableIterator<V> {
+		return this.store.values();
+	}
+
+	forEach(callbackfn: (value: V, key: K, map: BoundedMap<K, V>) => void, thisArg?: unknown): void {
+		this.store.forEach((value, key) => {
+			callbackfn.call(thisArg, value, key, this);
+		});
+	}
+
+	*[Symbol.iterator](): IterableIterator<[K, V]> {
+		yield* this.store.entries();
+	}
+
+	get [Symbol.toStringTag](): string {
+		return "BoundedMap";
 	}
 }

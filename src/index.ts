@@ -41,6 +41,8 @@ function createClient(config: NiaConfig): NiaClient {
 }
 
 function createToolRegistry(config: NiaConfig, client: NiaClient) {
+  const e2eTool = config.e2eEnabled ? createNiaE2ETool(client, config) : null;
+  
   return {
     nia_search: createNiaSearchTool(client, config),
     nia_read: createNiaReadTool(client, config),
@@ -54,7 +56,7 @@ function createToolRegistry(config: NiaConfig, client: NiaClient) {
     nia_package_search: createNiaPackageSearchTool(client, config),
     nia_auto_subscribe: createNiaAutoSubscribeTool(client, config),
     ...(config.tracerEnabled ? { nia_tracer: createNiaTracerTool(client, config) } : {}),
-    ...(config.e2eEnabled ? { nia_e2e: createNiaE2ETool(client, config) } : {}),
+    ...(e2eTool ? { nia_e2e: e2eTool } : {}),
   };
 }
 
