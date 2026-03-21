@@ -1277,7 +1277,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Files: `src/cli.ts`, `package.json`, `bun.lock`, CLI test file
   - Pre-commit: `bun run typecheck && bun test`
 
-- [ ] 24. Add integration tests: nia-read, nia-grep, nia-explore
+- [x] 24. Add integration tests: nia-read, nia-grep, nia-explore
 
   **What to do**:
   - Add live API tests to `tests/integration/real-api.test.ts` for nia-read, nia-grep, nia-explore
@@ -1323,7 +1323,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Files: `tests/integration/real-api.test.ts`
   - Pre-commit: `bun test tests/integration/ --timeout 120000`
 
-- [ ] 25. Add integration tests: nia-context, nia-package-search
+- [x] 25. Add integration tests: nia-context, nia-package-search
 
   **What to do**: Same pattern as Task 24 for nia-context and nia-package-search. 2 tests each (1 happy + 1 error).
 
@@ -1355,7 +1355,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Files: `tests/integration/real-api.test.ts`
   - Pre-commit: `bun test tests/integration/ --timeout 120000`
 
-- [ ] 26. Add integration tests: nia-auto-subscribe, nia-tracer
+- [x] 26. Add integration tests: nia-auto-subscribe, nia-tracer
 
   **What to do**: Same pattern as Task 24 for nia-auto-subscribe and nia-tracer. 2 tests each.
 
@@ -1387,7 +1387,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Files: `tests/integration/real-api.test.ts`
   - Pre-commit: `bun test tests/integration/ --timeout 120000`
 
-- [ ] 27. Add integration tests: nia-e2e
+- [x] 27. Add integration tests: nia-e2e
 
   **What to do**: Same pattern as Task 24 for nia-e2e. 2 tests (1 happy + 1 error). E2E involves encrypted sessions so test may need to be adapted to the available API surface.
 
