@@ -15,6 +15,8 @@
 		"build": "tsc -p tsconfig.json",
 		"dev": "tsc --watch",
 		"test": "bun test",
+		"test:unit": "bun test src/",
+		"test:integration": "bun test tests/integration/",
 		"typecheck": "tsc --noEmit -p tsconfig.json"
 	},
 	"keywords": [

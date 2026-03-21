@@ -17,6 +17,7 @@ import {
 } from "./cli/constants.js";
 import { confirm, createReadline, prompt } from "./cli/prompt.js";
 import { installSkill, removeSkill } from "./cli/skill.js";
+import { getVersion } from "./cli/version.js";
 
 interface InstallOptions {
 	tui: boolean;
@@ -275,7 +276,7 @@ export function createProgram(): Command {
 	program
 		.name("nia-opencode")
 		.description("Nia Knowledge Agent for OpenCode")
-		.version("0.1.5");
+		.version(getVersion());
 
 	program
 		.command("install")

@@ -1,5 +1,16 @@
 import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { SKILLS_MIN_VERSION } from "./constants.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+export function getVersion(): string {
+  const packageJsonPath = join(__dirname, "../../package.json");
+  const pkg = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
+  return pkg.version;
+}
 
 export function compareVersions(a: string, b: string): number {
   const pa = a.split(".").map(Number);
