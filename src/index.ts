@@ -1,13 +1,8 @@
 import type { Plugin, PluginInput } from "@opencode-ai/plugin";
-import type { OpencodeClient, Part } from "@opencode-ai/sdk";
+import type { Part } from "@opencode-ai/sdk";
 
 import { NiaClient } from "./api/client.js";
-
-let opencodeClient: OpencodeClient | undefined;
-
-export function getOpencodeClient(): OpencodeClient | undefined {
-  return opencodeClient;
-}
+import { setOpencodeClient } from "./opencode-client.js";
 
 import { isConfigured, loadConfig, type NiaConfig } from "./config.js";
 import { OpsTracker } from "./state/ops-tracker.js";
@@ -61,7 +56,7 @@ function createToolRegistry(config: NiaConfig, client: NiaClient) {
 }
 
 export const NiaPlugin: Plugin = async ({ client, directory }: PluginInput) => {
-  opencodeClient = client;
+  setOpencodeClient(client);
   const config = loadConfig();
   const configured = isConfigured();
 
@@ -148,7 +143,7 @@ export const NiaPlugin: Plugin = async ({ client, directory }: PluginInput) => {
         log(`chat.message: ${type} trigger detected`, { match });
 
         output.parts.push({
-          id: `nia-${type}-nudge-${Date.now()}`,
+          id: `prt_nia_${type}_nudge_${Date.now()}`,
           sessionID: input.sessionID,
           messageID: output.message.id,
           type: "text",

@@ -1,6 +1,6 @@
 import type { NiaClient } from "../api/client.js";
 import type { SSEEvent } from "../api/types.js";
-import { getOpencodeClient } from "../index.js";
+import { getOpencodeClient } from "../opencode-client.js";
 
 export type JobType = "oracle" | "tracer";
 
