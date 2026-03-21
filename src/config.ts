@@ -17,6 +17,9 @@ export interface NiaConfig {
 		enabled: boolean;
 		customPatterns: string[];
 	};
+	mcpServerName: string;
+	mcpMaxRetries: number;
+	mcpReconnectBaseDelay: number;
 }
 
 export interface ValidationWarning {
@@ -51,6 +54,9 @@ const DEFAULTS: NiaConfig = {
 		enabled: true,
 		customPatterns: [],
 	},
+	mcpServerName: "nia",
+	mcpMaxRetries: 5,
+	mcpReconnectBaseDelay: 100,
 };
 
 function parseBoolean(
@@ -66,7 +72,7 @@ function parseBoolean(
 function parseNumber(value: string | undefined, defaultValue: number): number {
 	if (value === undefined) return defaultValue;
 	const parsed = parseInt(value, 10);
-	return isNaN(parsed) ? defaultValue : parsed;
+	return Number.isNaN(parsed) ? defaultValue : parsed;
 }
 
 export function validateConfig(config: NiaConfig): ValidationResult {
@@ -98,6 +104,20 @@ export function validateConfig(config: NiaConfig): ValidationResult {
 		MAX_CACHE_TTL_SECONDS,
 		warnings,
 	);
+	validatePositiveBounded(config.mcpMaxRetries, "mcpMaxRetries", 20, warnings);
+
+	// mcpReconnectBaseDelay is in milliseconds
+	if (!Number.isInteger(config.mcpReconnectBaseDelay) || config.mcpReconnectBaseDelay <= 0) {
+		warnings.push({
+			field: "mcpReconnectBaseDelay",
+			message: "mcpReconnectBaseDelay must be a positive integer",
+		});
+	} else if (config.mcpReconnectBaseDelay > 60000) {
+		warnings.push({
+			field: "mcpReconnectBaseDelay",
+			message: "mcpReconnectBaseDelay exceeds maximum of 60000 ms",
+		});
+	}
 
 	return { valid: warnings.length === 0, warnings };
 }
@@ -203,6 +223,15 @@ export function loadConfig(): NiaConfig {
 						.filter(Boolean)
 				: DEFAULTS.keywords.customPatterns,
 		},
+		mcpServerName: process.env.NIA_MCP_SERVER_NAME ?? DEFAULTS.mcpServerName,
+		mcpMaxRetries: parseNumber(
+			process.env.NIA_MCP_MAX_RETRIES,
+			DEFAULTS.mcpMaxRetries,
+		),
+		mcpReconnectBaseDelay: parseNumber(
+			process.env.NIA_MCP_RECONNECT_DELAY,
+			DEFAULTS.mcpReconnectBaseDelay,
+		),
 	};
 
 	if (!configValidated) {

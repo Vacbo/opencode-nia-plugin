@@ -17,7 +17,7 @@ function formatTree(nodes: RepositoryTreeNode[], indent = ""): string {
 		const size = node.size !== undefined ? ` (${node.size}B)` : "";
 		lines.push(`${indent}${icon} ${node.path}${size}`);
 		if (node.children?.length) {
-			lines.push(formatTree(node.children, indent + "  "));
+			lines.push(formatTree(node.children, `${indent}  `));
 		}
 	}
 	return lines.join("\n");

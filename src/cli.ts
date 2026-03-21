@@ -83,7 +83,7 @@ async function install(options: InstallOptions): Promise<number> {
 	cleanupAgentsMd();
 
 	// ── Summary ───────────────────────────────────────────────────────────
-	console.log("\n" + "-".repeat(50));
+	console.log(`\n${"-".repeat(50)}`);
 	console.log("\n Setup Complete!\n");
 
 	if (!apiKey) {
@@ -150,7 +150,7 @@ async function uninstall(options: { tui: boolean }): Promise<number> {
 	console.log("\nStep 4: Remove Nia Config Files");
 	removeNiaConfig();
 
-	console.log("\n" + "-".repeat(50));
+	console.log(`\n${"-".repeat(50)}`);
 	console.log("\n Nia has been uninstalled.\n");
 	console.log("Restart OpenCode for changes to take effect.\n");
 

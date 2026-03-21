@@ -23,7 +23,7 @@ export type NiaResourceType =
 	| "research_paper"
 	| "category";
 
-type AskResult = boolean | void;
+type AskResult = boolean | undefined;
 
 const ACTION_SCHEMA = tool.schema.enum([
 	"list",

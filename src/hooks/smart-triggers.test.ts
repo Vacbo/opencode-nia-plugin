@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach } from "bun:test";
 import {
   detectTrigger,
   createTriggerSession,
-  type TriggerType,
   type TriggerSession,
   NIA_NUDGE_MESSAGE,
   NIA_SAVE_NUDGE_MESSAGE,
@@ -33,7 +32,7 @@ describe("RESEARCH_PATTERNS (7 original)", () => {
     ["find usage for useState", "find usage for"],
   ];
 
-  for (const [input, expectedMatch] of cases) {
+  for (const [input, _expectedMatch] of cases) {
     it(`detects research: "${input}"`, () => {
       const result = detectTrigger(input);
       expect(result.type).toBe("research");

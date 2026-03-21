@@ -5,11 +5,11 @@ import type { NiaClient } from "../api/client";
 import type { NiaConfig } from "../config";
 import { createNiaTracerTool, niaTracerArgsSchema } from "./nia-tracer";
 
-const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] }, mcpServerName: "nia", mcpMaxRetries: 5, mcpReconnectBaseDelay: 100 } as NiaConfig;
 
 function createContext(signal?: AbortSignal): ToolContext {
-  const controller = signal ? undefined : new AbortController();
-  return { sessionID: "session-1", messageID: "message-1", agent: "test", directory: "/tmp/project", worktree: "/tmp/project", abort: signal ?? controller!.signal, metadata() {}, ask: async () => {} };
+  const controller = new AbortController();
+  return { sessionID: "session-1", messageID: "message-1", agent: "test", directory: "/tmp/project", worktree: "/tmp/project", abort: signal ?? controller.signal, metadata() {}, ask: async () => {} };
 }
 
 describe("nia_tracer tool", () => {
@@ -53,7 +53,7 @@ describe("nia_tracer tool", () => {
   });
 
   it("checks an existing tracer job once and reports when it is still running", async () => {
-    let capturedTimeouts: number[] = [];
+    const capturedTimeouts: number[] = [];
     let calls = 0;
     const client = {
       post: async () => { throw new Error("should not create a new job when job_id is provided"); },

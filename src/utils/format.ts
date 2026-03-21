@@ -2,6 +2,58 @@ const ABORT_ERROR = "aborted";
 const TRUNCATED_MARKER = "\n\n[truncated]";
 const DEFAULT_TOOL_NAME = "unknown";
 
+export function classifyApiError(
+	errorString: string,
+): { category: string; actionableMessage: string } | null {
+	if (errorString.includes("forbidden") && errorString.includes("403")) {
+		if (/plan required|credits?|quota|limit exceeded/i.test(errorString)) {
+			return {
+				category: "credits_exhausted",
+				actionableMessage:
+					"⚠️ Your Nia credits may be exhausted or your plan doesn't include this feature. Check your usage at https://app.trynia.ai",
+			};
+		}
+	}
+
+	if (
+		errorString.includes("rate_limited") ||
+		errorString.includes("429")
+	) {
+		return {
+			category: "rate_limited",
+			actionableMessage:
+				"Nia API rate limit hit. The request will be retried automatically.",
+		};
+	}
+
+	if (
+		errorString.includes("unauthorized") ||
+		errorString.includes("401")
+	) {
+		return {
+			category: "auth_error",
+			actionableMessage:
+				"Nia API key is invalid or expired. Update your key at ~/.config/nia/api_key",
+		};
+	}
+
+	if (
+		errorString.includes("network_error") ||
+		errorString.includes("ECONNREFUSED") ||
+		errorString.includes("timeout_error") ||
+		errorString.includes("ECONNRESET") ||
+		errorString.includes("ETIMEDOUT")
+	) {
+		return {
+			category: "network_error",
+			actionableMessage:
+				"Unable to reach Nia API. Check your network connection.",
+		};
+	}
+
+	return null;
+}
+
 export function formatUnexpectedError(
 	error: unknown,
 	wasAborted: boolean,
@@ -17,11 +69,17 @@ export function formatUnexpectedError(
 		return `validation_error: ${error.issues.map((issue) => issue.message).join("; ")}`;
 	}
 
-	if (error instanceof Error) {
-		return `${tool}_error: ${error.message}`;
+	const baseMessage =
+		error instanceof Error
+			? `${tool}_error: ${error.message}`
+			: `${tool}_error: ${String(error)}`;
+
+	const classified = classifyApiError(baseMessage);
+	if (classified) {
+		return `${baseMessage}\n\n${classified.actionableMessage}`;
 	}
 
-	return `${tool}_error: ${String(error)}`;
+	return baseMessage;
 }
 
 export function createToolErrorFormatter(

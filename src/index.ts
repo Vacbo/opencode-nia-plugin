@@ -3,6 +3,7 @@ import type { Part } from "@opencode-ai/sdk";
 
 import { NiaClient } from "./api/client.js";
 import { setOpencodeClient } from "./opencode-client.js";
+import { ConnectionGuardian } from "./services/connection-guardian.js";
 
 import { isConfigured, loadConfig, type NiaConfig } from "./config.js";
 import { OpsTracker } from "./state/ops-tracker.js";
@@ -29,10 +30,14 @@ import { createNiaSearchTool } from "./tools/nia-search.js";
 import { createNiaTracerTool } from "./tools/nia-tracer.js";
 
 function createClient(config: NiaConfig): NiaClient {
-  return new NiaClient({
-    apiKey: config.apiKey!,
-    baseUrl: config.apiUrl,
-  });
+	const apiKey = config.apiKey;
+	if (!apiKey) {
+		throw new Error("NIA_API_KEY is required but not set");
+	}
+	return new NiaClient({
+		apiKey,
+		baseUrl: config.apiUrl,
+	});
 }
 
 function createToolRegistry(config: NiaConfig, client: NiaClient) {
@@ -70,6 +75,19 @@ export const NiaPlugin: Plugin = async ({ client, directory }: PluginInput) => {
   const niaClient = createClient(config);
   const opsTracker = new OpsTracker({ checkInterval: config.checkInterval });
   opsTracker.setClient(niaClient);
+  const guardian = new ConnectionGuardian({
+    config,
+    client: {
+      async status() {
+        const result = await client.mcp.status();
+        return result.data ?? {};
+      },
+      async connect(opts: { name: string }) {
+        const result = await client.mcp.connect({ path: { name: opts.name } });
+        return { data: result.data ?? false };
+      },
+    },
+  });
 
   return {
     event: async ({ event }) => {
@@ -80,12 +98,16 @@ export const NiaPlugin: Plugin = async ({ client, directory }: PluginInput) => {
       if (event.type === "server.instance.disposed") {
         resetSessionStates();
       }
+
+      guardian.handleEvent(event);
     },
     tool: createToolRegistry(config, niaClient),
-    "tool.execute.after": async (input) => {
+    "tool.execute.after": async (input, output) => {
       const sessionState = getSessionState(input.sessionID);
       sessionState.toolExecuteAfterCount += 1;
       void opsTracker.getAllOperations();
+
+      guardian.handleToolExecuteAfter(input, output);
     },
     "experimental.chat.system.transform": async (input) => {
       const sessionState = getSessionState(input.sessionID ?? "__system__");

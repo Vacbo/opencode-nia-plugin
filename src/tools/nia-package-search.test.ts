@@ -4,23 +4,7 @@ import { type FetchFn, NiaClient } from "../api/client";
 import type { NiaConfig } from "../config";
 import { createNiaPackageSearchTool } from "./nia-package-search";
 
-const TEST_CONFIG = {
-	apiKey: "nk_test",
-	searchEnabled: true,
-	researchEnabled: true,
-	tracerEnabled: true,
-	advisorEnabled: true,
-	contextEnabled: true,
-	e2eEnabled: true,
-	cacheTTL: 300,
-	maxPendingOps: 5,
-	checkInterval: 15,
-	tracerTimeout: 120,
-	debug: false,
-	triggersEnabled: true,
-	apiUrl: "https://apigcp.trynia.ai/v2",
-	keywords: { enabled: true, customPatterns: [] },
-} as NiaConfig;
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] }, mcpServerName: "nia", mcpMaxRetries: 5, mcpReconnectBaseDelay: 100 } as NiaConfig;
 
 import type { ToolContext } from "@opencode-ai/plugin";
 import type { PackageSearchResponse } from "../api/types";
@@ -122,7 +106,7 @@ describe("nia_package_search tool", () => {
 		const tool = createNiaPackageSearchTool(client, TEST_CONFIG);
 
 		const result = await tool.execute(
-			{ registry: "" as any, package_name: "openai" },
+			{ registry: "" as unknown as "npm", package_name: "openai" },
 			createMockContext(),
 		);
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
+	classifyApiError,
 	createToolErrorFormatter,
 	formatUnexpectedError,
 	inlineCode,
@@ -164,6 +165,83 @@ describe("stringOrFallback", () => {
 
 	it("returns empty string when all values are falsy", () => {
 		expect(stringOrFallback(undefined, "", "   ")).toBe("");
+	});
+});
+
+describe("classifyApiError", () => {
+	it("detects credit/plan exhaustion from forbidden 403 with plan required", () => {
+		const result = classifyApiError("forbidden [403]: plan required");
+		expect(result).not.toBeNull();
+		expect(result?.category).toBe("credits_exhausted");
+		expect(result?.actionableMessage).toContain("credits may be exhausted");
+	});
+
+	it("detects credit exhaustion with quota pattern", () => {
+		const result = classifyApiError("forbidden [403]: quota exceeded for user");
+		expect(result).not.toBeNull();
+		expect(result?.category).toBe("credits_exhausted");
+	});
+
+	it("detects rate limiting from rate_limited 429", () => {
+		const result = classifyApiError("rate_limited [429]: slow down");
+		expect(result).not.toBeNull();
+		expect(result?.category).toBe("rate_limited");
+		expect(result?.actionableMessage).toContain("rate limit");
+	});
+
+	it("detects auth error from unauthorized 401", () => {
+		const result = classifyApiError("unauthorized [401]: bad key");
+		expect(result).not.toBeNull();
+		expect(result?.category).toBe("auth_error");
+		expect(result?.actionableMessage).toContain("invalid or expired");
+	});
+
+	it("detects network error", () => {
+		const result = classifyApiError("network_error: fetch failed");
+		expect(result).not.toBeNull();
+		expect(result?.category).toBe("network_error");
+		expect(result?.actionableMessage).toContain("network connection");
+	});
+
+	it("detects ECONNREFUSED network error", () => {
+		const result = classifyApiError("ECONNREFUSED: connection refused");
+		expect(result).not.toBeNull();
+		expect(result?.category).toBe("network_error");
+	});
+
+	it("returns null for unrecognized errors", () => {
+		expect(classifyApiError("not_found [404]: resource missing")).toBeNull();
+	});
+
+	it("returns null for forbidden without credit patterns", () => {
+		expect(classifyApiError("forbidden [403]: access denied")).toBeNull();
+	});
+});
+
+describe("formatUnexpectedError with actionable messages", () => {
+	it("appends actionable message for credit exhaustion errors", () => {
+		const error = new Error("forbidden [403]: plan required");
+		const result = formatUnexpectedError(error, false, "search");
+		expect(result).toContain("search_error: forbidden [403]: plan required");
+		expect(result).toContain("credits may be exhausted");
+	});
+
+	it("appends actionable message for rate limiting errors", () => {
+		const error = new Error("rate_limited [429]: too many requests");
+		const result = formatUnexpectedError(error, false, "tracer");
+		expect(result).toContain("tracer_error:");
+		expect(result).toContain("rate limit");
+	});
+
+	it("does not append actionable message for unrecognized errors", () => {
+		const error = new Error("Something went wrong");
+		const result = formatUnexpectedError(error, false, "search");
+		expect(result).toBe("search_error: Something went wrong");
+	});
+
+	it("does not append actionable message for abort errors", () => {
+		const result = formatUnexpectedError(new Error("test"), true);
+		expect(result).toBe("aborted");
 	});
 });
 

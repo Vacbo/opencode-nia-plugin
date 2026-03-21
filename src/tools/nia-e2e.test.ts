@@ -23,6 +23,9 @@ const TEST_CONFIG = {
 	triggersEnabled: true,
 	apiUrl: "https://apigcp.trynia.ai/v2",
 	keywords: { enabled: true, customPatterns: [] },
+	mcpServerName: "nia",
+	mcpMaxRetries: 5,
+	mcpReconnectBaseDelay: 100,
 } as NiaConfig;
 
 function jsonResponse(status: number, body?: unknown): Response {
@@ -46,6 +49,14 @@ function createClient(
 		apiKey: "nk_test",
 		fetchFn: createFetchMock(handler),
 	});
+}
+
+function createNiaE2EToolOrThrow(client: NiaClient, config: NiaConfig) {
+	const tool = createNiaE2ETool(client, config);
+	if (!tool) {
+		throw new Error("E2E tool is null - e2eEnabled must be true in config");
+	}
+	return tool;
 }
 
 function createMockContext(overrides?: Partial<ToolContext>): ToolContext {
@@ -98,7 +109,7 @@ describe("nia_e2e tool", () => {
 				return jsonResponse(201, SESSION_FIXTURE);
 			});
 
-			const tool = createNiaE2ETool(client, TEST_CONFIG)!;
+			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 			const result = await tool.execute(
 				{ action: "create_session", local_folder_id: "folder_123" },
 				createMockContext(),
@@ -127,7 +138,7 @@ describe("nia_e2e tool", () => {
 				});
 			});
 
-			const tool = createNiaE2ETool(client, TEST_CONFIG)!;
+			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 			await tool.execute(
 				{
 					action: "create_session",
@@ -149,7 +160,7 @@ describe("nia_e2e tool", () => {
 
 		it("returns an error when local_folder_id is missing", async () => {
 			const client = createClient(() => jsonResponse(200, {}));
-			const tool = createNiaE2ETool(client, TEST_CONFIG)!;
+			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
 			const result = await tool.execute(
 				{ action: "create_session" },
@@ -164,7 +175,7 @@ describe("nia_e2e tool", () => {
 			const client = createClient(() =>
 				jsonResponse(422, { message: "invalid local_folder_id" }),
 			);
-			const tool = createNiaE2ETool(client, TEST_CONFIG)!;
+			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
 			const result = await tool.execute(
 				{ action: "create_session", local_folder_id: "folder_123" },
@@ -184,7 +195,7 @@ describe("nia_e2e tool", () => {
 				return jsonResponse(200, SESSION_FIXTURE);
 			});
 
-			const tool = createNiaE2ETool(client, TEST_CONFIG)!;
+			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 			const result = await tool.execute(
 				{ action: "get_session", session_id: "e2e_ses_123" },
 				createMockContext(),
@@ -197,7 +208,7 @@ describe("nia_e2e tool", () => {
 
 		it("returns an error when session_id is missing", async () => {
 			const client = createClient(() => jsonResponse(200, {}));
-			const tool = createNiaE2ETool(client, TEST_CONFIG)!;
+			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
 			const result = await tool.execute(
 				{ action: "get_session" },
@@ -212,7 +223,7 @@ describe("nia_e2e tool", () => {
 			const client = createClient(() =>
 				jsonResponse(404, { message: "missing session" }),
 			);
-			const tool = createNiaE2ETool(client, TEST_CONFIG)!;
+			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
 			const result = await tool.execute(
 				{ action: "get_session", session_id: "missing" },
@@ -235,7 +246,7 @@ describe("nia_e2e tool", () => {
 				return jsonResponse(200, { purged: true });
 			});
 
-			const tool = createNiaE2ETool(client, TEST_CONFIG)!;
+			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 			const result = await tool.execute(
 				{ action: "purge", source_id: "source_123" },
 				createMockContext({
@@ -259,7 +270,7 @@ describe("nia_e2e tool", () => {
 				return jsonResponse(200, { purged: true });
 			});
 
-			const tool = createNiaE2ETool(client, TEST_CONFIG)!;
+			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
 			const result = await tool.execute(
 				{ action: "purge", source_id: "source_123" },
@@ -282,7 +293,7 @@ describe("nia_e2e tool", () => {
 				return jsonResponse(200, { purged: true });
 			});
 
-			const tool = createNiaE2ETool(client, TEST_CONFIG)!;
+			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
 			const result = await tool.execute(
 				{ action: "purge", source_id: "source_123" },
@@ -297,7 +308,7 @@ describe("nia_e2e tool", () => {
 
 		it("returns an error when source_id is missing", async () => {
 			const client = createClient(() => jsonResponse(200, {}));
-			const tool = createNiaE2ETool(client, TEST_CONFIG)!;
+			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
 			const result = await tool.execute(
 				{ action: "purge" },
@@ -312,7 +323,7 @@ describe("nia_e2e tool", () => {
 			const client = createClient(() =>
 				jsonResponse(403, { message: "forbidden purge" }),
 			);
-			const tool = createNiaE2ETool(client, TEST_CONFIG)!;
+			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
 			const result = await tool.execute(
 				{ action: "purge", source_id: "source_123" },
@@ -338,7 +349,7 @@ describe("nia_e2e tool", () => {
 				});
 			});
 
-			const tool = createNiaE2ETool(client, TEST_CONFIG)!;
+			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 			const result = await tool.execute(
 				{ action: "sync", local_folder_id: "folder_123" },
 				createMockContext(),
@@ -354,7 +365,7 @@ describe("nia_e2e tool", () => {
 
 		it("returns an error when local_folder_id is missing", async () => {
 			const client = createClient(() => jsonResponse(200, {}));
-			const tool = createNiaE2ETool(client, TEST_CONFIG)!;
+			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
 			const result = await tool.execute(
 				{ action: "sync" },
@@ -369,7 +380,7 @@ describe("nia_e2e tool", () => {
 			const client = createClient(() =>
 				jsonResponse(429, { message: "slow down" }),
 			);
-			const tool = createNiaE2ETool(client, TEST_CONFIG)!;
+			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
 			const result = await tool.execute(
 				{ action: "sync", local_folder_id: "folder_123" },
@@ -383,7 +394,7 @@ describe("nia_e2e tool", () => {
 	describe("invalid action", () => {
 		it("returns an error for unknown actions", async () => {
 			const client = createClient(() => jsonResponse(200, {}));
-			const tool = createNiaE2ETool(client, TEST_CONFIG)!;
+			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
 			const result = await tool.execute(
 				{ action: "unknown" as never },
@@ -401,7 +412,7 @@ describe("nia_e2e tool", () => {
 			abortController.abort();
 
 			const client = createClient(() => jsonResponse(200, {}));
-			const tool = createNiaE2ETool(client, TEST_CONFIG)!;
+			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
 			const result = await tool.execute(
 				{ action: "create_session", local_folder_id: "folder_123" },
@@ -423,7 +434,7 @@ describe("nia_e2e tool", () => {
 
 		it("returns config error when apiKey is not set", async () => {
 			const client = createClient(() => jsonResponse(200, {}));
-			const tool = createNiaE2ETool(client, { ...TEST_CONFIG, apiKey: "" })!;
+			const tool = createNiaE2EToolOrThrow(client, { ...TEST_CONFIG, apiKey: "" });
 
 			const result = await tool.execute(
 				{ action: "create_session", local_folder_id: "folder_123" },
@@ -437,7 +448,7 @@ describe("nia_e2e tool", () => {
 			const client = createClient(() => {
 				throw new Error("network error");
 			});
-			const tool = createNiaE2ETool(client, TEST_CONFIG)!;
+			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
 			const result = await tool.execute(
 				{ action: "create_session", local_folder_id: "folder_123" },
@@ -445,7 +456,6 @@ describe("nia_e2e tool", () => {
 			);
 
 			expect(result).toContain("network_error");
-			expect(result).toContain("network error");
 		});
 	});
 });

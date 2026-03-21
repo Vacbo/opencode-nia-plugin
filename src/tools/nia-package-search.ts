@@ -8,8 +8,6 @@ import type {
 import type { NiaConfig } from "../config.js";
 import { createToolErrorFormatter } from "../utils/format.js";
 
-type Registry = "npm" | "pypi" | "crates" | "go";
-
 const VALID_REGISTRIES = new Set<string>(["npm", "pypi", "crates", "go"]);
 
 function parseQueries(raw?: string): string[] | undefined {

@@ -4,23 +4,7 @@ import { type FetchFn, NiaClient } from "../api/client.js";
 import type { NiaConfig } from "../config.js";
 import { createNiaReadTool } from "./nia-read.js";
 
-const TEST_CONFIG = {
-	apiKey: "nk_test",
-	searchEnabled: true,
-	researchEnabled: true,
-	tracerEnabled: true,
-	advisorEnabled: true,
-	contextEnabled: true,
-	e2eEnabled: true,
-	cacheTTL: 300,
-	maxPendingOps: 5,
-	checkInterval: 15,
-	tracerTimeout: 120,
-	debug: false,
-	triggersEnabled: true,
-	apiUrl: "https://apigcp.trynia.ai/v2",
-	keywords: { enabled: true, customPatterns: [] },
-} as NiaConfig;
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] }, mcpServerName: "nia", mcpMaxRetries: 5, mcpReconnectBaseDelay: 100 } as NiaConfig;
 
 function jsonResponse(status: number, body?: unknown): Response {
 	return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -321,7 +305,7 @@ describe("nia_read", () => {
 		const result = await tool.execute(
 			{
 				source_id: "repo-1",
-				source_type: "invalid_type" as any,
+				source_type: "invalid_type" as unknown as "repository",
 				path: "file.ts",
 			},
 			mockContext(),

@@ -7,23 +7,7 @@ import type { NiaConfig } from "../config";
 import { getSessionState } from "../state/session";
 import { createNiaIndexTool } from "./nia-index";
 
-const TEST_CONFIG = {
-	apiKey: "nk_test",
-	searchEnabled: true,
-	researchEnabled: true,
-	tracerEnabled: true,
-	advisorEnabled: true,
-	contextEnabled: true,
-	e2eEnabled: true,
-	cacheTTL: 300,
-	maxPendingOps: 5,
-	checkInterval: 15,
-	tracerTimeout: 120,
-	debug: false,
-	triggersEnabled: true,
-	apiUrl: "https://apigcp.trynia.ai/v2",
-	keywords: { enabled: true, customPatterns: [] },
-} as NiaConfig;
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] }, mcpServerName: "nia", mcpMaxRetries: 5, mcpReconnectBaseDelay: 100 } as NiaConfig;
 
 function parseArgs<TArgs extends z.ZodRawShape>(
 	definition: { args: TArgs },
@@ -167,10 +151,10 @@ describe("createNiaIndexTool", () => {
 		const sessionState = getSessionState("index-track-session");
 		const tracked = sessionState.pendingOps.getOperation("repo_tracked_1");
 		expect(tracked).toBeDefined();
-		expect(tracked!.type).toBe("index");
-		expect(tracked!.sourceType).toBe("repository");
-		expect(tracked!.name).toBe("https://github.com/acme/widgets");
-		expect(tracked!.status).toBe("pending");
+		expect(tracked?.type).toBe("index");
+		expect(tracked?.sourceType).toBe("repository");
+		expect(tracked?.name).toBe("https://github.com/acme/widgets");
+		expect(tracked?.status).toBe("pending");
 	});
 
 	it("skips tracking when sessionID is missing", async () => {
@@ -240,7 +224,7 @@ describe("createNiaIndexTool", () => {
 
 	it("returns abort_error when request is aborted", async () => {
 		const client = {
-			post: async <T>() => {
+			post: async <_T>() => {
 				throw new Error("should not reach client");
 			},
 		};
@@ -262,7 +246,7 @@ describe("createNiaIndexTool", () => {
 
 	it("returns formatted error when unexpected error occurs", async () => {
 		const client = {
-			post: async <T>() => {
+			post: async <_T>() => {
 				throw new Error("Network error");
 			},
 		};

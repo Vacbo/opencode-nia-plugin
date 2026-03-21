@@ -162,6 +162,39 @@ Adds a remote instructions URL to the `instructions` config array, providing the
 NIA_DEBUG=true opencode
 ```
 
+#### Plugin Connection Resilience
+
+The plugin automatically monitors Nia tool connections and attempts reconnection on failures.
+This handles "Failed to get tools" errors, network timeouts, and connection drops.
+
+| Environment Variable | Default | Description |
+| --- | --- | --- |
+| `NIA_MCP_SERVER_NAME` | `nia` | Name of the MCP server to monitor (matches key in opencode.json mcp config) |
+| `NIA_MCP_MAX_RETRIES` | `5` | Maximum reconnection attempts before circuit breaker opens |
+| `NIA_MCP_RECONNECT_DELAY` | `100` | Initial backoff delay in ms (doubles each attempt, max 30s) |
+
+**How it works:**
+- **Network Retry**: The NiaClient automatically retries transient network errors (ECONNREFUSED, DNS failures, etc.) with exponential backoff up to 3 times
+- **Circuit Breaker**: If reconnection fails 5 times (configurable), the circuit opens for 30 seconds to prevent retry storms
+- **Best-Effort Reconnection**: When a tool call fails with a connection error, the plugin checks server status and attempts to reconnect
+- **Debounced**: Multiple simultaneous failures trigger only one reconnection attempt
+
+**Actionable Error Messages:**
+When errors occur, you'll now see helpful guidance:
+- **Credit exhaustion** (403): "⚠️ Your Nia credits may be exhausted... Check your usage at https://app.trynia.ai"
+- **Rate limiting** (429): "Nia API rate limit hit. The request will be retried automatically."
+- **Auth error** (401): "Nia API key is invalid or expired. Update your key at ~/.config/nia/api_key"
+- **Network error**: "Unable to reach Nia API. Check your network connection."
+
+**E2E Encryption Tools:**
+All E2E encryption tools (`nia_e2e` with create_session, get_session, purge, sync) automatically benefit from:
+- Network error retry with exponential backoff
+- Actionable error messages for all error types
+- No additional configuration needed
+
+**Limitation:**
+The failed tool call itself still returns an error to the agent. The agent will typically retry the call, and the next attempt will succeed after reconnection. The reconnection happens in the background and doesn't block the agent's workflow.
+
 ### Manual Setup (Legacy)
 
 If you prefer to set things up manually instead of using the installer:

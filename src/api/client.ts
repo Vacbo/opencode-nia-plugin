@@ -229,6 +229,8 @@ export class NiaClient {
 		}, timeoutMs);
 
 		try {
+			let _lastTransientNetworkError: unknown;
+
 			for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
 				try {
 					const response = await this.fetchFn(
@@ -279,6 +281,36 @@ export class NiaClient {
 						signal?.aborted
 					) {
 						return "abort_error [client]: request aborted";
+					}
+
+					if (this.isTransientNetworkError(error)) {
+						_lastTransientNetworkError = error;
+
+						if (attempt < MAX_RETRIES) {
+							const backoff = this.resolveRetryDelay(attempt, null, 0);
+
+							try {
+								await this.sleep(backoff, controller.signal);
+							} catch (backoffError) {
+								if (didTimeout) {
+									return `timeout_error [timeout=${timeoutMs}ms]: request exceeded timeout`;
+								}
+
+								if (
+									this.isAbortError(backoffError) ||
+									controller.signal.aborted ||
+									signal?.aborted
+								) {
+									return "abort_error [client]: request aborted";
+								}
+
+								return `network_error: ${this.stringifyUnknown(backoffError)}`;
+							}
+
+							continue;
+						}
+
+						break;
 					}
 
 					return `network_error: ${this.stringifyUnknown(error)}`;
@@ -432,6 +464,25 @@ export class NiaClient {
 		return error instanceof DOMException
 			? error.name === "AbortError" || error.name === "TimeoutError"
 			: false;
+	}
+
+	private isTransientNetworkError(error: unknown): boolean {
+		if (!(error instanceof Error)) {
+			return false;
+		}
+
+		const message = error.message.toLowerCase();
+
+		return [
+			"fetch failed",
+			"network",
+			"econnrefused",
+			"econnreset",
+			"econnaborted",
+			"epipe",
+			"etimedout",
+			"getaddrinfo",
+		].some((pattern) => message.includes(pattern));
 	}
 
 	private stringifyUnknown(error: unknown): string {

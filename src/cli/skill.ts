@@ -30,7 +30,7 @@ export function removeSkill(): boolean {
     });
     console.log("  Nia skill removed successfully");
     return true;
-  } catch (err) {
+  } catch (_err) {
     console.log("  No nia skill found or already removed");
     return true;
   }

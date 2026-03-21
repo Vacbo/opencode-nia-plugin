@@ -39,7 +39,7 @@ export function cleanupAgentsMd(): boolean {
       unlinkSync(AGENTS_MD_PATH);
       console.log("  Removed empty AGENTS.md");
     } else {
-      writeFileSync(AGENTS_MD_PATH, cleaned + "\n");
+      writeFileSync(AGENTS_MD_PATH, `${cleaned}\n`);
       console.log("  Removed Nia instructions from AGENTS.md");
     }
 

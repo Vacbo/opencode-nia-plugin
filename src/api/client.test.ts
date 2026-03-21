@@ -416,6 +416,166 @@ describe("NiaClient", () => {
 		expect(result).toContain("10ms");
 	});
 
+	describe("network error retries", () => {
+		it("retries on TypeError('fetch failed') up to MAX_RETRIES times", async () => {
+			let calls = 0;
+
+			const client = new NiaClient({
+				apiKey: "nia-key",
+				fetchFn: createFetchMock([
+					() => {
+						calls += 1;
+						throw new TypeError("fetch failed");
+					},
+				]),
+			});
+
+			const result = await client.get("/sources");
+
+			expect(calls).toBe(4);
+			expect(result).toBe("network_error: request retries exhausted");
+		});
+
+		it("retries on ECONNREFUSED error", async () => {
+			let calls = 0;
+
+			const client = new NiaClient({
+				apiKey: "nia-key",
+				fetchFn: createFetchMock([
+					() => {
+						calls += 1;
+						throw new Error("connect ECONNREFUSED 127.0.0.1:443");
+					},
+				]),
+			});
+
+			const result = await client.get("/sources");
+
+			expect(calls).toBe(4);
+			expect(result).toBe("network_error: request retries exhausted");
+		});
+
+		it("retries on DNS resolution error (ENOTFOUND)", async () => {
+			let calls = 0;
+
+			const client = new NiaClient({
+				apiKey: "nia-key",
+				fetchFn: createFetchMock([
+					() => {
+						calls += 1;
+						throw new Error("getaddrinfo ENOTFOUND api.example.com");
+					},
+				]),
+			});
+
+			const result = await client.get("/sources");
+
+			expect(calls).toBe(4);
+			expect(result).toBe("network_error: request retries exhausted");
+		});
+
+		it("succeeds after transient network error on retry", async () => {
+			let calls = 0;
+
+			const client = new NiaClient({
+				apiKey: "nia-key",
+				fetchFn: createFetchMock([
+					() => {
+						calls += 1;
+						throw new TypeError("fetch failed");
+					},
+					() => {
+						calls += 1;
+						return jsonResponse(200, { ok: true });
+					},
+				]),
+			});
+
+			const result = await client.get<{ ok: boolean }>("/sources");
+
+			expect(result).toEqual({ ok: true });
+			expect(calls).toBe(2);
+		});
+
+		it("returns abort_error when signal aborted during retry backoff", async () => {
+			const controller = new AbortController();
+			let calls = 0;
+
+			const client = new NiaClient({
+				apiKey: "nia-key",
+				fetchFn: createFetchMock([
+					() => {
+						calls += 1;
+						setTimeout(() => controller.abort(), 10);
+						throw new TypeError("fetch failed");
+					},
+					() => {
+						calls += 1;
+						return jsonResponse(200, { ok: true });
+					},
+				]),
+			});
+
+			const result = await client.get(
+				"/sources",
+				undefined,
+				controller.signal,
+			);
+
+			expect(result).toContain("abort_error");
+			expect(calls).toBe(1);
+		});
+
+		it("does not retry timeout errors", async () => {
+			let calls = 0;
+
+			const client = new NiaClient({
+				apiKey: "nia-key",
+				fetchFn: async (_url, init) => {
+					calls += 1;
+					return new Promise<Response>((_resolve, reject) => {
+						const signal = init?.signal as AbortSignal | undefined;
+						signal?.addEventListener(
+							"abort",
+							() =>
+								reject(new DOMException("Timed out", "AbortError")),
+							{ once: true },
+						);
+					});
+				},
+			});
+
+			const result = await client.get("/sources", undefined, undefined, 10);
+
+			expect(result).toContain("timeout_error");
+			expect(calls).toBe(1);
+		});
+
+		it("does not retry non-transient TypeErrors like invalid URL", async () => {
+			let calls = 0;
+
+			const client = new NiaClient({
+				apiKey: "nia-key",
+				fetchFn: createFetchMock([
+					() => {
+						calls += 1;
+						throw new TypeError("Invalid URL");
+					},
+					() => {
+						calls += 1;
+						return jsonResponse(200, { ok: true });
+					},
+				]),
+			});
+
+			const result = await client.get("/sources");
+
+			expect(result).toContain("network_error");
+			expect(result).toContain("Invalid URL");
+			expect(calls).toBe(1);
+		});
+	});
+
 	describe("resolveTimeout", () => {
 		it("uses LONG_TIMEOUT_MS (120s) for /search/universal endpoint", async () => {
 			const client = new NiaClient({

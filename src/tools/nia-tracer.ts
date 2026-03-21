@@ -9,7 +9,6 @@ import {
 	createToolErrorFormatter,
 	inlineCode,
 	isAbortError,
-	isZodError,
 } from "../utils/format.js";
 
 const ABORT_ERROR = "abort_error [nia_tracer]: request aborted";
@@ -23,15 +22,6 @@ const TERMINAL_STATUSES = new Set([
 ]);
 
 export type TracerMode = "tracer-fast" | "tracer-deep";
-
-type TracerQueryValue =
-	| string
-	| number
-	| boolean
-	| Array<string | number | boolean>
-	| null
-	| undefined;
-type TracerQueryParams = Record<string, TracerQueryValue>;
 
 type TracerJobResponse = {
 	id?: string;

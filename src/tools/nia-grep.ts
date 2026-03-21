@@ -79,10 +79,10 @@ export function createNiaGrepTool(client: NiaClient, config: NiaConfig) {
 
 				const lines = matches.map((m) => {
 					const before = m.context_before?.length
-						? m.context_before.map((l) => `  ${l}`).join("\n") + "\n"
+						? `${m.context_before.map((l) => `  ${l}`).join("\n")}\n`
 						: "";
 					const after = m.context_after?.length
-						? "\n" + m.context_after.map((l) => `  ${l}`).join("\n")
+						? `\n${m.context_after.map((l) => `  ${l}`).join("\n")}`
 						: "";
 					return `${before}**${m.path}:${m.line_number}** ${m.content}${after}`;
 				});
