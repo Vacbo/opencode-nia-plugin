@@ -147,9 +147,9 @@ function collectKnownSourceLabels(cache: CacheWithEntries<unknown>): string[] {
 
   const labels = new Set<string>();
 
-  for (const key of store.keys()) {
-    const value = cache.get(key);
-    const label = formatSourceLabel(value);
+  // Use store.entries() to avoid LRU reordering side effects from cache.get()
+  for (const [, entry] of store.entries()) {
+    const label = formatSourceLabel((entry as { value: unknown }).value);
     if (label) {
       labels.add(label);
     }
