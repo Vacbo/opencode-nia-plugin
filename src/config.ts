@@ -220,5 +220,4 @@ export function isConfigured(): boolean {
 	return !!loadConfig().apiKey;
 }
 
-export const NIA_API_KEY = process.env.NIA_API_KEY;
-export const NIA_MCP_URL = process.env.NIA_API_URL ?? DEFAULTS.apiUrl;
+

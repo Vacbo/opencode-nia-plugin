@@ -1,7 +1,7 @@
 # Dockerfile for nia-opencode plugin testing
 # Uses Bun runtime for TypeScript build and test execution
 
-FROM oven/bun:1.2.4-alpine
+FROM oven/bun:1.3.11-alpine
 
 # Install additional dependencies for testing
 RUN apk add --no-cache git curl

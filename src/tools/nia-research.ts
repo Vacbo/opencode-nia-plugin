@@ -12,8 +12,6 @@ import { jobManager } from "../state/job-manager.js";
 import {
 	createToolErrorFormatter,
 	inlineCode,
-	isAbortError,
-	isZodError,
 	stringOrFallback,
 } from "../utils/format.js";
 
