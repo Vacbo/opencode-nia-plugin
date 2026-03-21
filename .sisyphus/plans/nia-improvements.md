@@ -613,7 +613,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Files: `src/tools/nia-tracer.ts`
   - Pre-commit: `bun test src/tools/nia-tracer.test.ts`
 
-- [ ] 9. Standardize nia-read to mature pattern (TDD)
+- [x] 9. Standardize nia-read to mature pattern (TDD)
 
   **What to do**:
   - RED: Add tests to `src/tools/nia-read.test.ts` for: (a) returns `config_error` when apiKey missing, (b) returns `config_error` when feature disabled, (c) catches and formats errors via shared formatter, (d) handles abort signal
@@ -669,7 +669,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Files: `src/tools/nia-read.ts`, `src/tools/nia-read.test.ts`
   - Pre-commit: `bun test src/tools/nia-read.test.ts`
 
-- [ ] 10. Standardize nia-grep to mature pattern (TDD)
+- [x] 10. Standardize nia-grep to mature pattern (TDD)
 
   **What to do**:
   - Same standardization pattern as Task 9, but for `src/tools/nia-grep.ts`
@@ -710,7 +710,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Files: `src/tools/nia-grep.ts`, `src/tools/nia-grep.test.ts`
   - Pre-commit: `bun test src/tools/nia-grep.test.ts`
 
-- [ ] 11. Standardize nia-explore to mature pattern (TDD)
+- [x] 11. Standardize nia-explore to mature pattern (TDD)
 
   **What to do**: Same as Task 9 for `src/tools/nia-explore.ts`. Use `createToolErrorFormatter("explore")`.
 
@@ -745,7 +745,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Files: `src/tools/nia-explore.ts`, `src/tools/nia-explore.test.ts`
   - Pre-commit: `bun test src/tools/nia-explore.test.ts`
 
-- [ ] 12. Standardize nia-index to mature pattern (TDD)
+- [x] 12. Standardize nia-index to mature pattern (TDD)
 
   **What to do**: Same as Task 9 for `src/tools/nia-index.ts`. Use `createToolErrorFormatter("index")`.
 
@@ -780,7 +780,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Files: `src/tools/nia-index.ts`, `src/tools/nia-index.test.ts`
   - Pre-commit: `bun test src/tools/nia-index.test.ts`
 
-- [ ] 13. Standardize nia-manage-resource to mature pattern (TDD)
+- [x] 13. Standardize nia-manage-resource to mature pattern (TDD)
 
   **What to do**: Same as Task 9 for `src/tools/nia-manage-resource.ts`. Use `createToolErrorFormatter("manage_resource")`.
 
@@ -815,7 +815,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Files: `src/tools/nia-manage-resource.ts`, `src/tools/nia-manage-resource.test.ts`
   - Pre-commit: `bun test src/tools/nia-manage-resource.test.ts`
 
-- [ ] 14. Standardize nia-context to mature pattern (TDD)
+- [x] 14. Standardize nia-context to mature pattern (TDD)
 
   **What to do**: Same as Task 9 for `src/tools/nia-context.ts`. Use `createToolErrorFormatter("context")`.
   - Also fix unsafe `as ContextAction` cast at line 173 — add runtime validation
@@ -853,7 +853,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Files: `src/tools/nia-context.ts`, `src/tools/nia-context.test.ts`
   - Pre-commit: `bun test src/tools/nia-context.test.ts`
 
-- [ ] 15. Standardize nia-package-search to mature pattern (TDD)
+- [x] 15. Standardize nia-package-search to mature pattern (TDD)
 
   **What to do**: Same as Task 9 for `src/tools/nia-package-search.ts`. Use `createToolErrorFormatter("package_search")`.
 
@@ -888,7 +888,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Files: `src/tools/nia-package-search.ts`, `src/tools/nia-package-search.test.ts`
   - Pre-commit: `bun test src/tools/nia-package-search.test.ts`
 
-- [ ] 16. Standardize nia-auto-subscribe to mature pattern (TDD)
+- [x] 16. Standardize nia-auto-subscribe to mature pattern (TDD)
 
   **What to do**: Same as Task 9 for `src/tools/nia-auto-subscribe.ts`. Use `createToolErrorFormatter("auto_subscribe")`.
 
@@ -923,7 +923,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Files: `src/tools/nia-auto-subscribe.ts`, `src/tools/nia-auto-subscribe.test.ts`
   - Pre-commit: `bun test src/tools/nia-auto-subscribe.test.ts`
 
-- [ ] 17. Standardize nia-e2e to mature pattern (TDD)
+- [x] 17. Standardize nia-e2e to mature pattern (TDD)
 
   **What to do**: Same as Task 9 for `src/tools/nia-e2e.ts`. Use `createToolErrorFormatter("e2e")`.
   - Also fix unsafe `as E2EAction` cast at line 174 — add runtime validation

@@ -175,3 +175,268 @@
 - The shared format.ts returns "aborted" for abort errors, but the test expects "abort_error [tracer]: request aborted"
 - Added explicit abort check in catch block to maintain backward compatibility with test expectations
 - This unblocks Tasks 9-17 (tool standardization) which can now follow the same pattern
+
+## Task 11: Standardize nia-explore to mature pattern (TDD)
+
+### What was done
+- Added import: `createToolErrorFormatter` from `../utils/format.js`
+- Added constant: `ABORT_ERROR = "abort_error [nia_explore]: request aborted"`
+- Wrapped execute body in try-catch
+- Added abort signal check: `if (ctx.abort.aborted) { return ABORT_ERROR; }`
+- Added config check: `if (!config.searchEnabled) { return "config_error: nia explore is disabled"; }`
+- Added config check: `if (!config.apiKey) { return "config_error: NIA_API_KEY is not set"; }`
+- Added formatError handler: `const formatError = createToolErrorFormatter("explore");`
+- Added 3 new tests for error handling and config checks
+
+### Key decisions
+- Followed pattern from nia-search.ts:63-91 (try-catch, config checks, abort handling)
+- Used createToolErrorFormatter factory to get "explore" error prefix
+- Did NOT change API call logic, tree formatting, or source resolution
+
+### Verification
+- `grep "try {" src/tools/nia-explore.ts` returns match (line 54)
+- `grep "config_error" src/tools/nia-explore.ts` returns 2 matches (lines 60, 64)
+- `bun test src/tools/nia-explore.test.ts` - 10 pass, 0 fail
+
+### Notes
+- TDD approach: wrote failing tests first, then implemented the fix
+- All 3 new tests pass after implementation
+- This unblocks Task 24 (integration tests)
+
+## Task 13: Standardize nia-manage-resource to mature pattern (TDD)
+
+### What was done
+- Added import: `createToolErrorFormatter` from `../utils/format.js`
+- Added constant: `ABORT_ERROR = "abort_error [nia_manage_resource]: request aborted"`
+- Wrapped execute body in try-catch
+- Added abort signal check: `if (context.abort.aborted) { return ABORT_ERROR; }`
+- Added config check: `if (!config.searchEnabled) { return "config_error: nia search is disabled"; }`
+- Added config check: `if (!config.apiKey) { return "config_error: NIA_API_KEY is not set"; }`
+- Added formatError handler: `const formatError = createToolErrorFormatter("manage_resource");`
+- Added 4 new tests for error handling and config checks
+
+### Key decisions
+- Followed pattern from nia-search.ts:63-91 (try-catch, config checks, abort handling)
+- Used createToolErrorFormatter factory to get "manage_resource" error prefix
+- Did NOT change action routing, permission checks, or switch statement logic
+
+### Verification
+- `grep "try {" src/tools/nia-manage-resource.ts` returns 2 matches (lines 89, 152)
+- `grep "config_error" src/tools/nia-manage-resource.ts` returns 2 matches (lines 158, 162)
+- `bun test src/tools/nia-manage-resource.test.ts` - 10 pass, 0 fail
+
+### Notes
+- TDD approach: wrote failing tests first, then implemented the fix
+- All 4 new tests pass after implementation
+- This unblocks Task 25 (integration tests)
+
+## Task 9: Standardize nia-read to mature pattern (TDD)
+
+### What was done
+- Added import: `createToolErrorFormatter` from `../utils/format.js`
+- Added constant: `ABORT_ERROR = "abort_error [nia_read]: request aborted"`
+- Wrapped execute body in try-catch
+- Added abort signal check: `if (ctx.abort.aborted) { return ABORT_ERROR; }`
+- Added config check: `if (!config.searchEnabled) { return "config_error: nia read is disabled"; }`
+- Added config check: `if (!config.apiKey) { return "config_error: NIA_API_KEY is not set"; }`
+- Added formatError handler: `const formatError = createToolErrorFormatter("read");`
+- Added 4 new tests for error handling and config checks
+
+### Key decisions
+- Followed pattern from nia-search.ts:63-91 (try-catch, config checks, abort handling)
+- Used createToolErrorFormatter factory to get "read" error prefix
+- Did NOT change API call logic, response formatting, or source resolution
+- MAX_CONTENT_BYTES constant already existed (50 * 1024)
+
+### Verification
+- `grep "try {" src/tools/nia-read.ts` returns match (line 41)
+- `grep "config_error" src/tools/nia-read.ts` returns 2 matches (lines 47, 51)
+- `grep "MAX_CONTENT_BYTES" src/tools/nia-read.ts` returns 3 matches (lines 8, 73, 75)
+- `bun test src/tools/nia-read.test.ts` - 11 pass, 0 fail
+
+### Notes
+- TDD approach: wrote failing tests first, then implemented the fix
+- All 4 new tests pass after implementation
+- Tests needed valid source arguments (source_id + source_type) to reach config checks
+- Abort test aborts BEFORE execute (signal already aborted) - matches nia-search pattern
+- Error formatting test validates that validation errors are properly formatted
+
+## Task 10: Standardize nia-grep to mature pattern (TDD)
+
+### What was done
+- Added import: `createToolErrorFormatter` from `../utils/format.js`
+- Added constant: `ABORT_ERROR = "abort_error [nia_grep]: request aborted"`
+- Wrapped execute body in try-catch
+- Added abort signal check: `if (ctx.abort.aborted) { return ABORT_ERROR; }`
+- Added config check: `if (!config.searchEnabled) { return "config_error: nia grep is disabled"; }`
+- Added config check: `if (!config.apiKey) { return "config_error: NIA_API_KEY is not set"; }`
+- Added formatError handler: `const formatError = createToolErrorFormatter("grep");`
+- Added 4 new tests for error handling and config checks
+
+### Key decisions
+- Followed pattern from nia-search.ts:63-91 (try-catch, config checks, abort handling)
+- Used createToolErrorFormatter factory to get "grep" error prefix
+- Did NOT change API call logic, response formatting, or source resolution
+
+### Verification
+- `grep "try {" src/tools/nia-grep.ts` returns match (line 42)
+- `grep "config_error" src/tools/nia-grep.ts` returns 2 matches (lines 48, 52)
+- `bun test src/tools/nia-grep.test.ts` - 10 pass, 0 fail
+
+### Notes
+- TDD approach: wrote failing tests first, then implemented the fix
+- All 4 new tests pass after implementation
+- Tests needed valid source arguments (source_type + identifier) to reach config checks
+- Error handling test checks for "network_error" because client.post catches network errors and returns them as strings (not thrown)
+
+## Task 12: Standardize nia-index to mature pattern (TDD)
+
+### What was done
+- Added import: `createToolErrorFormatter` from `../utils/format.js`
+- Added constant: `ABORT_ERROR = "abort_error [nia_index]: request aborted"`
+- Wrapped execute body in try-catch
+- Added abort signal check: `if (context.abort?.aborted ?? false) { return ABORT_ERROR; }`
+- Added config check: `if (!config.searchEnabled) { return "config_error: nia search is disabled"; }`
+- Added config check: `if (!config.apiKey) { return "config_error: NIA_API_KEY is not set"; }`
+- Added formatError handler: `const formatError = createToolErrorFormatter("index");`
+- Added 4 new tests for error handling and config checks
+
+### Key decisions
+- Followed pattern from nia-search.ts:63-91 (try-catch, config checks, abort handling)
+- Used createToolErrorFormatter factory to get "index" error prefix
+- Used optional chaining `context.abort?.aborted ?? false` to handle test contexts that don't provide abort
+- Did NOT change source type detection, URL normalization, or session state tracking
+
+### Verification
+- `grep "try {" src/tools/nia-index.ts` returns 2 matches (lines 24, 130)
+- `grep "config_error" src/tools/nia-index.ts` returns 2 matches (lines 137, 141)
+- `bun test src/tools/nia-index.test.ts` - 10 pass, 0 fail
+
+### Notes
+- TDD approach: wrote failing tests first, then implemented the fix
+- All 4 new tests pass after implementation
+- Tests needed to provide proper context with abort signal for abort test
+- Error format test expects "index" not "nia_index" - matches actual formatter output (`${tool}_error: ${message}`)
+
+## Task 14: Standardize nia-context to mature pattern (TDD)
+
+### What was done
+- Added import: `createToolErrorFormatter` from `../utils/format.js`
+- Added constant: `VALID_ACTIONS` array for runtime validation
+- Added constant: `ABORT_ERROR = "abort_error [nia_context]: request aborted"`
+- Added constant: `formatError = createToolErrorFormatter("context")`
+- Wrapped execute body in try-catch
+- Added abort signal check: `if (context.abort.aborted) { return ABORT_ERROR; }`
+- Added config check: `if (!config.contextEnabled) { return "config_error: nia context is disabled"; }`
+- Added config check: `if (!config.apiKey) { return "config_error: NIA_API_KEY is not set"; }`
+- Replaced unsafe `args.action as ContextAction` cast with runtime validation using `VALID_ACTIONS.includes(action)`
+- Added 4 new tests for error handling and config checks
+
+### Key decisions
+- Followed pattern from nia-search.ts:63-91 (try-catch, config checks, abort handling)
+- Used createToolErrorFormatter factory to get "context" error prefix
+- Used VALID_ACTIONS array for runtime validation instead of unsafe type cast
+- Did NOT change action handler dispatch, context save/load/search logic
+
+### Verification
+- `grep "try {" src/tools/nia-context.ts` returns match (line 70)
+- `grep "config_error" src/tools/nia-context.ts` returns 2 matches (lines 76, 80)
+- `grep -c "as ContextAction" src/tools/nia-context.ts` returns 0 (no unsafe casts)
+- `bun test src/tools/nia-context.test.ts` - 23 pass, 0 fail
+
+### Notes
+- TDD approach: wrote failing tests first, then implemented the fix
+- All 4 new tests pass after implementation
+- Error handling test expects "network_error" because client catches network errors and returns them as strings (not thrown)
+- This unblocks Task 25 (integration tests)
+
+## Task 15: Standardize nia-package-search to mature pattern (TDD)
+
+### What was done
+- Added import: `createToolErrorFormatter` from `../utils/format.js`
+- Added constant: `ABORT_ERROR = "abort_error [package_search]: request aborted"`
+- Added constant: `formatError = createToolErrorFormatter("package_search")`
+- Wrapped execute body in try-catch
+- Added abort signal check: `if (context.abort.aborted) { return ABORT_ERROR; }`
+- Added config check: `if (!config.searchEnabled) { return "config_error: nia package search is disabled"; }`
+- Added config check: `if (!config.apiKey) { return "config_error: NIA_API_KEY is not set"; }`
+- Added 5 new tests for error handling and config checks
+
+### Key decisions
+- Followed pattern from nia-search.ts:63-91 (try-catch, config checks, abort handling)
+- Used createToolErrorFormatter factory to get "package_search" error prefix
+- Did NOT change search logic or result formatting
+
+### Verification
+- `grep "try {" src/tools/nia-package-search.ts` returns match
+- `grep "config_error" src/tools/nia-package-search.ts` returns 2 matches
+- `bun test src/tools/nia-package-search.test.ts` - 14 pass, 0 fail
+
+### Notes
+- TDD approach: wrote failing tests first, then implemented the fix
+- All 5 new tests pass after implementation
+- Error handling test expects "network_error" because client catches network errors and returns them as strings (not thrown)
+- This unblocks Task 25 (integration tests)
+
+## Task 16: Standardize nia-auto-subscribe to mature pattern (TDD)
+
+### What was done
+- Added import: `createToolErrorFormatter` from `../utils/format.js`
+- Added constant: `ABORT_ERROR = "abort_error [nia_auto_subscribe]: request aborted"`
+- Added constant: `formatError = createToolErrorFormatter("auto_subscribe")`
+- Wrapped execute body in try-catch
+- Added abort signal check: `if (context.abort.aborted) { return ABORT_ERROR; }`
+- Added config check: `if (!config.searchEnabled) { return "config_error: nia auto-subscribe is disabled"; }`
+- Added config check: `if (!config.apiKey) { return "config_error: NIA_API_KEY is not set"; }`
+- Added 4 new tests for error handling and config checks
+
+### Key decisions
+- Followed pattern from nia-search.ts:63-91 (try-catch, config checks, abort handling)
+- Used createToolErrorFormatter factory to get "auto_subscribe" error prefix
+- Did NOT change manifest parsing logic, dependency formatting, or permission handling
+
+### Verification
+- `grep "try {" src/tools/nia-auto-subscribe.ts` returns match
+- `grep "config_error" src/tools/nia-auto-subscribe.ts` returns 2 matches
+- `bun test src/tools/nia-auto-subscribe.test.ts` - 17 pass, 0 fail
+
+### Notes
+- TDD approach: wrote failing tests first, then implemented the fix
+- All 4 new tests pass after implementation
+- Error formatting test needed a mock client that throws directly (not caught by client) to test formatError
+- This unblocks Task 25 (integration tests)
+
+## Task 16: Standardize nia-e2e to mature pattern (TDD)
+
+### What was done
+- Added import: `createToolErrorFormatter` from `../utils/format.js`
+- Added constant: `VALID_ACTIONS` array for runtime validation
+- Added constant: `ABORT_ERROR = "abort_error [nia_e2e]: request aborted"`
+- Added constant: `formatError = createToolErrorFormatter("e2e")`
+- Wrapped execute body in try-catch
+- Added abort signal check: `if (context.abort.aborted) { return ABORT_ERROR; }`
+- Added config check: `if (!config.apiKey) { return "config_error: NIA_API_KEY is not set"; }`
+- Replaced unsafe `args.action as E2EAction` cast with runtime validation using `VALID_ACTIONS.includes(action)`
+- Changed return value when e2eEnabled is false from `undefined` to `null` (consistent with other tools)
+- Added 4 new tests for error handling and config checks
+
+### Key decisions
+- Followed pattern from nia-search.ts:63-91 (try-catch, config checks, abort handling)
+- Used createToolErrorFormatter factory to get "e2e" error prefix
+- Used VALID_ACTIONS array for runtime validation instead of unsafe type cast
+- Did NOT change action handler logic (create_session, get_session, purge, sync)
+- Did NOT change session formatting or permission handling for purge
+
+### Verification
+- `grep "try {" src/tools/nia-e2e.ts` returns match (line 228)
+- `grep "config_error" src/tools/nia-e2e.ts` returns 1 match (line 237)
+- `grep -c "as E2EAction" src/tools/nia-e2e.ts` returns 0 (no unsafe casts)
+- `grep "VALID_ACTIONS" src/tools/nia-e2e.ts` returns 2 matches (lines 13, 241)
+- `bun test src/tools/nia-e2e.test.ts` - 22 pass, 0 fail
+
+### Notes
+- TDD approach: wrote failing tests first, then implemented the fix
+- All 4 new tests pass after implementation
+- Error handling test expects "network_error" because client catches network errors and returns them as strings (not thrown)
+- Updated existing test from `toBeUndefined()` to `toBeNull()` for consistency with other tools
+- This unblocks Task 25 (integration tests)
