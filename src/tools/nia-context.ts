@@ -79,9 +79,10 @@ async function handleSave(
 
 	const body = {
 		title: args.title,
-		summary: args.summary ?? "",
+		summary: (args.summary ?? "Context saved from opencode").trim() || "Context saved from opencode",
 		content: args.content,
 		tags: parseTags(args.tags),
+		agent_source: "opencode-nia-plugin",
 	};
 
 	const result = await client.post<ContextResponse>(

@@ -302,7 +302,7 @@ export interface TracerJobResponse {
 
 /** Codebase context for advisor requests */
 export interface CodebaseContext {
-	files?: string[];
+	files?: Record<string, string>;
 	file_tree?: string;
 	dependencies?: string[];
 	git_diff?: string;

@@ -20,7 +20,7 @@ const niaAdvisorArgsShape = {
 	query: z.string().trim().min(1, "query is required"),
 	codebase: z
 		.object({
-			files: z.array(z.string()).optional(),
+			files: z.record(z.string(), z.string()).optional(),
 			file_tree: z.string().optional(),
 			dependencies: z.array(z.string()).optional(),
 			git_diff: z.string().optional(),

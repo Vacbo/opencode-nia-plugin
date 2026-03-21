@@ -107,6 +107,7 @@ describe("nia_context tool", () => {
 				summary: "OAuth2 implementation",
 				content: "Detailed OAuth2 notes",
 				tags: ["auth", "oauth"],
+				agent_source: "opencode-nia-plugin",
 			});
 			expect(result).toContain("ctx-001");
 			expect(result).toContain("Auth notes");
