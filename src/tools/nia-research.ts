@@ -10,7 +10,9 @@ import type {
 import type { NiaConfig } from "../config.js";
 import { jobManager } from "../state/job-manager.js";
 import {
+	type NormalizedResult,
 	createToolErrorFormatter,
+	formatResults,
 	inlineCode,
 	stringOrFallback,
 } from "../utils/format.js";
@@ -37,16 +39,6 @@ type WebResult = {
 };
 
 type OracleJobLike = OracleJobResponse & { job_id?: string };
-
-type NormalizedResult = {
-	title: string;
-	excerpt: string;
-	url?: string;
-	filePath?: string;
-	score?: number;
-	sourceType?: string;
-	highlights?: string[];
-};
 
 const niaResearchArgsShape = {
 	query: z.string().trim().min(1).optional(),
@@ -377,37 +369,6 @@ function normalizeSearchResults(
 				)
 			: undefined,
 	}));
-}
-
-function formatResults(results: NormalizedResult[]): string {
-	return results
-		.map((result, index) => {
-			const lines = [`${index + 1}. **${result.title}**`];
-
-			if (result.url) {
-				lines.push(`   - URL: ${result.url}`);
-			}
-
-			if (result.filePath) {
-				lines.push(`   - Path: ${inlineCode(result.filePath)}`);
-			}
-
-			if (result.sourceType) {
-				lines.push(`   - Source: ${inlineCode(result.sourceType)}`);
-			}
-
-			if (typeof result.score === "number") {
-				lines.push(`   - Score: ${result.score.toFixed(2)}`);
-			}
-
-			if (result.highlights?.length) {
-				lines.push(`   - Highlights: ${result.highlights.join(", ")}`);
-			}
-
-			lines.push(`   - Excerpt: ${result.excerpt}`);
-			return lines.join("\n");
-		})
-		.join("\n\n");
 }
 
 function getOracleJobId(response: OracleJobLike): string | undefined {
