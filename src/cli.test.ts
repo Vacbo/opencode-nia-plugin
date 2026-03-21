@@ -11,7 +11,7 @@ vi.mock("./cli/cleanup.js", () => ({
 }));
 vi.mock("./cli/config.js", () => ({
 	findOpencodeConfig: vi.fn(() => null),
-	stripJsoncComments: vi.fn((s: string) => s),
+	stripJsoncComments: vi.fn((s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(?:^|\n)\s*\/\/.*\n?/gm, "").replace(/(?<=\s)\/\/.*$/gm, "")),
 }));
 vi.mock("./cli/skill.js", () => ({
 	installSkill: vi.fn(),
