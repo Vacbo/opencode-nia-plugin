@@ -1,277 +1,275 @@
 #!/usr/bin/env node
-import { createReadline, confirm, prompt } from "./cli/prompt.js";
-import { findOpencodeConfig } from "./cli/config.js";
-import { storeApiKeyNiaSkill } from "./cli/api-key.js";
-import { installSkill, removeSkill } from "./cli/skill.js";
-import {
-  cleanupAgentsMd,
-  removePluginFromConfig,
-  removeInstructionsFromConfig,
-  removeNiaConfig,
-} from "./cli/cleanup.js";
-import {
-  OPENCODE_CONFIG_DIR,
-  PLUGIN_NAME,
-  NIA_INSTRUCTIONS_PATH,
-} from "./cli/constants.js";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { storeApiKeyNiaSkill } from "./cli/api-key.js";
+import {
+	cleanupAgentsMd,
+	removeInstructionsFromConfig,
+	removeNiaConfig,
+	removePluginFromConfig,
+} from "./cli/cleanup.js";
+import { findOpencodeConfig, stripJsoncComments } from "./cli/config.js";
+import {
+	NIA_INSTRUCTIONS_PATH,
+	OPENCODE_CONFIG_DIR,
+	PLUGIN_NAME,
+} from "./cli/constants.js";
+import { confirm, createReadline, prompt } from "./cli/prompt.js";
+import { installSkill, removeSkill } from "./cli/skill.js";
 
 interface InstallOptions {
-  tui: boolean;
-  apiKey?: string;
+	tui: boolean;
+	apiKey?: string;
 }
 
 function addPluginToConfig(configPath: string): boolean {
-  try {
-    const content = readFileSync(configPath, "utf-8");
+	try {
+		const content = readFileSync(configPath, "utf-8");
 
-    if (content.includes(PLUGIN_NAME)) {
-      console.log("  Plugin already registered in config");
-      return true;
-    }
+		if (content.includes(PLUGIN_NAME)) {
+			console.log("  Plugin already registered in config");
+			return true;
+		}
 
-    // Parse JSON (support JSONC by stripping comments)
-    let config: Record<string, unknown>;
-    try {
-      // Simple comment stripping
-      const jsonContent = content
-        .replace(/\/\/.*$/gm, "")
-        .replace(/\/\*[\s\S]*?\*\//g, "");
-      config = JSON.parse(jsonContent);
-    } catch {
-      console.error("  Failed to parse config file");
-      return false;
-    }
+		// Parse JSON (support JSONC by stripping comments)
+		let config: Record<string, unknown>;
+		try {
+			const jsonContent = stripJsoncComments(content);
+			config = JSON.parse(jsonContent);
+		} catch {
+			console.error("  Failed to parse config file");
+			return false;
+		}
 
-    const plugins = (config.plugin as string[]) || [];
-    plugins.push(PLUGIN_NAME);
-    config.plugin = plugins;
+		const plugins = (config.plugin as string[]) || [];
+		plugins.push(PLUGIN_NAME);
+		config.plugin = plugins;
 
-    writeFileSync(configPath, JSON.stringify(config, null, 2));
-    console.log(`  Added plugin to ${configPath}`);
-    return true;
-  } catch (err) {
-    console.error("  Failed to update config:", err);
-    return false;
-  }
+		writeFileSync(configPath, JSON.stringify(config, null, 2));
+		console.log(`  Added plugin to ${configPath}`);
+		return true;
+	} catch (err) {
+		console.error("  Failed to update config:", err);
+		return false;
+	}
 }
 
 function addInstructionsToConfig(configPath: string): boolean {
-  try {
-    const content = readFileSync(configPath, "utf-8");
+	try {
+		const content = readFileSync(configPath, "utf-8");
 
-    if (content.includes("nia-opencode") || content.includes(NIA_INSTRUCTIONS_PATH)) {
-      console.log("  Nia instructions already in config");
-      return true;
-    }
+		if (
+			content.includes("nia-opencode") ||
+			content.includes(NIA_INSTRUCTIONS_PATH)
+		) {
+			console.log("  Nia instructions already in config");
+			return true;
+		}
 
-    let config: Record<string, unknown>;
-    try {
-      const jsonContent = content
-        .replace(/\/\/.*$/gm, "")
-        .replace(/\/\*[\s\S]*?\*\//g, "");
-      config = JSON.parse(jsonContent);
-    } catch {
-      console.error("  Failed to parse config file");
-      return false;
-    }
+		let config: Record<string, unknown>;
+		try {
+			const jsonContent = stripJsoncComments(content);
+			config = JSON.parse(jsonContent);
+		} catch {
+			console.error("  Failed to parse config file");
+			return false;
+		}
 
-    const instructions = (config.instructions as string[]) || [];
-    instructions.push(NIA_INSTRUCTIONS_PATH);
-    config.instructions = instructions;
+		const instructions = (config.instructions as string[]) || [];
+		instructions.push(NIA_INSTRUCTIONS_PATH);
+		config.instructions = instructions;
 
-    writeFileSync(configPath, JSON.stringify(config, null, 2));
-    console.log("  Added Nia instructions to config");
-    return true;
-  } catch (err) {
-    console.error("  Failed to add instructions:", err);
-    return false;
-  }
+		writeFileSync(configPath, JSON.stringify(config, null, 2));
+		console.log("  Added Nia instructions to config");
+		return true;
+	} catch (err) {
+		console.error("  Failed to add instructions:", err);
+		return false;
+	}
 }
 
 function createNewConfig(): boolean {
-  try {
-    mkdirSync(OPENCODE_CONFIG_DIR, { recursive: true });
+	try {
+		mkdirSync(OPENCODE_CONFIG_DIR, { recursive: true });
 
-    const configPath = join(OPENCODE_CONFIG_DIR, "opencode.json");
-    const config: Record<string, unknown> = {
-      plugin: [PLUGIN_NAME],
-      instructions: [NIA_INSTRUCTIONS_PATH],
-    };
+		const configPath = join(OPENCODE_CONFIG_DIR, "opencode.json");
+		const config: Record<string, unknown> = {
+			plugin: [PLUGIN_NAME],
+			instructions: [NIA_INSTRUCTIONS_PATH],
+		};
 
-    writeFileSync(configPath, JSON.stringify(config, null, 2));
-    console.log(`  Created ${configPath}`);
-    return true;
-  } catch (err) {
-    console.error("  Failed to create config:", err);
-    return false;
-  }
+		writeFileSync(configPath, JSON.stringify(config, null, 2));
+		console.log(`  Created ${configPath}`);
+		return true;
+	} catch (err) {
+		console.error("  Failed to create config:", err);
+		return false;
+	}
 }
 
 async function install(options: InstallOptions): Promise<number> {
-  console.log("\n Nia OpenCode Plugin Installer\n");
+	console.log("\n Nia OpenCode Plugin Installer\n");
 
-  const rl = options.tui ? createReadline() : null;
+	const rl = options.tui ? createReadline() : null;
 
-  // ── Step 1: Get API key ──────────────────────────────────────────────────
-  console.log("Step 1: Configure API Key");
-  let apiKey = options.apiKey || process.env.NIA_API_KEY || "";
+	// ── Step 1: Get API key ──────────────────────────────────────────────────
+	console.log("Step 1: Configure API Key");
+	let apiKey = options.apiKey || process.env.NIA_API_KEY || "";
 
-  if (!apiKey && options.tui && rl) {
-    console.log("Get your API key from: https://app.trynia.ai");
-    console.log("New user? Run: curl -fsSL https://app.trynia.ai/cli | sh\n");
-    apiKey = await prompt(rl, "Enter your Nia API key (nk_...): ");
-  }
+	if (!apiKey && options.tui && rl) {
+		console.log("Get your API key from: https://app.trynia.ai");
+		console.log("New user? Run: curl -fsSL https://app.trynia.ai/cli | sh\n");
+		apiKey = await prompt(rl, "Enter your Nia API key (nk_...): ");
+	}
 
-  if (!apiKey) {
-    console.log(
-      "  No API key provided. You can set NIA_API_KEY environment variable later.",
-    );
-    console.log("  Get your API key at: https://app.trynia.ai\n");
-  } else if (!apiKey.startsWith("nk_")) {
-    console.log("  Warning: API key should start with 'nk_'");
-  } else {
-    console.log("  API key configured");
-  }
+	if (!apiKey) {
+		console.log(
+			"  No API key provided. You can set NIA_API_KEY environment variable later.",
+		);
+		console.log("  Get your API key at: https://app.trynia.ai\n");
+	} else if (!apiKey.startsWith("nk_")) {
+		console.log("  Warning: API key should start with 'nk_'");
+	} else {
+		console.log("  API key configured");
+	}
 
-  // ── Step 2: Store API key in environment ────────────────────────────────
-  console.log("\nStep 2: Store API Key");
-  if (apiKey) {
-    storeApiKeyNiaSkill(apiKey);
-    console.log("  API key stored in ~/.config/nia/api_key");
-    console.log("  Set NIA_API_KEY environment variable for session access:");
-    console.log(`  export NIA_API_KEY="${apiKey}"`);
-  } else {
-    console.log("  Skipped (no API key)");
-  }
+	// ── Step 2: Store API key in environment ────────────────────────────────
+	console.log("\nStep 2: Store API Key");
+	if (apiKey) {
+		storeApiKeyNiaSkill(apiKey);
+		console.log("  API key stored in ~/.config/nia/api_key");
+		console.log("  Set NIA_API_KEY environment variable for session access:");
+		console.log(`  export NIA_API_KEY="${apiKey}"`);
+	} else {
+		console.log("  Skipped (no API key)");
+	}
 
-  // ── Step 3: Install nia-skill ───────────────────────────────────────────
-  console.log("\nStep 3: Install Nia Skill");
-  installSkill();
+	// ── Step 3: Install nia-skill ───────────────────────────────────────────
+	console.log("\nStep 3: Install Nia Skill");
+	installSkill();
 
-  // ── Step 4: Configure OpenCode with native plugin ──────────────────────
-  console.log("\nStep 4: Configure OpenCode (Native Plugin)");
-  const configPath = findOpencodeConfig();
+	// ── Step 4: Configure OpenCode with native plugin ──────────────────────
+	console.log("\nStep 4: Configure OpenCode (Native Plugin)");
+	const configPath = findOpencodeConfig();
 
-  if (configPath) {
-    if (options.tui && rl) {
-      const shouldModify = await confirm(rl, `Modify ${configPath}?`);
-      if (shouldModify) {
-        addPluginToConfig(configPath);
-        addInstructionsToConfig(configPath);
-      } else {
-        console.log("  Skipped.");
-      }
-    } else {
-      addPluginToConfig(configPath);
-      addInstructionsToConfig(configPath);
-    }
-  } else {
-    if (options.tui && rl) {
-      const shouldCreate = await confirm(
-        rl,
-        "No OpenCode config found. Create one?",
-      );
-      if (shouldCreate) {
-        createNewConfig();
-      } else {
-        console.log("  Skipped.");
-      }
-    } else {
-      createNewConfig();
-    }
-  }
+	if (configPath) {
+		if (options.tui && rl) {
+			const shouldModify = await confirm(rl, `Modify ${configPath}?`);
+			if (shouldModify) {
+				addPluginToConfig(configPath);
+				addInstructionsToConfig(configPath);
+			} else {
+				console.log("  Skipped.");
+			}
+		} else {
+			addPluginToConfig(configPath);
+			addInstructionsToConfig(configPath);
+		}
+	} else {
+		if (options.tui && rl) {
+			const shouldCreate = await confirm(
+				rl,
+				"No OpenCode config found. Create one?",
+			);
+			if (shouldCreate) {
+				createNewConfig();
+			} else {
+				console.log("  Skipped.");
+			}
+		} else {
+			createNewConfig();
+		}
+	}
 
-  // ── Step 5: Cleanup legacy artifacts ───────────────────────────────────
-  console.log("\nStep 5: Clean Up Legacy Config");
-  cleanupAgentsMd();
+	// ── Step 5: Cleanup legacy artifacts ───────────────────────────────────
+	console.log("\nStep 5: Clean Up Legacy Config");
+	cleanupAgentsMd();
 
-  const existingConfigPath = findOpencodeConfig();
-  if (existingConfigPath) {
-    // Clean up any old MCP config if it exists
-    removePluginFromConfig(existingConfigPath);
-    removeInstructionsFromConfig(existingConfigPath);
-  }
+	const existingConfigPath = findOpencodeConfig();
+	if (existingConfigPath) {
+		// Clean up any old MCP config if it exists
+		removePluginFromConfig(existingConfigPath);
+		removeInstructionsFromConfig(existingConfigPath);
+	}
 
-  // ── Summary ───────────────────────────────────────────────────────────
-  console.log("\n" + "-".repeat(50));
-  console.log("\n Setup Complete!\n");
+	// ── Summary ───────────────────────────────────────────────────────────
+	console.log("\n" + "-".repeat(50));
+	console.log("\n Setup Complete!\n");
 
-  if (!apiKey) {
-    console.log("Next steps:");
-    console.log("1. Get your API key from: https://app.trynia.ai");
-    console.log("2. Store your API key:");
-    console.log("   mkdir -p ~/.config/nia");
-    console.log('   echo "nk_..." > ~/.config/nia/api_key');
-    console.log("3. Set environment variable for current session:");
-    console.log('   export NIA_API_KEY="nk_..."');
-  } else {
-    console.log("Nia is configured and ready to use!");
-  }
+	if (!apiKey) {
+		console.log("Next steps:");
+		console.log("1. Get your API key from: https://app.trynia.ai");
+		console.log("2. Store your API key:");
+		console.log("   mkdir -p ~/.config/nia");
+		console.log('   echo "nk_..." > ~/.config/nia/api_key');
+		console.log("3. Set environment variable for current session:");
+		console.log('   export NIA_API_KEY="nk_..."');
+	} else {
+		console.log("Nia is configured and ready to use!");
+	}
 
-  console.log("\nNia is available as an Agent Skill.");
-  console.log(
-    "The agent will automatically discover and load it when relevant.",
-  );
+	console.log("\nNia is available as an Agent Skill.");
+	console.log(
+		"The agent will automatically discover and load it when relevant.",
+	);
 
-  console.log("\nRestart OpenCode to activate.\n");
+	console.log("\nRestart OpenCode to activate.\n");
 
-  if (rl) rl.close();
-  return 0;
+	if (rl) rl.close();
+	return 0;
 }
 
 async function uninstall(options: { tui: boolean }): Promise<number> {
-  console.log("\n Nia OpenCode Uninstaller\n");
+	console.log("\n Nia OpenCode Uninstaller\n");
 
-  const rl = options.tui ? createReadline() : null;
+	const rl = options.tui ? createReadline() : null;
 
-  if (options.tui && rl) {
-    const shouldProceed = await confirm(
-      rl,
-      "Remove all Nia configuration from OpenCode?",
-    );
-    if (!shouldProceed) {
-      console.log("  Cancelled.");
-      rl.close();
-      return 0;
-    }
-  }
+	if (options.tui && rl) {
+		const shouldProceed = await confirm(
+			rl,
+			"Remove all Nia configuration from OpenCode?",
+		);
+		if (!shouldProceed) {
+			console.log("  Cancelled.");
+			rl.close();
+			return 0;
+		}
+	}
 
-  console.log("Removing Nia configuration...\n");
+	console.log("Removing Nia configuration...\n");
 
-  // Remove skill
-  console.log("Step 1: Remove Nia Skill");
-  removeSkill();
+	// Remove skill
+	console.log("Step 1: Remove Nia Skill");
+	removeSkill();
 
-  // Remove from OpenCode config
-  console.log("\nStep 2: Clean OpenCode Config");
-  const configPath = findOpencodeConfig();
-  if (configPath) {
-    removePluginFromConfig(configPath);
-    removeInstructionsFromConfig(configPath);
-  } else {
-    console.log("  No OpenCode config found");
-  }
+	// Remove from OpenCode config
+	console.log("\nStep 2: Clean OpenCode Config");
+	const configPath = findOpencodeConfig();
+	if (configPath) {
+		removePluginFromConfig(configPath);
+		removeInstructionsFromConfig(configPath);
+	} else {
+		console.log("  No OpenCode config found");
+	}
 
-  // Remove AGENTS.md content
-  console.log("\nStep 3: Clean AGENTS.md");
-  cleanupAgentsMd();
+	// Remove AGENTS.md content
+	console.log("\nStep 3: Clean AGENTS.md");
+	cleanupAgentsMd();
 
-  // Remove Nia config files
-  console.log("\nStep 4: Remove Nia Config Files");
-  removeNiaConfig();
+	// Remove Nia config files
+	console.log("\nStep 4: Remove Nia Config Files");
+	removeNiaConfig();
 
-  console.log("\n" + "-".repeat(50));
-  console.log("\n Nia has been uninstalled.\n");
-  console.log("Restart OpenCode for changes to take effect.\n");
+	console.log("\n" + "-".repeat(50));
+	console.log("\n Nia has been uninstalled.\n");
+	console.log("Restart OpenCode for changes to take effect.\n");
 
-  if (rl) rl.close();
-  return 0;
+	if (rl) rl.close();
+	return 0;
 }
 
 function printHelp(): void {
-  console.log(`
+	console.log(`
 nia-opencode - Nia Knowledge Agent for OpenCode
 
 Commands:
@@ -292,27 +290,27 @@ Examples:
 const args = process.argv.slice(2);
 
 if (
-  args.length === 0 ||
-  args[0] === "help" ||
-  args[0] === "--help" ||
-  args[0] === "-h"
+	args.length === 0 ||
+	args[0] === "help" ||
+	args[0] === "--help" ||
+	args[0] === "-h"
 ) {
-  printHelp();
-  process.exit(0);
+	printHelp();
+	process.exit(0);
 }
 
 if (args[0] === "install") {
-  const noTui = args.includes("--no-tui");
-  const apiKeyIndex = args.indexOf("--api-key");
-  const apiKey = apiKeyIndex !== -1 ? args[apiKeyIndex + 1] : undefined;
+	const noTui = args.includes("--no-tui");
+	const apiKeyIndex = args.indexOf("--api-key");
+	const apiKey = apiKeyIndex !== -1 ? args[apiKeyIndex + 1] : undefined;
 
-  install({ tui: !noTui, apiKey }).then((code) => process.exit(code));
+	install({ tui: !noTui, apiKey }).then((code) => process.exit(code));
 } else if (args[0] === "uninstall") {
-  const noTui = args.includes("--no-tui");
+	const noTui = args.includes("--no-tui");
 
-  uninstall({ tui: !noTui }).then((code) => process.exit(code));
+	uninstall({ tui: !noTui }).then((code) => process.exit(code));
 } else {
-  console.error(`Unknown command: ${args[0]}`);
-  printHelp();
-  process.exit(1);
+	console.error(`Unknown command: ${args[0]}`);
+	printHelp();
+	process.exit(1);
 }

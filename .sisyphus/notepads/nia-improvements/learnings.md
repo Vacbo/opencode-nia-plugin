@@ -440,3 +440,91 @@
 - Error handling test expects "network_error" because client catches network errors and returns them as strings (not thrown)
 - Updated existing test from `toBeUndefined()` to `toBeNull()` for consistency with other tools
 - This unblocks Task 25 (integration tests)
+
+## Task: Fix JSONC stripping bug (URLs with //) and deduplicate regex
+
+### What was done
+- Created `src/cli/config.test.ts` with 7 tests for JSONC stripping (TDD approach)
+- Fixed regex in `stripJsoncComments` to not break URLs containing `//`
+- Imported `stripJsoncComments` in `src/cli.ts` and replaced duplicated logic in 2 places
+- All tests pass: `bun test src/cli/` - 7 pass, 0 fail
+
+### Bug analysis
+- Original regex `/\/\/.*$/gm` matched `//` anywhere in a line, breaking URLs like `https://example.com`
+- The regex would strip everything after `//` including the URL path
+
+### Fix applied
+- Changed regex to handle three cases:
+  1. Line-start comments: `(?:^|\n)\s*\/\/.*\n?` - matches // at start of line or after newline
+  2. Inline comments: `(?<=\s)\/\/.*$` - matches // preceded by whitespace
+  3. Block comments: `/\/\*[\s\S]*?\*\//g` - unchanged (worked correctly)
+
+### Key decisions
+- Used TDD: wrote failing tests first, then fixed the code
+- Deduplicated logic: imported shared function instead of duplicating regex in 2 places
+- Did NOT change CLI command logic or behavior
+
+### Verification
+- `bun test src/cli/config.test.ts` - 7 pass, 0 fail
+- URLs like `https://api.github.com/repos/owner/name` are preserved
+- Line comments (`// comment`) and block comments (`/* comment */`) are removed
+- Inline comments (`{"key": "value"} // comment`) are removed
+
+### Notes
+- The regex fix required handling both line-start and inline comments separately
+- The line-start regex also consumes the trailing newline to avoid orphaned newlines
+- LSP shows vitest type error but tests run fine (bun test works without explicit vitest dependency)
+## Task 5: Fix TTLCache passive-purge and bound NiaSessionState Maps
+
+### What was done
+- **TTLCache.set()** now purges expired entries on every call (was only purged on get())
+- **TTLCache** gained `maxSize` option with LRU eviction (Map insertion order)
+- **TTLCache.get()** now refreshes LRU position (delete+re-insert into Map)
+- **TTLCache.size** getter added for inspecting entry count
+- **BoundedMap<K,V>** class created in cache.ts - LRU-bounded Map (no TTL, just size cap)
+- **NiaSessionState.cache** changed from `Map` to `BoundedMap<string, CachedToolResult>(500)`
+- **NiaSessionState.projectContext** changed from `Map` to `BoundedMap<string, unknown>(100)`
+- SESSION_STATES LRU eviction (lines 94-108) left untouched per instructions
+
+### Key patterns
+- Map insertion order in JS gives natural LRU: delete+re-insert moves to end, oldest is first key
+- Purge-on-every-set is fine for bounded maps (O(n) over ≤500 entries is trivial)
+- BoundedMap has same get/set/has/delete/clear/entries API as Map for drop-in replacement
+- TTLCache and BoundedMap are separate concerns: TTL+expiry vs size-only bounding
+
+### Test counts
+- cache.test.ts: 12 tests (3 existing + 4 TTLCache new + 5 BoundedMap new)
+- session.test.ts: 7 tests (4 existing + 3 new bounded map tests)
+- All 35 state tests pass (cache, session, ops-tracker, job-manager)
+
+## Task: Extend universal search timeout in client.ts
+
+### What was done
+- Added "universal" to the regex pattern in `resolveTimeout()` method (line 329)
+- Changed from: `/(^|\/)(oracle|tracer)(\/|$)/`
+- Changed to: `/(^|\/)(oracle|tracer|universal)(\/|$)/`
+- Added 5 new tests in `src/api/client.test.ts` to verify timeout behavior
+
+### Key decisions
+- Used TDD approach: wrote failing tests first, then implemented the fix
+- Extended timeout uses existing `LONG_TIMEOUT_MS` (120_000ms = 2 minutes)
+- Regular endpoints still use `DEFAULT_TIMEOUT_MS` (30_000ms = 30 seconds)
+- Explicit timeout parameter still overrides automatic resolution
+
+### Test approach
+- Tests use fetch mock that responds after 10 seconds
+- For paths with long timeout (universal, oracle, tracer): request succeeds (10s < 120s)
+- For paths with default timeout: request times out (10s > 5s)
+- Tests include abort signal handling to properly test timeout behavior
+
+### Verification
+- `bun test src/api/client.test.ts` - 32 pass, 0 fail
+- Universal search (`/search/universal`) now uses 120s timeout
+- Regular search (`/search`) still uses 30s timeout
+- Oracle and tracer endpoints still use 120s timeout
+- Explicit timeout override still works
+
+### Notes
+- The regex pattern matches paths containing "oracle", "tracer", or "universal" as path segments
+- `Math.max(this.timeout, LONG_TIMEOUT_MS)` ensures at least 120s for these endpoints
+- This fixes timeout issues for universal search operations that take longer than 30s

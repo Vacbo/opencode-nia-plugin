@@ -964,7 +964,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Files: `src/tools/nia-e2e.ts`, `src/tools/nia-e2e.test.ts`
   - Pre-commit: `bun test src/tools/nia-e2e.test.ts`
 
-- [ ] 18. Fix TTLCache passive-purge + bound NiaSessionState Maps (TDD)
+- [x] 18. Fix TTLCache passive-purge + bound NiaSessionState Maps (TDD)
 
   **What to do**:
   - RED: Add tests to `src/state/cache.test.ts`: (a) expired entries are purged on `set()` (not just `get()`), (b) cache respects a max size limit
@@ -1020,7 +1020,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Files: `src/state/cache.ts`, `src/state/cache.test.ts`, `src/state/session.ts`, `src/state/session.test.ts`
   - Pre-commit: `bun test src/state/`
 
-- [ ] 19. Fix JSONC stripping + deduplicate across cli.ts (TDD)
+- [x] 19. Fix JSONC stripping + deduplicate across cli.ts (TDD)
 
   **What to do**:
   - RED: Add tests to a new `src/cli/config.test.ts` (CLI config, not main config): (a) `stripJsoncComments` handles URLs containing `//` correctly, (b) handles multi-line comments `/* */`, (c) preserves strings with `//` inside them
@@ -1074,7 +1074,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Files: `src/cli.ts`, `src/cli/config.ts`, `src/cli/config.test.ts`
   - Pre-commit: `bun test`
 
-- [ ] 20. Extend universal search timeout in client.ts (TDD)
+- [x] 20. Extend universal search timeout in client.ts (TDD)
 
   **What to do**:
   - RED: Add test to `src/api/client.test.ts`: request to `/search/universal` uses `LONG_TIMEOUT_MS` (not default)
