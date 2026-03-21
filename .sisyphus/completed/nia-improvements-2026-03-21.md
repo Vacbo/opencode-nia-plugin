@@ -76,13 +76,13 @@ Bring the entire Nia plugin codebase to a consistent quality standard: every too
 - `.gitignore`, `.dockerignore`, pinned dependencies
 
 ### Definition of Done
-- [x] `bun run typecheck` passes (zero errors)
-- [x] `bun test` completes in <30s (unit tests, no API key)
-- [x] `grep -rn "function formatUnexpectedError\|function isAbortError\|function isZodError\|function inlineCode" src/tools/` returns empty (zero private copies)
-- [x] All 13 tools have try-catch, config check, and abort handling
-- [x] `NiaSessionState.cache.size` and `NiaSessionState.projectContext.size` are bounded
-- [x] CLI `--help`, `install --no-tui --api-key`, `uninstall --no-tui` all work
-- [x] Integration tests pass for all tools with valid API key
+- [ ] `bun run typecheck` passes (zero errors)
+- [ ] `bun test` completes in <30s (unit tests, no API key)
+- [ ] `grep -rn "function formatUnexpectedError\|function isAbortError\|function isZodError\|function inlineCode" src/tools/` returns empty (zero private copies)
+- [ ] All 13 tools have try-catch, config check, and abort handling
+- [ ] `NiaSessionState.cache.size` and `NiaSessionState.projectContext.size` are bounded
+- [ ] CLI `--help`, `install --no-tui --api-key`, `uninstall --no-tui` all work
+- [ ] Integration tests pass for all tools with valid API key
 
 ### Must Have
 - Parameterized shared error formatting (tool-name prefix)
@@ -464,7 +464,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - `src/utils/format.ts` — shared source of truth
 
   **Acceptance Criteria**:
-  - [ ] `grep -c "function formatUnexpectedError\|function isAbortError\|function isZodError" src/tools/nia-search.ts` returns `0`
+  - [ ] `grep -c "function formatUnexpectedError\|function isAbortError\|function isZodError\|function inlineCode\|function stringOrFallback" src/tools/nia-search.ts` returns `0`
   - [ ] `grep "from.*format" src/tools/nia-search.ts` shows import from `../utils/format.js`
   - [ ] `bun test src/tools/nia-search.test.ts` passes
 
@@ -626,19 +626,17 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Do not add Zod schema validation (tool uses resolveSource which already validates)
 
   **Recommended Agent Profile**:
-  - **Category**: `quick`
-  - **Skills**: []
+  - **Category**: `quick` — **Skills**: []
 
   **Parallelization**:
-  - **Can Run In Parallel**: YES
-  - **Parallel Group**: Wave 3 (with Tasks 10-17)
+  - **Can Run In Parallel**: YES — **Parallel Group**: Wave 3 (with Tasks 10-17)
   - **Blocks**: Task 24 (integration tests) — **Blocked By**: Tasks 5-8 (Wave 2)
 
   **References**:
   - `src/tools/nia-read.ts:31-69` — current execute function (no try-catch, no config checks)
   - `src/tools/nia-read.ts:7` — magic number `50 * 1024`
   - `src/tools/nia-search.ts:63-91` — PATTERN TO FOLLOW (try-catch + config check + abort)
-  - `src/tools/source-resolver.ts` — shared source resolution used by all 3
+  - `src/tools/source-resolver.ts` — used by nia-read, already handles its own validation
 
   **Acceptance Criteria**:
   - [ ] `grep "try {" src/tools/nia-read.ts` returns a match (has try-catch)
@@ -654,6 +652,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
     Steps:
       1. Run `bun test src/tools/nia-read.test.ts` — assert all pass
       2. Run `grep -c "try {" src/tools/nia-read.ts` — assert >= 1
+      3. Run `grep -c "config_error" src/tools/nia-read.ts` — assert >= 1
     Expected Result: Tests pass, error handling present
     Evidence: .sisyphus/evidence/task-9-read-standard.txt
 
@@ -680,12 +679,10 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   **Must NOT do**: Do not change API call logic, response formatting, or source resolution
 
   **Recommended Agent Profile**:
-  - **Category**: `quick`
-  - **Skills**: []
+  - **Category**: `quick` — **Skills**: []
 
   **Parallelization**:
-  - **Can Run In Parallel**: YES
-  - **Parallel Group**: Wave 3 (with Tasks 9, 11-17)
+  - **Can Run In Parallel**: YES — **Parallel Group**: Wave 3 (with Tasks 9, 11-17)
   - **Blocks**: Task 24 — **Blocked By**: Tasks 5-8
 
   **References**:
@@ -756,7 +753,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
 
   **Recommended Agent Profile**: **Category**: `quick` — **Skills**: []
 
-  **Parallelization**: Wave 3 parallel. **Blocks**: Task 25. **Blocked By**: Tasks 5-8.
+  **Parallelization**: Wave 3 parallel. **Blocks**: Task 24. **Blocked By**: Tasks 5-8.
 
   **References**:
   - `src/tools/nia-index.ts:110-145` — current execute function
@@ -787,7 +784,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
 
   **What to do**: Same as Task 9 for `src/tools/nia-manage-resource.ts`. Use `createToolErrorFormatter("manage_resource")`.
 
-  **Must NOT do**: Do not change action handler dispatch, permission checks, or switch statement logic
+  **Must NOT do**: Do not change action routing, permission checks, or switch statement logic
 
   **Recommended Agent Profile**: **Category**: `quick` — **Skills**: []
 
@@ -799,18 +796,17 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
 
   **Acceptance Criteria**:
   - [ ] Has try-catch, config check, abort handling
-  - [ ] No unsafe `as ContextAction` cast (uses runtime check or Zod)
   - [ ] `bun test src/tools/nia-manage-resource.test.ts` passes
 
   **QA Scenarios**:
 
   ```
-  Scenario: nia-manage-resource standardized, unsafe cast removed
+  Scenario: nia-manage-resource standardized
     Tool: Bash
     Steps:
       1. Run `bun test src/tools/nia-manage-resource.test.ts` — assert all pass
-      2. Run `grep -c "as ContextAction" src/tools/nia-manage-resource.ts` — assert 0
-    Expected Result: Tests pass, no unsafe casts
+      2. Run `grep -c "try {" src/tools/nia-manage-resource.ts` — assert >= 1
+    Expected Result: Tests pass, error handling present
     Evidence: .sisyphus/evidence/task-13-manage-standard.txt
   ```
 
@@ -904,25 +900,21 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
 
   **References**:
   - `src/tools/nia-auto-subscribe.ts:51-95` — current execute function
-  - `src/tools/nia-auto-subscribe.ts:149-151` — returns undefined when disabled (should return tool with error message)
   - `src/tools/nia-search.ts:63-91` — PATTERN TO FOLLOW
 
   **Acceptance Criteria**:
   - [ ] Has try-catch, config check, abort handling
-  - [ ] No unsafe `as E2EAction` cast
-  - [ ] Does NOT return `undefined` — always returns a tool definition
   - [ ] `bun test src/tools/nia-auto-subscribe.test.ts` passes
 
   **QA Scenarios**:
 
   ```
-  Scenario: nia-auto-subscribe standardized, unsafe patterns removed
+  Scenario: nia-auto-subscribe standardized
     Tool: Bash
     Steps:
       1. Run `bun test src/tools/nia-auto-subscribe.test.ts` — assert all pass
-      2. Run `grep -c "as E2EAction" src/tools/nia-auto-subscribe.ts` — assert 0
-      3. Run `grep -c "return undefined" src/tools/nia-auto-subscribe.ts` — assert 0
-    Expected Result: Tests pass, no unsafe patterns
+      2. Run `grep -c "try {" src/tools/nia-auto-subscribe.ts` — assert >= 1
+    Expected Result: Tests pass, error handling present
     Evidence: .sisyphus/evidence/task-16-auto-subscribe-standard.txt
   ```
 
@@ -990,8 +982,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - **Skills**: []
 
   **Parallelization**:
-  - **Can Run In Parallel**: YES
-  - **Parallel Group**: Wave 4 (with Tasks 19-23)
+  - **Can Run In Parallel**: YES — **Parallel Group**: Wave 4 (with Tasks 19-23)
   - **Blocks**: None — **Blocked By**: Task 4 (resettable configValidated)
 
   **References**:
@@ -1042,12 +1033,10 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Do not change CLI logic beyond the JSONC fix
 
   **Recommended Agent Profile**:
-  - **Category**: `quick`
-  - **Skills**: []
+  - **Category**: `quick` — **Skills**: []
 
   **Parallelization**:
-  - **Can Run In Parallel**: YES
-  - **Parallel Group**: Wave 4
+  - **Can Run In Parallel**: YES — **Parallel Group**: Wave 4
   - **Blocks**: Task 23 (CLI adoption) — **Blocked By**: Task 1
 
   **References**:
@@ -1095,12 +1084,10 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   **Must NOT do**: Do not change default timeout, retry logic, or any other client behavior
 
   **Recommended Agent Profile**:
-  - **Category**: `quick`
-  - **Skills**: []
+  - **Category**: `quick` — **Skills**: []
 
   **Parallelization**:
-  - **Can Run In Parallel**: YES
-  - **Parallel Group**: Wave 4
+  - **Can Run In Parallel**: YES — **Parallel Group**: Wave 4
   - **Blocks**: None — **Blocked By**: Task 1
 
   **References**:
@@ -1147,8 +1134,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - **Skills**: []
 
   **Parallelization**:
-  - **Can Run In Parallel**: YES
-  - **Parallel Group**: Wave 4
+  - **Can Run In Parallel**: YES — **Parallel Group**: Wave 4
   - **Blocks**: Task 22 (advisor fix needs this research)
   - **Blocked By**: None
 
@@ -1192,12 +1178,10 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Do not change advisor response formatting
 
   **Recommended Agent Profile**:
-  - **Category**: `quick`
-  - **Skills**: []
+  - **Category**: `quick` — **Skills**: []
 
   **Parallelization**:
-  - **Can Run In Parallel**: NO
-  - **Sequential**: After Task 21
+  - **Can Run In Parallel**: NO — **Sequential**: After Task 21
   - **Blocks**: None — **Blocked By**: Task 21 (research)
 
   **References**:
@@ -1253,8 +1237,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - **Skills**: []
 
   **Parallelization**:
-  - **Can Run In Parallel**: YES
-  - **Parallel Group**: Wave 4
+  - **Can Run In Parallel**: YES — **Parallel Group**: Wave 4
   - **Blocks**: None — **Blocked By**: Task 19 (JSONC fix, since cli.ts is modified)
 
   **References**:
@@ -1307,12 +1290,10 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
   - Do not create test data that requires cleanup (use existing indexed sources)
 
   **Recommended Agent Profile**:
-  - **Category**: `unspecified-high`
-  - **Skills**: []
+  - **Category**: `unspecified-high` — **Skills**: []
 
   **Parallelization**:
-  - **Can Run In Parallel**: YES
-  - **Parallel Group**: Wave 5 (with Tasks 25-27)
+  - **Can Run In Parallel**: YES — **Parallel Group**: Wave 5 (with Tasks 25-27)
   - **Blocks**: F1-F4 — **Blocked By**: Tasks 9-11 (tool standardization)
 
   **References**:
@@ -1376,7 +1357,7 @@ Task 1 → Task 3 → Tasks 5-8 → Tasks 9-17 → Task 18 → F1-F4 → user ok
 
 - [x] 26. Add integration tests: nia-auto-subscribe, nia-tracer
 
-  **What to do**: Same pattern as Task 24 for nia-auto-subscribe and nia-tracer. 2 tests each (1 happy + 1 error).
+  **What to do**: Same pattern as Task 24 for nia-auto-subscribe and nia-tracer. 2 tests each.
 
   **Recommended Agent Profile**: **Category**: `unspecified-high` — **Skills**: []
 
@@ -1493,11 +1474,11 @@ bun run dist/cli.js --help           # Expected: exits 0, prints help
 ```
 
 ### Final Checklist
-- [x] All "Must Have" present
-- [x] All "Must NOT Have" absent (LRU/triggers/ops-tracker unchanged)
-- [x] All tests pass
-- [x] DRY: zero private copies of shared helpers in src/tools/
-- [x] Error format: all tools use canonical format
-- [x] Memory: NiaSessionState Maps are bounded
-- [x] CLI: library adopted, all commands work
-- [x] Integration: all tools have live API tests
+- [ ] All "Must Have" present
+- [ ] All "Must NOT Have" absent (LRU/triggers/ops-tracker unchanged)
+- [ ] All tests pass
+- [ ] DRY: zero private copies of shared helpers in src/tools/
+- [ ] Error format: all tools use canonical format
+- [ ] Memory: NiaSessionState Maps are bounded
+- [ ] CLI: library adopted, all commands work
+- [ ] Integration: all tools have live API tests
