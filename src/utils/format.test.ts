@@ -183,6 +183,6 @@ describe("truncateMarkdown", () => {
 	it("handles maxTokens of 0", () => {
 		const input = "some text";
 		const result = truncateMarkdown(input, 0);
-		expect(result).toBe("[truncated]");
+		expect(result).toBe("\n\n[truncated]");
 	});
 });

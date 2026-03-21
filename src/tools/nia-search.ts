@@ -11,9 +11,12 @@ import type {
 } from "../api/types.js";
 import type { NiaConfig } from "../config.js";
 import {
+	type NormalizedResult,
 	createToolErrorFormatter,
+	formatResults,
 	inlineCode,
 	stringOrFallback,
+	truncateMarkdown,
 } from "../utils/format.js";
 
 type SearchResponse =
@@ -22,18 +25,7 @@ type SearchResponse =
 	| WebSearchResponse
 	| DeepSearchResponse;
 
-type NormalizedResult = {
-	title: string;
-	excerpt: string;
-	url?: string;
-	filePath?: string;
-	score?: number;
-	sourceType?: string;
-	highlights?: string[];
-};
-
 const MAX_NUM_RESULTS = 20;
-const TRUNCATED_MARKER = "\n\n[truncated]";
 const ABORT_ERROR = "abort_error [nia_search]: request aborted";
 const z = tool.schema;
 
@@ -222,46 +214,6 @@ function normalizeResult(item: unknown): NormalizedResult | undefined {
 				)
 			: undefined,
 	};
-}
-
-function formatResults(results: NormalizedResult[]): string {
-	return results
-		.map((result, index) => {
-			const lines = [`${index + 1}. **${result.title}**`];
-
-			if (result.url) {
-				lines.push(`   - URL: ${result.url}`);
-			}
-
-			if (result.filePath) {
-				lines.push(`   - Path: ${inlineCode(result.filePath)}`);
-			}
-
-			if (result.sourceType) {
-				lines.push(`   - Source: ${inlineCode(result.sourceType)}`);
-			}
-
-			if (typeof result.score === "number") {
-				lines.push(`   - Score: ${result.score.toFixed(2)}`);
-			}
-
-			if (result.highlights && result.highlights.length > 0) {
-				lines.push(`   - Highlights: ${result.highlights.join(", ")}`);
-			}
-
-			lines.push(`   - Excerpt: ${result.excerpt}`);
-			return lines.join("\n");
-		})
-		.join("\n\n");
-}
-
-function truncateMarkdown(markdown: string, maxTokens: number): string {
-	if (markdown.length <= maxTokens) {
-		return markdown;
-	}
-
-	const sliceLength = Math.max(0, maxTokens - TRUNCATED_MARKER.length);
-	return `${markdown.slice(0, sliceLength).trimEnd()}${TRUNCATED_MARKER}`;
 }
 
 function getString(input: unknown, key: string): string | undefined {
