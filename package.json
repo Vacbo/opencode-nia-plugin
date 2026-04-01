@@ -1,6 +1,6 @@
 {
 	"name": "@vacbo/opencode-nia-plugin",
-	"version": "0.2.1",
+	"version": "0.2.2",
 	"description": "OpenCode plugin that integrates Nia Knowledge Agent for research and documentation",
 	"type": "module",
 	"main": "dist/index.js",
@@ -8,8 +8,8 @@
 	"exports": {
 		".": "./dist/index.js"
 	},
-	"bin": {
-		"nia-opencode": "./dist/cli.js"
+"bin": {
+		"nia-opencode": "dist/cli.js"
 	},
 	"scripts": {
 		"build": "tsc -p tsconfig.json",
@@ -34,7 +34,7 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/nozomio-labs/nia-opencode"
+		"url": "git+https://github.com/nozomio-labs/nia-opencode.git"
 	},
 	"dependencies": {
 		"@opencode-ai/plugin": "1.2.27",
