@@ -23,9 +23,6 @@ const VALID_CONFIG: NiaConfig = {
 	triggersEnabled: true,
 	apiUrl: "https://apigcp.trynia.ai/v2",
 	keywords: { enabled: true, customPatterns: [] },
-	mcpServerName: "nia",
-	mcpMaxRetries: 5,
-	mcpReconnectBaseDelay: 100,
 };
 
 describe("loadConfig", () => {
@@ -54,9 +51,6 @@ describe("loadConfig", () => {
 		delete process.env.NIA_DEBUG;
 		delete process.env.NIA_TRIGGERS;
 		delete process.env.NIA_API_URL;
-		delete process.env.NIA_MCP_SERVER_NAME;
-		delete process.env.NIA_MCP_MAX_RETRIES;
-		delete process.env.NIA_MCP_RECONNECT_DELAY;
 
 		const config = loadConfig();
 
@@ -74,9 +68,6 @@ describe("loadConfig", () => {
 		expect(config.debug).toBe(false);
 		expect(config.triggersEnabled).toBe(true);
 		expect(config.apiUrl).toBe("https://apigcp.trynia.ai/v2");
-		expect(config.mcpServerName).toBe("nia");
-		expect(config.mcpMaxRetries).toBe(5);
-		expect(config.mcpReconnectBaseDelay).toBe(100);
 	});
 
 	it("should override defaults with env vars", () => {
@@ -94,9 +85,6 @@ describe("loadConfig", () => {
 		process.env.NIA_DEBUG = "true";
 		process.env.NIA_TRIGGERS = "false";
 		process.env.NIA_API_URL = "https://custom.api.example.com/v2";
-		process.env.NIA_MCP_SERVER_NAME = "custom-nia";
-		process.env.NIA_MCP_MAX_RETRIES = "15";
-		process.env.NIA_MCP_RECONNECT_DELAY = "500";
 
 		const config = loadConfig();
 
@@ -114,9 +102,6 @@ describe("loadConfig", () => {
 		expect(config.debug).toBe(true);
 		expect(config.triggersEnabled).toBe(false);
 		expect(config.apiUrl).toBe("https://custom.api.example.com/v2");
-		expect(config.mcpServerName).toBe("custom-nia");
-		expect(config.mcpMaxRetries).toBe(15);
-		expect(config.mcpReconnectBaseDelay).toBe(500);
 	});
 
 	it("should handle invalid boolean env vars gracefully", () => {
@@ -428,49 +413,5 @@ describe("validateConfig", () => {
 		expect(fields).toContain("apiKey");
 		expect(fields).toContain("tracerTimeout");
 		expect(fields).toContain("cacheTTL");
-	});
-
-	it("warns on mcpMaxRetries exceeding 20", () => {
-		const result = validateConfig({ ...VALID_CONFIG, mcpMaxRetries: 25 });
-		expect(
-			result.warnings.some(
-				(w) => w.field === "mcpMaxRetries" && w.message.includes("20"),
-			),
-		).toBe(true);
-	});
-
-	it("accepts mcpMaxRetries at exactly 20", () => {
-		const result = validateConfig({ ...VALID_CONFIG, mcpMaxRetries: 20 });
-		expect(result.warnings.filter((w) => w.field === "mcpMaxRetries")).toEqual(
-			[],
-		);
-	});
-
-	it("warns on mcpReconnectBaseDelay exceeding 60000 ms", () => {
-		const result = validateConfig({ ...VALID_CONFIG, mcpReconnectBaseDelay: 70000 });
-		expect(
-			result.warnings.some(
-				(w) =>
-					w.field === "mcpReconnectBaseDelay" && w.message.includes("60000"),
-			),
-		).toBe(true);
-	});
-
-	it("accepts mcpReconnectBaseDelay at exactly 60000 ms", () => {
-		const result = validateConfig({ ...VALID_CONFIG, mcpReconnectBaseDelay: 60000 });
-		expect(
-			result.warnings.filter((w) => w.field === "mcpReconnectBaseDelay"),
-		).toEqual([]);
-	});
-
-	it("warns on zero mcpReconnectBaseDelay", () => {
-		const result = validateConfig({ ...VALID_CONFIG, mcpReconnectBaseDelay: 0 });
-		expect(
-			result.warnings.some(
-				(w) =>
-					w.field === "mcpReconnectBaseDelay" &&
-					w.message.includes("positive integer"),
-			),
-		).toBe(true);
 	});
 });

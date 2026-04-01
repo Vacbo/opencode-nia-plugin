@@ -23,9 +23,6 @@ const TEST_CONFIG = {
 	triggersEnabled: true,
 	apiUrl: "https://apigcp.trynia.ai/v2",
 	keywords: { enabled: true, customPatterns: [] },
-	mcpServerName: "nia",
-	mcpMaxRetries: 5,
-	mcpReconnectBaseDelay: 100,
 } as NiaConfig;
 
 function jsonResponse(status: number, body?: unknown): Response {
