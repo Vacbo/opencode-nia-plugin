@@ -1,6 +1,7 @@
 import { tool } from "@opencode-ai/plugin";
 
 import type { NiaClient } from "../api/client.js";
+import type { SdkAdapter } from "../api/nia-sdk.js";
 import type { NiaConfig } from "../config.js";
 import { getSessionState } from "../state/session.js";
 import { createToolErrorFormatter } from "../utils/format.js";
@@ -103,7 +104,7 @@ function extractSourceId(response: IndexResponse): string | undefined {
 	return response.source_id ?? response.id;
 }
 
-export function createNiaIndexTool(client: NiaClient, config: NiaConfig) {
+export function createNiaIndexTool(client: NiaClient | SdkAdapter, config: NiaConfig) {
 	return tool({
 		description:
 			"Index a GitHub repository, docs site, or research paper in Nia.",
@@ -135,11 +136,19 @@ export function createNiaIndexTool(client: NiaClient, config: NiaConfig) {
 				}
 
 				const request = buildRequestBody(args);
-				const response = await client.post<IndexResponse>(
-					request.path,
-					request.body,
-					context.abort,
-				);
+				let response: IndexResponse | string;
+				
+				if (config.useSdk) {
+					const sdk = client as SdkAdapter;
+					response = await sdk.sources.create(request.body) as IndexResponse;
+				} else {
+					const legacyClient = client as NiaClient;
+					response = await legacyClient.post<IndexResponse>(
+						request.path,
+						request.body,
+						context.abort,
+					);
+				}
 
 				if (typeof response === "string") {
 					return response;
