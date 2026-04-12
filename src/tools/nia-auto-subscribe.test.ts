@@ -4,7 +4,7 @@ import { type FetchFn, NiaClient } from "../api/client";
 import type { NiaConfig } from "../config";
 import { createNiaAutoSubscribeTool } from "./nia-auto-subscribe";
 
-const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", useSdk: false, keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
 
 import type { ToolContext } from "@opencode-ai/plugin";
 

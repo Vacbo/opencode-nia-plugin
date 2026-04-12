@@ -13,6 +13,7 @@ export interface NiaConfig {
 	debug: boolean;
 	triggersEnabled: boolean;
 	apiUrl: string;
+	useSdk: boolean;
 	keywords: {
 		enabled: boolean;
 		customPatterns: string[];
@@ -47,6 +48,7 @@ const DEFAULTS: NiaConfig = {
 	debug: false,
 	triggersEnabled: true,
 	apiUrl: "https://apigcp.trynia.ai/v2",
+	useSdk: false,
 	keywords: {
 		enabled: true,
 		customPatterns: [],
@@ -192,6 +194,7 @@ export function loadConfig(): NiaConfig {
 			DEFAULTS.triggersEnabled,
 		),
 		apiUrl: process.env.NIA_API_URL ?? DEFAULTS.apiUrl,
+		useSdk: parseBoolean(process.env.NIA_USE_SDK, DEFAULTS.useSdk),
 		keywords: {
 			enabled: parseBoolean(
 				process.env.NIA_KEYWORDS_ENABLED,

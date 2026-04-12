@@ -2,6 +2,7 @@ import type { Plugin, PluginInput } from "@opencode-ai/plugin";
 import type { Part } from "@opencode-ai/sdk";
 
 import { NiaClient } from "./api/client.js";
+import { createSdkAdapter, type SdkAdapter } from "./api/nia-sdk.js";
 import { setOpencodeClient } from "./opencode-client.js";
 
 import { isConfigured, loadConfig, type NiaConfig } from "./config.js";
@@ -32,37 +33,42 @@ import { createNiaSearchTool } from "./tools/nia-search.js";
 import { createNiaTracerTool } from "./tools/nia-tracer.js";
 import { createNiaWriteTool } from "./tools/nia-write.js";
 
-function createClient(config: NiaConfig): NiaClient {
+function createClient(config: NiaConfig): NiaClient | SdkAdapter {
 	const apiKey = config.apiKey;
 	if (!apiKey) {
 		throw new Error("NIA_API_KEY is required but not set");
 	}
+	
+	if (config.useSdk) {
+		return createSdkAdapter(config);
+	}
+	
 	return new NiaClient({
 		apiKey,
 		baseUrl: config.apiUrl,
 	});
 }
 
-function createToolRegistry(config: NiaConfig, client: NiaClient) {
-  const e2eTool = config.e2eEnabled ? createNiaE2ETool(client, config) : null;
+function createToolRegistry(config: NiaConfig, client: NiaClient | SdkAdapter) {
+  const e2eTool = config.e2eEnabled ? createNiaE2ETool(client as NiaClient, config) : null;
   
 	return {
-		nia_search: createNiaSearchTool(client, config),
-		nia_read: createNiaReadTool(client, config),
-		nia_write: createNiaWriteTool(client, config),
-		nia_rm: createNiaRmTool(client, config),
-		nia_mv: createNiaMvTool(client, config),
-		nia_mkdir: createNiaMkdirTool(client, config),
-		nia_grep: createNiaGrepTool(client, config),
-		nia_explore: createNiaExploreTool(client, config),
-		nia_index: createNiaIndexTool(client, config),
-    nia_manage_resource: createNiaManageResourceTool(client, config),
-    ...(config.researchEnabled ? { nia_research: createNiaResearchTool(client, config) } : {}),
-    ...(config.advisorEnabled ? { nia_advisor: createNiaAdvisorTool(client, config) } : {}),
-    ...(config.contextEnabled ? { nia_context: createNiaContextTool(client, config) } : {}),
-    nia_package_search: createNiaPackageSearchTool(client, config),
-    nia_auto_subscribe: createNiaAutoSubscribeTool(client, config),
-    ...(config.tracerEnabled ? { nia_tracer: createNiaTracerTool(client, config) } : {}),
+		nia_search: createNiaSearchTool(client as NiaClient, config),
+		nia_read: createNiaReadTool(client as NiaClient, config),
+		nia_write: createNiaWriteTool(client as NiaClient, config),
+		nia_rm: createNiaRmTool(client as NiaClient, config),
+		nia_mv: createNiaMvTool(client as NiaClient, config),
+		nia_mkdir: createNiaMkdirTool(client as NiaClient, config),
+		nia_grep: createNiaGrepTool(client as NiaClient, config),
+		nia_explore: createNiaExploreTool(client as NiaClient, config),
+		nia_index: createNiaIndexTool(client as NiaClient, config),
+    nia_manage_resource: createNiaManageResourceTool(client as NiaClient, config),
+    ...(config.researchEnabled ? { nia_research: createNiaResearchTool(client as NiaClient, config) } : {}),
+    ...(config.advisorEnabled ? { nia_advisor: createNiaAdvisorTool(client as NiaClient, config) } : {}),
+    ...(config.contextEnabled ? { nia_context: createNiaContextTool(client as NiaClient, config) } : {}),
+    nia_package_search: createNiaPackageSearchTool(client as NiaClient, config),
+    nia_auto_subscribe: createNiaAutoSubscribeTool(client as NiaClient, config),
+    ...(config.tracerEnabled ? { nia_tracer: createNiaTracerTool(client as NiaClient, config) } : {}),
     ...(e2eTool ? { nia_e2e: e2eTool } : {}),
   };
 }
@@ -81,7 +87,14 @@ export const NiaPlugin: Plugin = async ({ client, directory }: PluginInput) => {
 
   const niaClient = createClient(config);
   const opsTracker = new OpsTracker({ checkInterval: config.checkInterval });
-  opsTracker.setClient(niaClient);
+  // OpsTracker currently requires NiaClient specifically
+  if (!config.useSdk) {
+    opsTracker.setClient(niaClient as NiaClient);
+  } else {
+    // When using SDK, create a legacy client just for OpsTracker until it's migrated
+    const legacyClient = new NiaClient({ apiKey: config.apiKey ?? "", baseUrl: config.apiUrl });
+    opsTracker.setClient(legacyClient);
+  }
 
   return {
     event: async ({ event }) => {

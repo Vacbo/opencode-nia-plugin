@@ -21,7 +21,7 @@ const TEST_CONFIG = {
 	tracerTimeout: 120,
 	debug: false,
 	triggersEnabled: true,
-	apiUrl: "https://apigcp.trynia.ai/v2",
+	apiUrl: "https://apigcp.trynia.ai/v2", useSdk: false,
 	keywords: { enabled: true, customPatterns: [] },
 } as NiaConfig;
 
