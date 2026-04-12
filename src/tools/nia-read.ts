@@ -20,9 +20,22 @@ export function createNiaReadTool(client: NiaClient, config: NiaConfig) {
 				.optional()
 				.describe("Direct source ID. Use this OR source_type + identifier."),
 			source_type: tool.schema
-				.enum(["repository", "data_source"])
+				.enum([
+					"repository",
+					"data_source",
+					"documentation",
+					"research_paper",
+					"huggingface_dataset",
+					"local_folder",
+					"slack",
+					"google_drive",
+					"x",
+					"connector",
+				])
 				.optional()
-				.describe("Source type (repository or data_source)"),
+				.describe(
+					"Source type (repository, data_source, documentation, research_paper, huggingface_dataset, local_folder, slack, google_drive, x, or connector)",
+				),
 			identifier: tool.schema
 				.string()
 				.optional()
@@ -54,12 +67,12 @@ export function createNiaReadTool(client: NiaClient, config: NiaConfig) {
 				const resolved = await resolveSource(client, args, ctx.abort);
 				if (typeof resolved === "string") return resolved;
 
-				const params: Record<string, string | number> = { path: args.path };
-				if (args.line_start !== undefined) params.start_line = args.line_start;
-				if (args.line_end !== undefined) params.end_line = args.line_end;
+			const params: Record<string, string | number> = { path: args.path };
+			if (args.line_start !== undefined) params.line_start = args.line_start;
+			if (args.line_end !== undefined) params.line_end = args.line_end;
 
 				const result = await client.get<FileContentResponse>(
-					`/${resolved.endpoint}/${resolved.id}/content`,
+					`/fs/${resolved.id}/read`,
 					params,
 					ctx.abort,
 				);

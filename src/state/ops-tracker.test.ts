@@ -10,8 +10,8 @@ describe("OpsTracker", () => {
     const toasts: string[] = [];
 
     const responses = new Map<string, Record<string, unknown>>([
-      ["/repositories/repo-1", { status: "ready" }],
-      ["/data-sources/doc-1", { status: "ready" }],
+      ["/sources/repo-1", { status: "ready" }],
+      ["/sources/doc-1", { status: "ready" }],
       ["/oracle/jobs/oracle-1", { status: "completed" }],
       ["/github/tracer/tracer-1", { status: "completed" }],
     ]);
@@ -45,8 +45,8 @@ describe("OpsTracker", () => {
     const completed = await tracker.checkAndDrain();
 
     expect(requests).toEqual([
-      "/repositories/repo-1",
-      "/data-sources/doc-1",
+      "/sources/repo-1",
+      "/sources/doc-1",
       "/oracle/jobs/oracle-1",
       "/github/tracer/tracer-1",
     ]);

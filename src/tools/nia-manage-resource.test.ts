@@ -49,10 +49,10 @@ describe("createNiaManageResourceTool", () => {
 	it("lists repositories and data sources together", async () => {
 		const calls: string[] = [];
 		const client = {
-			get: async <T>(path: string) => {
-				calls.push(path);
+			get: async <T>(path: string, params?: unknown) => {
+				calls.push(`${path}?type=${(params as Record<string, string>)?.type || ""}`);
 
-				if (path === "/repositories") {
+				if ((params as Record<string, string>)?.type === "repository") {
 					return [{ id: "repo_1" }] as T;
 				}
 
@@ -72,7 +72,7 @@ describe("createNiaManageResourceTool", () => {
 			createContext(),
 		);
 
-		expect(calls).toEqual(["/repositories", "/data-sources"]);
+		expect(calls).toEqual(["/sources?type=repository", "/sources?type=documentation"]);
 		expect(JSON.parse(result)).toEqual({
 			repositories: [{ id: "repo_1" }],
 			data_sources: [{ id: "doc_1" }],
@@ -101,7 +101,7 @@ describe("createNiaManageResourceTool", () => {
 		);
 
 		expect(JSON.parse(result)).toEqual({
-			path: "/repositories/repo_1",
+			path: "/sources/repo_1",
 			status: "ready",
 		});
 	});
@@ -134,7 +134,7 @@ describe("createNiaManageResourceTool", () => {
 
 		expect(calls).toEqual([
 			{
-				path: "/data-sources/doc_1",
+				path: "/sources/doc_1",
 				body: { name: "Updated docs", display_name: "Updated docs" },
 			},
 		]);
@@ -168,7 +168,7 @@ describe("createNiaManageResourceTool", () => {
 		);
 
 		expect(ask).toHaveBeenCalledTimes(1);
-		expect(deleteCalls).toEqual(["/repositories/repo_1"]);
+		expect(deleteCalls).toEqual(["/sources/repo_1"]);
 		expect(JSON.parse(result)).toEqual({ deleted: true });
 	});
 
@@ -255,7 +255,7 @@ describe("createNiaManageResourceTool", () => {
 
 		expect(JSON.parse(listResult)).toEqual([{ id: "cat_1", name: "Docs" }]);
 		expect(JSON.parse(createResult)).toEqual({ id: "cat_1" });
-		expect(JSON.parse(subscribeResult)).toEqual({ id: "cat_1" });
+		expect(subscribeResult).toBe("deprecated: the unified Nia API no longer supports per-source subscription. Use category organization or the dependencies endpoints instead.");
 		expect(JSON.parse(deleteResult)).toEqual({ deleted: true });
 		expect(calls).toEqual([
 			{ method: "GET", path: "/categories" },
@@ -264,7 +264,6 @@ describe("createNiaManageResourceTool", () => {
 				path: "/categories",
 				body: { name: "Docs", description: "Important docs" },
 			},
-			{ method: "POST", path: "/categories/cat_1/subscribe", body: undefined },
 			{ method: "DELETE", path: "/categories/cat_1" },
 		]);
 	});

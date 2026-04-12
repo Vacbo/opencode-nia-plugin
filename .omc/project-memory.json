@@ -1,0 +1,236 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1774072637592,
+  "projectRoot": "/Users/vacbo/Documents/Projects/opencode-nia-plugin",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      },
+      {
+        "name": "TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "tsconfig.json"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "vitest",
+        "version": "4.1.0",
+        "category": "testing"
+      }
+    ],
+    "packageManager": "npm",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "npm run build",
+    "testCommand": "npm test",
+    "lintCommand": "npm run lint",
+    "devCommand": "npm run dev",
+    "scripts": {
+      "build": "tsc -p tsconfig.json",
+      "dev": "tsc --watch",
+      "test": "bun test",
+      "test:unit": "bun test src/",
+      "test:integration": "bun test tests/integration/",
+      "typecheck": "tsc --noEmit -p tsconfig.json",
+      "lint": "biome check --diagnostic-level=warn src/"
+    }
+  },
+  "conventions": {
+    "namingStyle": "camelCase",
+    "importStyle": "ES modules",
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "src",
+      "tests"
+    ],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "dist": {
+      "path": "dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 14,
+      "lastAccessed": 1774072637576,
+      "keyFiles": [
+        "cli.d.ts",
+        "cli.js",
+        "cli.test.d.ts",
+        "cli.test.js",
+        "config.d.ts"
+      ]
+    },
+    "instructions": {
+      "path": "instructions",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1774072637576,
+      "keyFiles": [
+        "nia-mcp-instructions.md",
+        "nia-tools.md"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 6,
+      "lastAccessed": 1774072637581,
+      "keyFiles": [
+        "cli.test.ts",
+        "cli.ts",
+        "config.test.ts",
+        "config.ts",
+        "index.test.ts"
+      ]
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 0,
+      "lastAccessed": 1774072637581,
+      "keyFiles": []
+    },
+    "dist/api": {
+      "path": "dist/api",
+      "purpose": "API routes",
+      "fileCount": 6,
+      "lastAccessed": 1774072637581,
+      "keyFiles": [
+        "client.d.ts",
+        "client.js",
+        "client.test.d.ts"
+      ]
+    },
+    "src/api": {
+      "path": "src/api",
+      "purpose": "API routes",
+      "fileCount": 3,
+      "lastAccessed": 1774072637582,
+      "keyFiles": [
+        "client.test.ts",
+        "client.ts",
+        "types.ts"
+      ]
+    },
+    "src/services": {
+      "path": "src/services",
+      "purpose": "Business logic services",
+      "fileCount": 1,
+      "lastAccessed": 1774072637582,
+      "keyFiles": [
+        "logger.ts"
+      ]
+    },
+    "tests/fixtures": {
+      "path": "tests/fixtures",
+      "purpose": "Test fixtures",
+      "fileCount": 11,
+      "lastAccessed": 1774072637582,
+      "keyFiles": [
+        "context.json",
+        "error.json",
+        "oracle-job.json"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "",
+      "accessCount": 5,
+      "lastAccessed": 1774075085041,
+      "type": "directory"
+    },
+    {
+      "path": "package.json",
+      "accessCount": 4,
+      "lastAccessed": 1774075143595,
+      "type": "file"
+    },
+    {
+      "path": "src/index.ts",
+      "accessCount": 4,
+      "lastAccessed": 1774075584103,
+      "type": "file"
+    },
+    {
+      "path": "src/cli.ts",
+      "accessCount": 4,
+      "lastAccessed": 1774076180725,
+      "type": "file"
+    },
+    {
+      "path": "src/state/job-manager.ts",
+      "accessCount": 2,
+      "lastAccessed": 1774073268853,
+      "type": "file"
+    },
+    {
+      "path": "src/cli/constants.ts",
+      "accessCount": 2,
+      "lastAccessed": 1774075243567,
+      "type": "file"
+    },
+    {
+      "path": "src/config.ts",
+      "accessCount": 1,
+      "lastAccessed": 1774072691649,
+      "type": "file"
+    },
+    {
+      "path": "src",
+      "accessCount": 1,
+      "lastAccessed": 1774073189807,
+      "type": "directory"
+    },
+    {
+      "path": "src/opencode-client.ts",
+      "accessCount": 1,
+      "lastAccessed": 1774073204778,
+      "type": "file"
+    },
+    {
+      "path": ".claude/settings.local.json",
+      "accessCount": 1,
+      "lastAccessed": 1774075055691,
+      "type": "file"
+    },
+    {
+      "path": ".claude",
+      "accessCount": 1,
+      "lastAccessed": 1774075060324,
+      "type": "directory"
+    },
+    {
+      "path": "src/cli/config.ts",
+      "accessCount": 1,
+      "lastAccessed": 1774075152023,
+      "type": "file"
+    },
+    {
+      "path": "src/cli/cleanup.ts",
+      "accessCount": 1,
+      "lastAccessed": 1774075193069,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

@@ -112,12 +112,12 @@ export function createNiaResearchTool(client: NiaClient, config: NiaConfig) {
 				}
 
 				switch (args.mode) {
-					case "quick": {
-						const response = (await client.post(
-							"/search/web",
-							buildQuickBody(args),
-							context.abort,
-						)) as string | WebSearchResponse;
+				case "quick": {
+					const response = (await client.post(
+						"/search",
+						buildQuickBody(args),
+						context.abort,
+					)) as string | WebSearchResponse;
 
 						if (typeof response === "string") {
 							return response;
@@ -126,12 +126,12 @@ export function createNiaResearchTool(client: NiaClient, config: NiaConfig) {
 						return formatQuickResponse(args, response);
 					}
 
-					case "deep": {
-						const response = (await client.post(
-							"/search/deep",
-							buildDeepBody(args),
-							context.abort,
-						)) as string | DeepSearchResponse;
+				case "deep": {
+					const response = (await client.post(
+						"/search",
+						buildDeepBody(args),
+						context.abort,
+					)) as string | DeepSearchResponse;
 
 						if (typeof response === "string") {
 							return response;
@@ -176,6 +176,7 @@ export function createNiaResearchTool(client: NiaClient, config: NiaConfig) {
 function buildQuickBody(args: NiaResearchArgs): Record<string, unknown> {
 	return {
 		query: args.query,
+		mode: "web",
 		...(args.num_results !== undefined
 			? { num_results: args.num_results }
 			: {}),
@@ -185,6 +186,7 @@ function buildQuickBody(args: NiaResearchArgs): Record<string, unknown> {
 function buildDeepBody(args: NiaResearchArgs): Record<string, unknown> {
 	return {
 		query: args.query,
+		mode: "deep",
 		output_format: "markdown",
 		...(args.num_results !== undefined
 			? { num_results: args.num_results }

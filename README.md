@@ -6,10 +6,11 @@ Installer and plugin for integrating [Nia Knowledge Agent](https://trynia.ai) wi
 
 The installer detects your OpenCode version and chooses the best integration method:
 
-| OpenCode Version | Integration                                     | How Nia Tools Are Delivered                                                                                                |
-| ---------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| **>= v1.1.50**   | [Agent Skills](https://opencode.ai/docs/skills) | Installs [nia-skill](https://github.com/nozomio-labs/nia-skill) via `npx skills add` — bash scripts calling Nia's REST API |
-| **< v1.1.50**    | MCP + Plugin                                    | Registers Nia MCP server + keyword detection plugin + remote instructions                                                  |
+| OpenCode Version | Integration | How Nia Tools Are Delivered |
+| ---------------- | ----------- | --------------------------- |
+| **>= v1.1.50** | Native Plugin | `@vacbo/opencode-nia-plugin` — tools registered via `@opencode-ai/plugin` SDK |
+| **>= v1.1.50** | [Agent Skills](https://opencode.ai/docs/skills) (alternative) | Installs [nia-skill](https://github.com/nozomio-labs/nia-skill) via `npx skills add` — bash scripts calling Nia's REST API |
+| **< v1.1.50** | MCP (legacy) | Registers Nia MCP server + keyword detection plugin |
 
 ## Installation
 
@@ -22,7 +23,7 @@ The installer will:
 1. Detect your OpenCode version
 2. Prompt for your Nia API key
 3. Store the API key at `~/.config/nia/api_key`
-4. Install the Nia skill (modern) or configure MCP server + plugin (legacy)
+4. Install the native plugin (recommended), the agent skill (alternative), or configure MCP server + plugin (legacy)
 5. Clean up any outdated configuration from previous installs
 
 ### Non-Interactive Installation
@@ -38,6 +39,65 @@ bunx nia-opencode@latest uninstall
 ```
 
 Removes all Nia configuration: skill files, MCP server entries, plugin entries, instructions references, API keys, and any legacy AGENTS.md content.
+
+## Native Plugin Path (Recommended)
+
+On modern OpenCode versions, the recommended path is the native plugin. It registers Nia tools directly through the `@opencode-ai/plugin` SDK, so no MCP server is needed.
+
+This keeps the integration inside OpenCode itself, reduces overhead, and exposes Nia tools as native plugin tools instead of MCP-connected tools.
+
+### Configure `opencode.json`
+
+Add the plugin package to the `plugin` array:
+
+```json
+{
+  "plugin": ["@vacbo/opencode-nia-plugin@latest"]
+}
+```
+
+Add the Nia workflow guide to the `instructions` array:
+
+```json
+{
+  "instructions": [
+    "https://raw.githubusercontent.com/nozomio-labs/nia-opencode/main/instructions/nia-mcp-instructions.md"
+  ]
+}
+```
+
+Store your API key in `~/.config/opencode/nia.json`:
+
+```json
+{
+  "apiKey": "nk_your_api_key",
+  "keywords": {
+    "enabled": true
+  }
+}
+```
+
+### Available Native Tools
+
+| Tool | Description |
+| ---- | ----------- |
+| `nia_search` | Semantic search across indexed repos, docs, and papers |
+| `nia_read` | Read file content from indexed sources |
+| `nia_grep` | Search indexed code and docs with grep |
+| `nia_explore` | Browse indexed file trees |
+| `nia_index` | Index repositories, docs, and papers |
+| `nia_manage_resource` | List, inspect, rename, subscribe to, or delete indexed resources |
+| `nia_research` | Run quick, deep, or oracle web research |
+| `nia_advisor` | Context-aware code analysis against indexed docs |
+| `nia_context` | Save, retrieve, search, and manage reusable context |
+| `nia_package_search` | Search npm, PyPI, crates.io, and Go package source code |
+| `nia_auto_subscribe` | Subscribe to dependency docs from project manifests |
+| `nia_tracer` | Search GitHub repositories without indexing |
+| `nia_e2e` | Manage E2E encrypted local folder sessions |
+| `nia_write` | Create or update a file in an indexed source |
+| `nia_rm` | Delete a file from an indexed source |
+| `nia_mv` | Move or rename a file in an indexed source |
+| `nia_mkdir` | Create a directory in an indexed source |
 
 ## Agent Skills Path (OpenCode >= v1.1.50)
 
@@ -83,7 +143,7 @@ npx skills add nozomio-labs/nia-skill -g -a opencode -y
 
 1. **Ensure `curl` and `jq` are installed** (required by the nia-skill bash scripts).
 
-## MCP Path (OpenCode < v1.1.50)
+## MCP Path (Legacy, OpenCode < v1.1.50)
 
 On older OpenCode versions, the installer configures three things:
 
@@ -117,7 +177,7 @@ Registers the `nia-opencode` plugin which hooks into `chat.message` events. When
 - "Grep for error handling patterns"
 - "Index this repo"
 
-...the plugin injects a nudge telling the agent to use the Nia MCP tools.
+...the plugin injects a nudge telling the agent to use the Nia tools.
 
 ### 3. Remote Instructions
 
@@ -127,14 +187,14 @@ Adds a remote instructions URL to the `instructions` config array, providing the
 
 | Tool                  | Description                                          |
 | --------------------- | ---------------------------------------------------- |
-| `nia.search`          | Semantic search across indexed repos, docs, papers   |
-| `nia.nia_research`    | Web search (quick) or deep AI research (deep/oracle) |
-| `nia.index`           | Index GitHub repos, docs sites, or arXiv papers      |
-| `nia.nia_read`        | Read files from indexed sources                      |
-| `nia.nia_grep`        | Regex search across codebases                        |
-| `nia.nia_explore`     | Browse file trees                                    |
-| `nia.manage_resource` | List/manage indexed sources                          |
-| `nia.context`         | Save/load cross-agent context                        |
+| `nia_search`          | Semantic search across indexed repos, docs, papers   |
+| `nia_research`        | Web search (quick) or deep AI research (deep/oracle) |
+| `nia_index`           | Index GitHub repos, docs sites, or arXiv papers      |
+| `nia_read`            | Read files from indexed sources                      |
+| `nia_grep`            | Regex search across codebases                        |
+| `nia_explore`         | Browse file trees                                    |
+| `nia_manage_resource` | List/manage indexed sources                          |
+| `nia_context`         | Save/load cross-agent context                        |
 
 ### Legacy Configuration
 
@@ -196,6 +256,8 @@ All E2E encryption tools (`nia_e2e` with create_session, get_session, purge, syn
 The failed tool call itself still returns an error to the agent. The agent will typically retry the call, and the next attempt will succeed after reconnection. The reconnection happens in the background and doesn't block the agent's workflow.
 
 ### Manual Setup (Legacy)
+
+For modern installations, use the Native Plugin path instead — no MCP server needed.
 
 If you prefer to set things up manually instead of using the installer:
 

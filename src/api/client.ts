@@ -80,6 +80,15 @@ export class NiaClient {
 		return this.request<T>("POST", path, body, signal, timeout);
 	}
 
+	put<T>(
+		path: string,
+		body?: unknown,
+		signal?: AbortSignal,
+		timeout?: number,
+	): Promise<T | string> {
+		return this.request<T>("PUT", path, body, signal, timeout);
+	}
+
 	patch<T>(
 		path: string,
 		body?: unknown,
@@ -229,8 +238,6 @@ export class NiaClient {
 		}, timeoutMs);
 
 		try {
-			let _lastTransientNetworkError: unknown;
-
 			for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
 				try {
 					const response = await this.fetchFn(
@@ -284,8 +291,6 @@ export class NiaClient {
 					}
 
 					if (this.isTransientNetworkError(error)) {
-						_lastTransientNetworkError = error;
-
 						if (attempt < MAX_RETRIES) {
 							const backoff = this.resolveRetryDelay(attempt, null, 0);
 

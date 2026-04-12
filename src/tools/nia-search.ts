@@ -76,11 +76,11 @@ export function createNiaSearchTool(client: NiaClient, config: NiaConfig) {
 					return "config_error: NIA_API_KEY is not set";
 				}
 
-				const response = (await client.post(
-					`/search/${args.search_mode}`,
-					buildRequestBody(args),
-					context.abort,
-				)) as string | SearchResponse;
+			const response = (await client.post(
+				"/search",
+				buildRequestBody(args),
+				context.abort,
+			)) as string | SearchResponse;
 
 				if (typeof response === "string") {
 					return response;
@@ -97,12 +97,12 @@ export function createNiaSearchTool(client: NiaClient, config: NiaConfig) {
 	});
 }
 
-function buildRequestBody(args: NiaSearchArgs): NiaSearchArgs {
+function buildRequestBody(args: NiaSearchArgs): Record<string, unknown> {
 	return {
 		query: args.query,
+		mode: args.search_mode,
 		repositories: args.repositories,
 		data_sources: args.data_sources,
-		search_mode: args.search_mode,
 		max_tokens: args.max_tokens,
 		include_sources: args.include_sources,
 		num_results: args.num_results,

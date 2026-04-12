@@ -110,11 +110,12 @@ export function createNiaAutoSubscribeTool(
 					dry_run: isDryRun,
 				};
 
-				const result = await client.post<AutoSubscribeResponse>(
-					"/dependencies",
-					body,
-					context.abort,
-				);
+			const endpoint = isDryRun ? "/dependencies/analyze" : "/dependencies/subscribe";
+			const result = await client.post<AutoSubscribeResponse>(
+				endpoint,
+				body,
+				context.abort,
+			);
 
 				if (typeof result === "string") return result;
 

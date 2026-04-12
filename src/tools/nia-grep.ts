@@ -19,9 +19,22 @@ export function createNiaGrepTool(client: NiaClient, config: NiaConfig) {
 				.optional()
 				.describe("Direct source ID. Use this OR source_type + identifier."),
 			source_type: tool.schema
-				.enum(["repository", "data_source"])
+				.enum([
+					"repository",
+					"data_source",
+					"documentation",
+					"research_paper",
+					"huggingface_dataset",
+					"local_folder",
+					"slack",
+					"google_drive",
+					"x",
+					"connector",
+				])
 				.optional()
-				.describe("Source type"),
+				.describe(
+					"Source type (repository, data_source, documentation, research_paper, huggingface_dataset, local_folder, slack, google_drive, x, or connector)",
+				),
 			identifier: tool.schema
 				.string()
 				.optional()
@@ -62,7 +75,7 @@ export function createNiaGrepTool(client: NiaClient, config: NiaConfig) {
 					body.case_sensitive = args.case_sensitive;
 
 				const result = await client.post<GrepResultItem[]>(
-					`/${resolved.endpoint}/${resolved.id}/grep`,
+					`/fs/${resolved.id}/grep`,
 					body,
 					ctx.abort,
 				);

@@ -111,12 +111,8 @@ export class OpsTracker implements IOpsTracker {
       return `/github/tracer/${operation.id}`;
     }
 
-    if (operation.sourceType === "repository") {
-      return `/repositories/${operation.id}`;
-    }
-
-    if (operation.sourceType === "data_source") {
-      return `/data-sources/${operation.id}`;
+    if (operation.sourceType === "repository" || operation.sourceType === "data_source") {
+      return `/sources/${operation.id}`;
     }
 
     return { message: "missing or unsupported index source type" };

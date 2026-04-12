@@ -45,18 +45,17 @@ describe("resolveSource", () => {
       fetchFn: mockFetch([]),
     });
 
-    const result = await resolveSource(client, {
-      source_id: "repo-123",
-      source_type: "repository",
-    });
+		const result = await resolveSource(client, {
+			source_id: "repo-123",
+			source_type: "repository",
+		});
 
-    expect(typeof result).toBe("object");
-    expect(result).toEqual({
-      id: "repo-123",
-      type: "repository",
-      endpoint: "repositories",
-    });
-  });
+		expect(typeof result).toBe("object");
+		expect(result).toEqual({
+			id: "repo-123",
+			type: "repository",
+		});
+	});
 
   it("resolves source_id with data_source type", async () => {
     const client = new NiaClient({
@@ -64,18 +63,35 @@ describe("resolveSource", () => {
       fetchFn: mockFetch([]),
     });
 
-    const result = await resolveSource(client, {
-      source_id: "ds-456",
-      source_type: "data_source",
-    });
+		const result = await resolveSource(client, {
+			source_id: "ds-456",
+			source_type: "data_source",
+		});
 
-    expect(typeof result).toBe("object");
-    expect(result).toEqual({
-      id: "ds-456",
-      type: "data_source",
-      endpoint: "data-sources",
-    });
-  });
+		expect(typeof result).toBe("object");
+		expect(result).toEqual({
+			id: "ds-456",
+			type: "data_source",
+		});
+	});
+
+	it("resolves source_id with google_drive type", async () => {
+		const client = new NiaClient({
+			apiKey: "k",
+			fetchFn: mockFetch([]),
+		});
+
+		const result = await resolveSource(client, {
+			source_id: "drive-789",
+			source_type: "google_drive",
+		});
+
+		expect(typeof result).toBe("object");
+		expect(result).toEqual({
+			id: "drive-789",
+			type: "google_drive",
+		});
+	});
 
   it("returns error for unknown source_type", async () => {
     const client = new NiaClient({
@@ -107,18 +123,17 @@ describe("resolveSource", () => {
       ]),
     });
 
-    const result = await resolveSource(client, {
-      source_type: "repository",
-      identifier: "owner/repo",
-    });
+		const result = await resolveSource(client, {
+			source_type: "repository",
+			identifier: "owner/repo",
+		});
 
-    expect(typeof result).toBe("object");
-    expect(result).toEqual({
-      id: "resolved-id",
-      type: "repository",
-      endpoint: "repositories",
-    });
-  });
+		expect(typeof result).toBe("object");
+		expect(result).toEqual({
+			id: "resolved-id",
+			type: "repository",
+		});
+	});
 
   it("returns error when neither source_id nor identifier provided", async () => {
     const client = new NiaClient({

@@ -45,8 +45,8 @@ describe("nia_search tool", () => {
     const context = createContext();
     const result = await niaSearchTool.execute(args, context);
 
-    expect(capturedPath).toBe("/search/universal");
-    expect(capturedBody).toMatchObject({ query: "vector databases", search_mode: "universal", max_tokens: 5000, include_sources: true, num_results: 10 });
+    expect(capturedPath).toBe("/search");
+    expect(capturedBody).toMatchObject({ query: "vector databases", mode: "universal", max_tokens: 5000, include_sources: true, num_results: 10 });
     expect(result).toContain("# Nia Search");
     expect(result).toContain("## Results");
     expect(result).toContain("Semantic Search Guide");

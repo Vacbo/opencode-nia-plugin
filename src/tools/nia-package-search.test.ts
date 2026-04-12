@@ -91,7 +91,7 @@ describe("nia_package_search tool", () => {
 			createMockContext(),
 		);
 
-		expect(capturedUrl).toContain("/package-search/hybrid");
+		expect(capturedUrl).toContain("/packages/search");
 		const body = JSON.parse(capturedBody);
 		expect(body.registry).toBe("npm");
 		expect(body.package_name).toBe("openai");
@@ -141,7 +141,7 @@ describe("nia_package_search tool", () => {
 			createMockContext(),
 		);
 
-		expect(JSON.parse(capturedBody).registry).toBe("pypi");
+		expect(JSON.parse(capturedBody).registry).toBe("py_pi");
 	});
 
 	it("supports crates registry", async () => {
@@ -158,7 +158,7 @@ describe("nia_package_search tool", () => {
 			createMockContext(),
 		);
 
-		expect(JSON.parse(capturedBody).registry).toBe("crates");
+		expect(JSON.parse(capturedBody).registry).toBe("crates_io");
 	});
 
 	it("supports go registry", async () => {
@@ -175,7 +175,7 @@ describe("nia_package_search tool", () => {
 			createMockContext(),
 		);
 
-		expect(JSON.parse(capturedBody).registry).toBe("go");
+		expect(JSON.parse(capturedBody).registry).toBe("golang_proxy");
 	});
 
 	it("handles empty results", async () => {

@@ -46,7 +46,7 @@ describe("nia_explore", () => {
 			apiKey: "k",
 			fetchFn: mockFetch([
 				{
-					match: "/repositories/repo-1/tree",
+					match: "/fs/repo-1/tree",
 					response: {
 						repository: "owner/repo",
 						branch: "main",
@@ -77,7 +77,7 @@ describe("nia_explore", () => {
 			apiKey: "k",
 			fetchFn: mockFetch([
 				{
-					match: "/repositories/repo-1/tree",
+					match: "/fs/repo-1/tree",
 					response: {
 						repository: "owner/repo",
 						branch: "main",
@@ -149,7 +149,7 @@ describe("nia_explore", () => {
 			apiKey: "k",
 			fetchFn: mockFetch([
 				{
-					match: "/repositories/repo-1/tree",
+					match: "/fs/repo-1/tree",
 					response: { message: "not found" },
 					status: 404,
 				},
@@ -178,7 +178,7 @@ describe("nia_explore", () => {
 						total: 1,
 					});
 				}
-				if (url.includes("/repositories/r-id/tree")) {
+				if (url.includes("/fs/r-id/tree")) {
 					treeUrl = url;
 					return jsonResponse(200, {
 						repository: "owner/repo",
@@ -196,11 +196,11 @@ describe("nia_explore", () => {
 			mockContext(),
 		);
 
-		expect(treeUrl).toContain("/repositories/r-id/tree");
+		expect(treeUrl).toContain("/fs/r-id/tree");
 		expect(result).toContain("file.ts");
 	});
 
-	it("uses data-sources endpoint for data_source type", async () => {
+	it("uses unified fs endpoint for data_source type", async () => {
 		let capturedUrl = "";
 		const client = new NiaClient({
 			apiKey: "k",
@@ -220,7 +220,7 @@ describe("nia_explore", () => {
 			mockContext(),
 		);
 
-		expect(capturedUrl).toContain("/data-sources/ds-1/tree");
+		expect(capturedUrl).toContain("/fs/ds-1/tree");
 		expect(result).toContain("index.html");
 	});
 
@@ -229,7 +229,7 @@ describe("nia_explore", () => {
 			apiKey: "k",
 			fetchFn: mockFetch([
 				{
-					match: "/repositories/repo-1/tree",
+					match: "/fs/repo-1/tree",
 					response: { repository: "r", branch: "main", tree: [] },
 				},
 			]),

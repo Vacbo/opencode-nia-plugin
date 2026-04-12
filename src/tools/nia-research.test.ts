@@ -22,8 +22,8 @@ describe("nia_research tool", () => {
     };
     const niaResearchTool = createNiaResearchTool(client as unknown as NiaClient, TEST_CONFIG);
     const result = await niaResearchTool.execute(niaResearchArgsSchema.parse({ query: "best bun test patterns", mode: "quick", num_results: 5 }), createContext());
-    expect(capturedPath).toBe("/search/web");
-    expect(capturedBody).toEqual({ query: "best bun test patterns", num_results: 5 });
+    expect(capturedPath).toBe("/search");
+    expect(capturedBody).toEqual({ query: "best bun test patterns", mode: "web", num_results: 5 });
     expect(result).toContain("# Nia Research");
     expect(result).toContain("`quick`");
     expect(result).toContain("Bun test guide");

@@ -44,9 +44,9 @@ const RESOURCE_TYPE_SCHEMA = tool.schema.enum([
 ]);
 
 const RESOURCE_PATHS: Record<NiaResourceType, string> = {
-	repository: "/repositories",
-	data_source: "/data-sources",
-	research_paper: "/research-papers",
+	repository: "/sources",
+	data_source: "/sources",
+	research_paper: "/sources",
 	category: "/categories",
 };
 
@@ -163,17 +163,17 @@ export function createNiaManageResourceTool(
 				}
 
 				switch (args.action) {
-					case "list": {
-						const [repositories, dataSources] = await Promise.all([
-							client.get<unknown[]>("/repositories", undefined, context.abort),
-							client.get<unknown[]>("/data-sources", undefined, context.abort),
-						]);
+				case "list": {
+					const [repositories, dataSources] = await Promise.all([
+						client.get<unknown[]>("/sources", { type: "repository" }, context.abort),
+						client.get<unknown[]>("/sources", { type: "documentation" }, context.abort),
+					]);
 
-						return jsonResult({
-							repositories,
-							data_sources: dataSources,
-						});
-					}
+					return jsonResult({
+						repositories,
+						data_sources: dataSources,
+					});
+				}
 
 					case "status": {
 						const identity = requireResourceIdentity(args);
@@ -232,20 +232,13 @@ export function createNiaManageResourceTool(
 							: jsonResult(response);
 					}
 
-					case "subscribe": {
-						const identity = requireResourceIdentity(args);
-						if (typeof identity === "string") return identity;
+				case "subscribe": {
+					const identity = requireResourceIdentity(args);
+					if (typeof identity === "string") return identity;
 
-						const response = await client.post(
-							`${resourcePath(identity.resourceType, identity.resourceId)}/subscribe`,
-							undefined,
-							context.abort,
-						);
-
-						return typeof response === "string"
-							? response
-							: jsonResult(response);
-					}
+					// The unified Nia API no longer supports per-source subscription
+					return "deprecated: the unified Nia API no longer supports per-source subscription. Use category organization or the dependencies endpoints instead.";
+				}
 
 					case "category_list": {
 						const response = await client.get(

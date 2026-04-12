@@ -7,6 +7,10 @@ import { getSessionState, resetSessionStates } from "./state/session";
 const ALL_TOOL_NAMES = [
   "nia_search",
   "nia_read",
+  "nia_write",
+  "nia_rm",
+  "nia_mv",
+  "nia_mkdir",
   "nia_grep",
   "nia_explore",
   "nia_index",
@@ -23,6 +27,10 @@ const ALL_TOOL_NAMES = [
 const ALWAYS_ON_TOOL_NAMES = [
   "nia_search",
   "nia_read",
+  "nia_write",
+  "nia_rm",
+  "nia_mv",
+  "nia_mkdir",
   "nia_grep",
   "nia_explore",
   "nia_index",

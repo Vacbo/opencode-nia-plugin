@@ -228,7 +228,7 @@ describe("nia_context tool", () => {
 			);
 
 			expect(capturedUrl).toContain("/contexts/semantic-search");
-			expect(capturedUrl).toContain("query=auth+flow");
+			expect(capturedUrl).toContain("q=auth+flow");
 			expect(result).toContain("Auth notes");
 		});
 

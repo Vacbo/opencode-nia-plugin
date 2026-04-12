@@ -44,7 +44,7 @@ describe("nia_tracer tool", () => {
     };
     const niaTracerTool = createNiaTracerTool(client as unknown as NiaClient, TEST_CONFIG);
     const result = await niaTracerTool.execute(niaTracerArgsSchema.parse({ query: "Trace auth refresh flow", tracer_mode: "tracer-deep", repositories: ["acme/app"] }), createContext());
-    expect(capturedPath).toBe("/github/tracer/jobs");
+    expect(capturedPath).toBe("/github/tracer");
     expect(capturedBody).toMatchObject({ query: "Trace auth refresh flow", repositories: ["acme/app"], mode: "tracer-deep" });
     expect(result).toContain("job_deep_1");
     expect(result).toContain("Deep tracer analysis started");

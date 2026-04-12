@@ -90,7 +90,7 @@ describe("NiaJobManager", () => {
       manager.submitJob("oracle", "job_oracle", "session_abc");
       await manager.consumeSSE("job_oracle", mockClient as unknown as NiaClient);
 
-      expect(capturedPath).toBe("/oracle/jobs/job_oracle");
+      expect(capturedPath).toBe("/oracle/jobs/job_oracle/stream");
       expect(capturedSignal).toBeDefined();
     });
 
@@ -107,7 +107,7 @@ describe("NiaJobManager", () => {
       manager.submitJob("tracer", "job_tracer", "session_abc");
       await manager.consumeSSE("job_tracer", mockClient as unknown as NiaClient);
 
-      expect(capturedPath).toBe("/github/tracer/job_tracer");
+      expect(capturedPath).toBe("/github/tracer/job_tracer/stream");
     });
   });
 
@@ -124,7 +124,7 @@ describe("NiaJobManager", () => {
       manager.submitJob("oracle", "job_123", "session_abc");
       await manager.cancelJob("job_123", mockClient as unknown as NiaClient);
 
-      expect(capturedPath).toBe("/oracle/jobs/job_123");
+      expect(capturedPath).toBe("/oracle/jobs/job_123/stream");
     });
 
     it("calls delete on the Nia API for tracer", async () => {
@@ -139,7 +139,7 @@ describe("NiaJobManager", () => {
       manager.submitJob("tracer", "job_456", "session_abc");
       await manager.cancelJob("job_456", mockClient as unknown as NiaClient);
 
-      expect(capturedPath).toBe("/github/tracer/job_456");
+      expect(capturedPath).toBe("/github/tracer/job_456/stream");
     });
 
     it("handles missing job gracefully", async () => {

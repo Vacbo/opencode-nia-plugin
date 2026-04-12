@@ -76,33 +76,26 @@ function buildRequestBody(args: {
 }) {
 	const sourceType = args.source_type ?? detectSourceType(args.url);
 
+	// Map plugin source types to API source types
+	const apiSourceType = sourceType === "data_source" ? "documentation" : sourceType;
+
+	const body: Record<string, unknown> = {
+		type: apiSourceType,
+		url: args.url,
+	};
+
 	if (sourceType === "repository") {
-		return {
-			sourceType,
-			path: "/repositories",
-			body: {
-				repository: normalizeRepositoryUrl(args.url),
-			},
-		};
+		body.repository = normalizeRepositoryUrl(args.url);
 	}
 
-	if (sourceType === "research_paper") {
-		return {
-			sourceType,
-			path: "/research-papers",
-			body: {
-				url: args.url,
-			},
-		};
+	if (sourceType === "data_source") {
+		body.display_name = args.name?.trim() || new URL(args.url).hostname;
 	}
 
 	return {
 		sourceType,
-		path: "/data-sources",
-		body: {
-			url: args.url,
-			display_name: args.name?.trim() || new URL(args.url).hostname,
-		},
+		path: "/sources",
+		body,
 	};
 }
 

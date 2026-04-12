@@ -34,9 +34,22 @@ export function createNiaExploreTool(client: NiaClient, config: NiaConfig) {
 				.optional()
 				.describe("Direct source ID. Use this OR source_type + identifier."),
 			source_type: tool.schema
-				.enum(["repository", "data_source"])
+				.enum([
+					"repository",
+					"data_source",
+					"documentation",
+					"research_paper",
+					"huggingface_dataset",
+					"local_folder",
+					"slack",
+					"google_drive",
+					"x",
+					"connector",
+				])
 				.optional()
-				.describe("Source type"),
+				.describe(
+					"Source type (repository, data_source, documentation, research_paper, huggingface_dataset, local_folder, slack, google_drive, x, or connector)",
+				),
 			identifier: tool.schema
 				.string()
 				.optional()
@@ -72,7 +85,7 @@ export function createNiaExploreTool(client: NiaClient, config: NiaConfig) {
 				if (args.max_depth !== undefined) params.max_depth = args.max_depth;
 
 				const result = await client.get<RepositoryTreeResponse>(
-					`/${resolved.endpoint}/${resolved.id}/tree`,
+					`/fs/${resolved.id}/tree`,
 					params,
 					ctx.abort,
 				);

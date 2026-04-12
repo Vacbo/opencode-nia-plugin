@@ -46,7 +46,7 @@ describe("nia_read", () => {
 			apiKey: "k",
 			fetchFn: mockFetch([
 				{
-					match: "/repositories/repo-1/content",
+					match: "/fs/repo-1/read",
 					response: {
 						content: "const x = 1;\nconst y = 2;",
 						path: "src/index.ts",
@@ -99,8 +99,8 @@ describe("nia_read", () => {
 			mockContext(),
 		);
 
-		expect(capturedUrl).toContain("start_line=5");
-		expect(capturedUrl).toContain("end_line=10");
+		expect(capturedUrl).toContain("line_start=5");
+		expect(capturedUrl).toContain("line_end=10");
 	});
 
 	it("truncates content exceeding 50KB", async () => {
@@ -109,7 +109,7 @@ describe("nia_read", () => {
 			apiKey: "k",
 			fetchFn: mockFetch([
 				{
-					match: "/repositories/repo-1/content",
+					match: "/fs/repo-1/read",
 					response: {
 						content: largeContent,
 						path: "big.bin",
@@ -150,7 +150,7 @@ describe("nia_read", () => {
 			apiKey: "k",
 			fetchFn: mockFetch([
 				{
-					match: "/repositories/repo-1/content",
+					match: "/fs/repo-1/read",
 					response: { message: "file not found" },
 					status: 404,
 				},
@@ -185,7 +185,7 @@ describe("nia_read", () => {
 						total: 1,
 					});
 				}
-				if (url.includes("/repositories/resolved-id/content")) {
+				if (url.includes("/fs/resolved-id/read")) {
 					contentUrl = url;
 					return jsonResponse(200, {
 						content: "resolved content",
@@ -210,10 +210,10 @@ describe("nia_read", () => {
 		);
 
 		expect(result).toContain("resolved content");
-		expect(contentUrl).toContain("/repositories/resolved-id/content");
+		expect(contentUrl).toContain("/fs/resolved-id/read");
 	});
 
-	it("reads from data_source endpoint when source_type is data_source", async () => {
+	it("reads from unified fs endpoint when source_type is data_source", async () => {
 		let capturedUrl = "";
 		const client = new NiaClient({
 			apiKey: "k",
@@ -235,7 +235,7 @@ describe("nia_read", () => {
 			mockContext(),
 		);
 
-		expect(capturedUrl).toContain("/data-sources/ds-1/content");
+		expect(capturedUrl).toContain("/fs/ds-1/read");
 		expect(result).toContain("docs content");
 	});
 

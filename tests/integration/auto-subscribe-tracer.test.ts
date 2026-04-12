@@ -152,8 +152,8 @@ describe("nia_auto_subscribe + nia_tracer live API", () => {
 		);
 
 		const calls = sliceNewRequests(start);
-		const depCall = calls.find((c) => c.path === "/v2/dependencies");
-		expect(depCall, "Expected live call to /v2/dependencies").toBeDefined();
+		const depCall = calls.find((c) => c.path === "/v2/dependencies/analyze");
+		expect(depCall, "Expected live call to /v2/dependencies/analyze").toBeDefined();
 
 		const isKnown404 = result.startsWith("not_found");
 		if (isKnown404) {
@@ -195,14 +195,10 @@ describe("nia_auto_subscribe + nia_tracer live API", () => {
 		expect(result).toContain("Nia Tracer");
 
 		const calls = sliceNewRequests(start);
-		const tracerCall = calls.find(
-			(c) =>
-				c.path === "/v2/github/tracer" ||
-				c.path === "/v2/github/tracer/jobs",
-		);
+		const tracerCall = calls.find((c) => c.path === "/v2/github/tracer");
 		expect(
 			tracerCall,
-			"Expected a POST to /v2/github/tracer or /v2/github/tracer/jobs",
+			"Expected a POST to /v2/github/tracer",
 		).toBeDefined();
 	}, 120_000);
 

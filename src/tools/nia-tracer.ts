@@ -107,13 +107,13 @@ export function createNiaTracerTool(client: NiaClient, config: NiaConfig) {
 					return formatTracerResponse(response, { query: args.query });
 				}
 
-				if (args.tracer_mode === "tracer-deep") {
-					const response = (await client.post(
-						"/github/tracer/jobs",
-						buildCreateBody(args),
-						context.abort,
-						timeoutMs,
-					)) as string | TracerJobResponse;
+			if (args.tracer_mode === "tracer-deep") {
+				const response = (await client.post(
+					"/github/tracer",
+					buildCreateBody(args),
+					context.abort,
+					timeoutMs,
+				)) as string | TracerJobResponse;
 
 					if (typeof response === "string") {
 						return response;

@@ -10,6 +10,18 @@ import { createToolErrorFormatter } from "../utils/format.js";
 
 const VALID_REGISTRIES = new Set<string>(["npm", "pypi", "crates", "go"]);
 
+// Map plugin registry names to API registry enum values
+const REGISTRY_API_MAP: Record<string, string> = {
+	npm: "npm",
+	pypi: "py_pi",
+	crates: "crates_io",
+	go: "golang_proxy",
+};
+
+function mapRegistryToApi(registry: string): string {
+	return REGISTRY_API_MAP[registry] || registry;
+}
+
 function parseQueries(raw?: string): string[] | undefined {
 	if (!raw) return undefined;
 	return raw
@@ -96,10 +108,10 @@ export function createNiaPackageSearchTool(
 					return "error: package_name is required";
 				}
 
-				const body: Record<string, unknown> = {
-					registry: args.registry,
-					package_name: args.package_name,
-				};
+			const body: Record<string, unknown> = {
+				registry: mapRegistryToApi(args.registry),
+				package_name: args.package_name,
+			};
 
 				const queries = parseQueries(args.semantic_queries);
 				if (queries) {
@@ -110,11 +122,11 @@ export function createNiaPackageSearchTool(
 					body.code_snippets = [args.pattern];
 				}
 
-				const result = await client.post<PackageSearchResponse>(
-					"/package-search/hybrid",
-					body,
-					context.abort,
-				);
+			const result = await client.post<PackageSearchResponse>(
+				"/packages/search",
+				body,
+				context.abort,
+			);
 
 				if (typeof result === "string") return result;
 

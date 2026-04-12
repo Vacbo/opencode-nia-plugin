@@ -62,8 +62,8 @@ export class NiaJobManager {
     abortControllers.set(jobId, controller);
 
     const path = job.type === "oracle"
-      ? `/oracle/jobs/${jobId}`
-      : `/github/tracer/${jobId}`;
+      ? `/oracle/jobs/${jobId}/stream`
+      : `/github/tracer/${jobId}/stream`;
 
     try {
       const reader = client.stream(path, undefined, controller.signal);
@@ -118,8 +118,8 @@ export class NiaJobManager {
     const job = jobs.get(jobId);
     if (job) {
       const path = job.type === "oracle"
-        ? `/oracle/jobs/${jobId}`
-        : `/github/tracer/${jobId}`;
+        ? `/oracle/jobs/${jobId}/stream`
+        : `/github/tracer/${jobId}/stream`;
 
       try {
         await client.delete(path);

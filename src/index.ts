@@ -22,11 +22,15 @@ import { createNiaExploreTool } from "./tools/nia-explore.js";
 import { createNiaGrepTool } from "./tools/nia-grep.js";
 import { createNiaIndexTool } from "./tools/nia-index.js";
 import { createNiaManageResourceTool } from "./tools/nia-manage-resource.js";
+import { createNiaMkdirTool } from "./tools/nia-mkdir.js";
+import { createNiaMvTool } from "./tools/nia-mv.js";
 import { createNiaPackageSearchTool } from "./tools/nia-package-search.js";
 import { createNiaReadTool } from "./tools/nia-read.js";
 import { createNiaResearchTool } from "./tools/nia-research.js";
+import { createNiaRmTool } from "./tools/nia-rm.js";
 import { createNiaSearchTool } from "./tools/nia-search.js";
 import { createNiaTracerTool } from "./tools/nia-tracer.js";
+import { createNiaWriteTool } from "./tools/nia-write.js";
 
 function createClient(config: NiaConfig): NiaClient {
 	const apiKey = config.apiKey;
@@ -42,12 +46,16 @@ function createClient(config: NiaConfig): NiaClient {
 function createToolRegistry(config: NiaConfig, client: NiaClient) {
   const e2eTool = config.e2eEnabled ? createNiaE2ETool(client, config) : null;
   
-  return {
-    nia_search: createNiaSearchTool(client, config),
-    nia_read: createNiaReadTool(client, config),
-    nia_grep: createNiaGrepTool(client, config),
-    nia_explore: createNiaExploreTool(client, config),
-    nia_index: createNiaIndexTool(client, config),
+	return {
+		nia_search: createNiaSearchTool(client, config),
+		nia_read: createNiaReadTool(client, config),
+		nia_write: createNiaWriteTool(client, config),
+		nia_rm: createNiaRmTool(client, config),
+		nia_mv: createNiaMvTool(client, config),
+		nia_mkdir: createNiaMkdirTool(client, config),
+		nia_grep: createNiaGrepTool(client, config),
+		nia_explore: createNiaExploreTool(client, config),
+		nia_index: createNiaIndexTool(client, config),
     nia_manage_resource: createNiaManageResourceTool(client, config),
     ...(config.researchEnabled ? { nia_research: createNiaResearchTool(client, config) } : {}),
     ...(config.advisorEnabled ? { nia_advisor: createNiaAdvisorTool(client, config) } : {}),

@@ -135,7 +135,7 @@ export function detectResearchKeyword(text: string, config: TriggerConfig = load
 
 export const NIA_NUDGE_MESSAGE = `[NIA KNOWLEDGE TRIGGER]
 The user is asking for research, documentation, or codebase exploration.
-You have access to Nia MCP tools (${NIA_TOOLS_LIST}).
+You have access to Nia tools (${NIA_TOOLS_LIST}).
 Refer to your Nia instructions for the detailed workflow. Use these tools to provide accurate, up-to-date information.`;
 
 export const NIA_SAVE_NUDGE_MESSAGE = `[NIA CONTEXT SAVE TRIGGER]

@@ -46,7 +46,7 @@ describe("nia_grep", () => {
 			apiKey: "k",
 			fetchFn: mockFetch([
 				{
-					match: "/repositories/repo-1/grep",
+					match: "/fs/repo-1/grep",
 					response: [
 						{
 							path: "src/app.ts",
@@ -82,7 +82,7 @@ describe("nia_grep", () => {
 		const client = new NiaClient({
 			apiKey: "k",
 			fetchFn: mockFetch([
-				{ match: "/repositories/repo-1/grep", response: matches },
+				{ match: "/fs/repo-1/grep", response: matches },
 			]),
 		});
 
@@ -136,7 +136,7 @@ describe("nia_grep", () => {
 			apiKey: "k",
 			fetchFn: mockFetch([
 				{
-					match: "/repositories/repo-1/grep",
+					match: "/fs/repo-1/grep",
 					response: { message: "internal error" },
 					status: 500,
 				},
@@ -157,7 +157,7 @@ describe("nia_grep", () => {
 		const client = new NiaClient({
 			apiKey: "k",
 			fetchFn: mockFetch([
-				{ match: "/repositories/repo-1/grep", response: [] },
+				{ match: "/fs/repo-1/grep", response: [] },
 			]),
 		});
 
@@ -187,7 +187,7 @@ describe("nia_grep", () => {
 						total: 1,
 					});
 				}
-				if (url.includes("/repositories/r-id/grep")) {
+				if (url.includes("/fs/r-id/grep")) {
 					grepUrl = url;
 					return jsonResponse(200, [
 						{ path: "a.ts", line_number: 1, content: "found" },
@@ -203,7 +203,7 @@ describe("nia_grep", () => {
 			mockContext(),
 		);
 
-		expect(grepUrl).toContain("/repositories/r-id/grep");
+		expect(grepUrl).toContain("/fs/r-id/grep");
 		expect(result).toContain("found");
 	});
 

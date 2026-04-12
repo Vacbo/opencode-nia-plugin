@@ -37,8 +37,8 @@ describe("createNiaIndexTool", () => {
 
 		expect(calls).toEqual([
 			{
-				path: "/repositories",
-				body: { repository: "nozomio-labs/nia-opencode" },
+				path: "/sources",
+				body: { type: "repository", url: "https://github.com/nozomio-labs/nia-opencode", repository: "nozomio-labs/nia-opencode" },
 			},
 		]);
 
@@ -73,8 +73,9 @@ describe("createNiaIndexTool", () => {
 
 		expect(calls).toEqual([
 			{
-				path: "/data-sources",
+				path: "/sources",
 				body: {
+					type: "documentation",
 					url: "https://docs.trynia.ai/sdk/examples",
 					display_name: "Nia SDK docs",
 				},
@@ -107,8 +108,8 @@ describe("createNiaIndexTool", () => {
 
 		expect(calls).toEqual([
 			{
-				path: "/research-papers",
-				body: { url: "https://arxiv.org/abs/2401.01234" },
+				path: "/sources",
+				body: { type: "research_paper", url: "https://arxiv.org/abs/2401.01234" },
 			},
 		]);
 

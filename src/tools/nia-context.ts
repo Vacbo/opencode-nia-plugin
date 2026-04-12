@@ -140,7 +140,7 @@ async function handleSearch(
 	if (!args.query?.trim()) return "error: query is required for search action";
 
 	const params: Record<string, string | number | undefined> = {
-		query: args.query,
+		q: args.query,
 	};
 	if (args.limit) params.limit = Number(args.limit);
 	if (args.tags) params.tags = args.tags;
@@ -168,7 +168,7 @@ async function handleUpdate(
 	if (args.content !== undefined) body.content = args.content;
 	if (args.tags !== undefined) body.tags = parseTags(args.tags);
 
-	const result = await client.patch<ContextResponse>(
+	const result = await client.put<ContextResponse>(
 		`/contexts/${args.id}`,
 		body,
 		context.abort,
