@@ -50,25 +50,25 @@ function createClient(config: NiaConfig): NiaClient | SdkAdapter {
 }
 
 function createToolRegistry(config: NiaConfig, client: NiaClient | SdkAdapter) {
-  const e2eTool = config.e2eEnabled ? createNiaE2ETool(client as NiaClient, config) : null;
+  const e2eTool = config.e2eEnabled ? createNiaE2ETool(client, config) : null;
   
 	return {
-		nia_search: createNiaSearchTool(client as NiaClient, config),
-		nia_read: createNiaReadTool(client as NiaClient, config),
-		nia_write: createNiaWriteTool(client as NiaClient, config),
-		nia_rm: createNiaRmTool(client as NiaClient, config),
-		nia_mv: createNiaMvTool(client as NiaClient, config),
-		nia_mkdir: createNiaMkdirTool(client as NiaClient, config),
-		nia_grep: createNiaGrepTool(client as NiaClient, config),
-		nia_explore: createNiaExploreTool(client as NiaClient, config),
-		nia_index: createNiaIndexTool(client as NiaClient, config),
-    nia_manage_resource: createNiaManageResourceTool(client as NiaClient, config),
-    ...(config.researchEnabled ? { nia_research: createNiaResearchTool(client as NiaClient, config) } : {}),
-    ...(config.advisorEnabled ? { nia_advisor: createNiaAdvisorTool(client as NiaClient, config) } : {}),
-    ...(config.contextEnabled ? { nia_context: createNiaContextTool(client as NiaClient, config) } : {}),
-    nia_package_search: createNiaPackageSearchTool(client as NiaClient, config),
-    nia_auto_subscribe: createNiaAutoSubscribeTool(client as NiaClient, config),
-    ...(config.tracerEnabled ? { nia_tracer: createNiaTracerTool(client as NiaClient, config) } : {}),
+		nia_search: createNiaSearchTool(client, config),
+		nia_read: createNiaReadTool(client, config),
+		nia_write: createNiaWriteTool(client, config),
+		nia_rm: createNiaRmTool(client, config),
+		nia_mv: createNiaMvTool(client, config),
+		nia_mkdir: createNiaMkdirTool(client, config),
+		nia_grep: createNiaGrepTool(client, config),
+		nia_explore: createNiaExploreTool(client, config),
+		nia_index: createNiaIndexTool(client, config),
+    nia_manage_resource: createNiaManageResourceTool(client, config),
+    ...(config.researchEnabled ? { nia_research: createNiaResearchTool(client, config) } : {}),
+    ...(config.advisorEnabled ? { nia_advisor: createNiaAdvisorTool(client, config) } : {}),
+    ...(config.contextEnabled ? { nia_context: createNiaContextTool(client, config) } : {}),
+    nia_package_search: createNiaPackageSearchTool(client, config),
+    nia_auto_subscribe: createNiaAutoSubscribeTool(client, config),
+    ...(config.tracerEnabled ? { nia_tracer: createNiaTracerTool(client, config) } : {}),
     ...(e2eTool ? { nia_e2e: e2eTool } : {}),
   };
 }

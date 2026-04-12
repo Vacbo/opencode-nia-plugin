@@ -1,4 +1,5 @@
 import type { NiaClient } from "../api/client.js";
+import type { SdkAdapter } from "../api/nia-sdk.js";
 import type { SourceListResponse } from "../api/types.js";
 
 export interface ResolvedSource {
@@ -27,9 +28,10 @@ function mapSourceTypeToApi(sourceType: string): string {
 }
 
 export async function resolveSource(
-  client: NiaClient,
+  client: NiaClient | SdkAdapter,
   args: { source_id?: string; source_type?: string; identifier?: string },
   signal?: AbortSignal,
+  useSdk = false,
 ): Promise<ResolvedSource | string> {
   if (args.source_id) {
     if (!args.source_type) {
@@ -51,14 +53,22 @@ export async function resolveSource(
     return `validation_error: unknown source_type "${args.source_type}"`;
   }
 
-  const result = await client.get<SourceListResponse>(
-    "/sources",
-    { type: mapSourceTypeToApi(args.source_type), query: args.identifier, limit: 1 },
-    signal,
-  );
-
-  if (typeof result === "string") {
-    return result;
+  let result: SourceListResponse;
+  if (useSdk) {
+    const sdk = client as SdkAdapter;
+    const response = await sdk.sources.resolve(args.identifier, mapSourceTypeToApi(args.source_type));
+    result = response as SourceListResponse;
+  } else {
+    const legacyClient = client as NiaClient;
+    const response = await legacyClient.get<SourceListResponse>(
+      "/sources",
+      { type: mapSourceTypeToApi(args.source_type), query: args.identifier, limit: 1 },
+      signal,
+    );
+    if (typeof response === "string") {
+      return response;
+    }
+    result = response;
   }
 
   if (!result.sources || result.sources.length === 0) {

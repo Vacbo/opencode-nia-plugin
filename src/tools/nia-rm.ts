@@ -1,6 +1,7 @@
 import { tool } from "@opencode-ai/plugin";
 
 import type { NiaClient } from "../api/client.js";
+import type { SdkAdapter } from "../api/nia-sdk.js";
 import type { NiaConfig } from "../config.js";
 import { createToolErrorFormatter } from "../utils/format.js";
 import { resolveSource } from "./source-resolver.js";
@@ -12,7 +13,7 @@ function jsonResult(value: unknown): string {
 	return JSON.stringify(value, null, 2);
 }
 
-export function createNiaRmTool(client: NiaClient, config: NiaConfig) {
+export function createNiaRmTool(client: NiaClient | SdkAdapter, config: NiaConfig) {
 	return tool({
 		description:
 			"Delete a file from an indexed source's filesystem store.",
@@ -58,14 +59,23 @@ export function createNiaRmTool(client: NiaClient, config: NiaConfig) {
 					return "config_error: NIA_API_KEY is not set";
 				}
 
-				const resolved = await resolveSource(client, args, ctx.abort);
+				const resolved = await resolveSource(client, args, ctx.abort, config.useSdk);
 				if (typeof resolved === "string") return resolved;
 
-				const result = await client.delete<unknown>(
-					`/fs/${resolved.id}/files?path=${encodeURIComponent(args.path)}`,
-					undefined,
-					ctx.abort,
-				);
+				let result: unknown;
+				if (config.useSdk) {
+					const sdk = client as SdkAdapter;
+					result = await sdk.filesystem.rm(resolved.id, {
+						path: args.path,
+					});
+				} else {
+					const legacyClient = client as NiaClient;
+					result = await legacyClient.delete<unknown>(
+						`/fs/${resolved.id}/files?path=${encodeURIComponent(args.path)}`,
+						undefined,
+						ctx.abort,
+					);
+				}
 
 				if (typeof result === "string") return result;
 

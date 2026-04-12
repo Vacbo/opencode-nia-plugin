@@ -2,6 +2,7 @@ import type { ToolContext } from "@opencode-ai/plugin";
 import { tool } from "@opencode-ai/plugin";
 
 import type { NiaClient } from "../api/client.js";
+import type { SdkAdapter } from "../api/nia-sdk.js";
 import type { NiaConfig } from "../config.js";
 import { createToolErrorFormatter } from "../utils/format.js";
 
@@ -116,9 +117,11 @@ async function requestDeletePermission(
 }
 
 export function createNiaManageResourceTool(
-	client: NiaClient,
+	client: NiaClient | SdkAdapter,
 	config: NiaConfig,
 ) {
+	const isSdkAdapter = (c: NiaClient | SdkAdapter): c is SdkAdapter =>
+		"sources" in c && c.sources !== undefined;
 	return tool({
 		description:
 			"List, inspect, rename, subscribe to, or delete Nia resources and categories.",
@@ -163,74 +166,77 @@ export function createNiaManageResourceTool(
 				}
 
 				switch (args.action) {
-				case "list": {
-					const [repositories, dataSources] = await Promise.all([
-						client.get<unknown[]>("/sources", { type: "repository" }, context.abort),
-						client.get<unknown[]>("/sources", { type: "documentation" }, context.abort),
-					]);
+			case "list": {
+				const [repositories, dataSources] = await Promise.all(
+					isSdkAdapter(client)
+						? [
+								client.sources.list({ type: "repository" }),
+								client.sources.list({ type: "documentation" }),
+							]
+						: [
+								client.get<unknown[]>("/sources", { type: "repository" }, context.abort),
+								client.get<unknown[]>("/sources", { type: "documentation" }, context.abort),
+							],
+				);
 
-					return jsonResult({
-						repositories,
-						data_sources: dataSources,
-					});
+				return jsonResult({
+					repositories,
+					data_sources: dataSources,
+				});
+			}
+
+				case "status": {
+					const identity = requireResourceIdentity(args);
+					if (typeof identity === "string") return identity;
+
+					const response = isSdkAdapter(client)
+						? await client.sources.get(identity.resourceId)
+						: await client.get(resourcePath(identity.resourceType, identity.resourceId), undefined, context.abort);
+					return typeof response === "string"
+						? response
+						: jsonResult(response);
 				}
 
-					case "status": {
-						const identity = requireResourceIdentity(args);
-						if (typeof identity === "string") return identity;
-
-						const response = await client.get(
-							resourcePath(identity.resourceType, identity.resourceId),
-							undefined,
-							context.abort,
-						);
-						return typeof response === "string"
-							? response
-							: jsonResult(response);
+				case "rename": {
+					const identity = requireResourceIdentity(args);
+					if (typeof identity === "string") return identity;
+					if (!args.name) {
+						return 'validation_failed [422]: action "rename" requires name';
 					}
 
-					case "rename": {
-						const identity = requireResourceIdentity(args);
-						if (typeof identity === "string") return identity;
-						if (!args.name) {
-							return 'validation_failed [422]: action "rename" requires name';
-						}
+					const body = identity.resourceType === "data_source"
+						? { name: args.name, display_name: args.name }
+						: { name: args.name };
 
-						const response = await client.patch(
-							resourcePath(identity.resourceType, identity.resourceId),
-							identity.resourceType === "data_source"
-								? { name: args.name, display_name: args.name }
-								: { name: args.name },
-							context.abort,
-						);
+					const response = isSdkAdapter(client)
+						? await client.sources.update(identity.resourceId, body)
+						: await client.patch(resourcePath(identity.resourceType, identity.resourceId), body, context.abort);
 
-						return typeof response === "string"
-							? response
-							: jsonResult(response);
+					return typeof response === "string"
+						? response
+						: jsonResult(response);
+				}
+
+				case "delete": {
+					const identity = requireResourceIdentity(args);
+					if (typeof identity === "string") return identity;
+
+					const approved = await requestDeletePermission(
+						context,
+						identity.resourceType,
+						identity.resourceId,
+					);
+					if (!approved) {
+						return "Delete cancelled.";
 					}
 
-					case "delete": {
-						const identity = requireResourceIdentity(args);
-						if (typeof identity === "string") return identity;
-
-						const approved = await requestDeletePermission(
-							context,
-							identity.resourceType,
-							identity.resourceId,
-						);
-						if (!approved) {
-							return "Delete cancelled.";
-						}
-
-						const response = await client.delete(
-							resourcePath(identity.resourceType, identity.resourceId),
-							undefined,
-							context.abort,
-						);
-						return typeof response === "string"
-							? response
-							: jsonResult(response);
-					}
+					const response = isSdkAdapter(client)
+						? await client.sources.delete(identity.resourceId)
+						: await client.delete(resourcePath(identity.resourceType, identity.resourceId), undefined, context.abort);
+					return typeof response === "string"
+						? response
+						: jsonResult(response);
+				}
 
 				case "subscribe": {
 					const identity = requireResourceIdentity(args);
@@ -240,59 +246,55 @@ export function createNiaManageResourceTool(
 					return "deprecated: the unified Nia API no longer supports per-source subscription. Use category organization or the dependencies endpoints instead.";
 				}
 
-					case "category_list": {
-						const response = await client.get(
-							resourcePath("category"),
-							undefined,
-							context.abort,
-						);
-						return typeof response === "string"
-							? response
-							: jsonResult(response);
+				case "category_list": {
+					const response = isSdkAdapter(client)
+						? await client.get("/categories")
+						: await client.get(resourcePath("category"), undefined, context.abort);
+					return typeof response === "string"
+						? response
+						: jsonResult(response);
+				}
+
+				case "category_create": {
+					if (!args.name) {
+						return 'validation_failed [422]: action "category_create" requires name';
 					}
 
-					case "category_create": {
-						if (!args.name) {
-							return 'validation_failed [422]: action "category_create" requires name';
-						}
+					const body = {
+						name: args.name,
+						...(args.description ? { description: args.description } : {}),
+					};
 
-						const response = await client.post(
-							resourcePath("category"),
-							{
-								name: args.name,
-								...(args.description ? { description: args.description } : {}),
-							},
-							context.abort,
-						);
+					const response = isSdkAdapter(client)
+						? await client.post("/categories", body)
+						: await client.post(resourcePath("category"), body, context.abort);
 
-						return typeof response === "string"
-							? response
-							: jsonResult(response);
+					return typeof response === "string"
+						? response
+						: jsonResult(response);
+				}
+
+				case "category_delete": {
+					if (!args.resource_id) {
+						return 'validation_failed [422]: action "category_delete" requires resource_id';
 					}
 
-					case "category_delete": {
-						if (!args.resource_id) {
-							return 'validation_failed [422]: action "category_delete" requires resource_id';
-						}
-
-						const approved = await requestDeletePermission(
-							context,
-							"category",
-							args.resource_id,
-						);
-						if (!approved) {
-							return "Delete cancelled.";
-						}
-
-						const response = await client.delete(
-							resourcePath("category", args.resource_id),
-							undefined,
-							context.abort,
-						);
-						return typeof response === "string"
-							? response
-							: jsonResult(response);
+					const approved = await requestDeletePermission(
+						context,
+						"category",
+						args.resource_id,
+					);
+					if (!approved) {
+						return "Delete cancelled.";
 					}
+
+					const response = isSdkAdapter(client)
+						? await client.delete(`/categories/${args.resource_id}`)
+						: await client.delete(resourcePath("category", args.resource_id), undefined, context.abort);
+					return typeof response === "string"
+						? response
+						: jsonResult(response);
+				}
 				}
 			} catch (error) {
 				return formatError(error, context.abort.aborted);

@@ -1,6 +1,7 @@
 import { tool } from "@opencode-ai/plugin";
 
 import type { NiaClient } from "../api/client.js";
+import type { SdkAdapter } from "../api/nia-sdk.js";
 import type { NiaConfig } from "../config.js";
 import { createToolErrorFormatter } from "../utils/format.js";
 import { resolveSource } from "./source-resolver.js";
@@ -12,7 +13,7 @@ function jsonResult(value: unknown): string {
 	return JSON.stringify(value, null, 2);
 }
 
-export function createNiaMkdirTool(client: NiaClient, config: NiaConfig) {
+export function createNiaMkdirTool(client: NiaClient | SdkAdapter, config: NiaConfig) {
 	return tool({
 		description:
 			"Create a directory in an indexed source's filesystem store.",
@@ -61,11 +62,20 @@ export function createNiaMkdirTool(client: NiaClient, config: NiaConfig) {
 				const resolved = await resolveSource(client, args, ctx.abort);
 				if (typeof resolved === "string") return resolved;
 
-				const result = await client.post<unknown>(
-					`/fs/${resolved.id}/mkdir`,
-					{ path: args.path },
-					ctx.abort,
-				);
+				const body = { path: args.path };
+
+				let result: unknown | string;
+				if (config.useSdk) {
+					const sdk = client as SdkAdapter;
+					result = await sdk.filesystem.mkdir(resolved.id, body, ctx.abort);
+				} else {
+					const legacyClient = client as NiaClient;
+					result = await legacyClient.post<unknown>(
+						`/fs/${resolved.id}/mkdir`,
+						body,
+						ctx.abort,
+					);
+				}
 
 				if (typeof result === "string") return result;
 

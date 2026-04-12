@@ -1,4 +1,5 @@
 import type { NiaClient } from "../api/client.js";
+import type { SdkAdapter } from "../api/nia-sdk.js";
 import type { SSEEvent } from "../api/types.js";
 import { getOpencodeClient } from "../opencode-client.js";
 
@@ -85,6 +86,61 @@ export class NiaJobManager {
 
         if (event.type === "done") {
           const content = event.content ?? event.data ?? "";
+          await this.notifyComplete(job, content);
+          jobs.delete(jobId);
+          abortControllers.delete(jobId);
+          return;
+        }
+      }
+
+      if (events.length === 0) {
+        await this.notifyError(job, "stream_error: no events received");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("abort") || message.includes("cancelled")) {
+        jobs.delete(jobId);
+        abortControllers.delete(jobId);
+        return;
+      }
+      await this.notifyError(job, `stream_error: ${message}`);
+    } finally {
+      abortControllers.delete(jobId);
+    }
+  }
+
+  async consumeSSEWithSdk(jobId: string, sdkAdapter: SdkAdapter): Promise<void> {
+    const job = jobs.get(jobId);
+    if (!job) {
+      return;
+    }
+
+    const controller = new AbortController();
+    abortControllers.set(jobId, controller);
+
+    try {
+      const stream = sdkAdapter.tracer.streamJob(jobId);
+      const events: Record<string, unknown>[] = [];
+
+      for await (const event of stream) {
+        if (controller.signal.aborted) {
+          break;
+        }
+
+        events.push(event);
+
+        const eventType = event.type as string | undefined;
+        const error = event.error as string | undefined;
+        const content = (event.content ?? event.data ?? "") as string;
+
+        if (eventType === "error" && error) {
+          await this.notifyError(job, error);
+          jobs.delete(jobId);
+          abortControllers.delete(jobId);
+          return;
+        }
+
+        if (eventType === "done") {
           await this.notifyComplete(job, content);
           jobs.delete(jobId);
           abortControllers.delete(jobId);

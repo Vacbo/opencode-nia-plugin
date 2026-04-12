@@ -1,6 +1,7 @@
 import { tool } from "@opencode-ai/plugin";
 
 import type { NiaClient } from "../api/client.js";
+import type { SdkAdapter } from "../api/nia-sdk.js";
 import type { NiaConfig } from "../config.js";
 import { createToolErrorFormatter } from "../utils/format.js";
 import { resolveSource } from "./source-resolver.js";
@@ -12,7 +13,7 @@ function jsonResult(value: unknown): string {
 	return JSON.stringify(value, null, 2);
 }
 
-export function createNiaWriteTool(client: NiaClient, config: NiaConfig) {
+export function createNiaWriteTool(client: NiaClient | SdkAdapter, config: NiaConfig) {
 	return tool({
 		description:
 			"Create or update a file in an indexed source's filesystem store. Supports utf8 and base64 encoding.",
@@ -76,17 +77,26 @@ export function createNiaWriteTool(client: NiaClient, config: NiaConfig) {
 				const resolved = await resolveSource(client, args, ctx.abort);
 				if (typeof resolved === "string") return resolved;
 
-				const result = await client.put<unknown>(
-					`/fs/${resolved.id}/files`,
-					{
-						path: args.path,
-						body: args.body,
-						encoding: args.encoding,
-						language: args.language ?? null,
-						headers: args.headers ?? null,
-					},
-					ctx.abort,
-				);
+				const body = {
+					path: args.path,
+					body: args.body,
+					encoding: args.encoding,
+					language: args.language ?? null,
+					headers: args.headers ?? null,
+				};
+
+				let result: unknown | string;
+				if (config.useSdk) {
+					const sdk = client as SdkAdapter;
+					result = await sdk.filesystem.write(resolved.id, body, ctx.abort);
+				} else {
+					const legacyClient = client as NiaClient;
+					result = await legacyClient.put<unknown>(
+						`/fs/${resolved.id}/files`,
+						body,
+						ctx.abort,
+					);
+				}
 
 				if (typeof result === "string") return result;
 

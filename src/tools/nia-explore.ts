@@ -1,5 +1,6 @@
 import { tool } from "@opencode-ai/plugin";
 import type { NiaClient } from "../api/client.js";
+import type { SdkAdapter } from "../api/nia-sdk.js";
 import type {
 	RepositoryTreeNode,
 	RepositoryTreeResponse,
@@ -23,7 +24,7 @@ function formatTree(nodes: RepositoryTreeNode[], indent = ""): string {
 	return lines.join("\n");
 }
 
-export function createNiaExploreTool(client: NiaClient, config: NiaConfig) {
+export function createNiaExploreTool(client: NiaClient | SdkAdapter, config: NiaConfig) {
 	return tool({
 		description:
 			"Explore the file tree of a Nia-indexed repository or data source. " +
@@ -84,21 +85,29 @@ export function createNiaExploreTool(client: NiaClient, config: NiaConfig) {
 				if (args.path) params.path = args.path;
 				if (args.max_depth !== undefined) params.max_depth = args.max_depth;
 
-				const result = await client.get<RepositoryTreeResponse>(
-					`/fs/${resolved.id}/tree`,
-					params,
-					ctx.abort,
-				);
+				let result: RepositoryTreeResponse | string;
+				if (config.useSdk) {
+					const sdk = client as SdkAdapter;
+					result = await sdk.filesystem.tree(resolved.id, params, ctx.abort) as RepositoryTreeResponse | string;
+				} else {
+					const legacyClient = client as NiaClient;
+					result = await legacyClient.get<RepositoryTreeResponse>(
+						`/fs/${resolved.id}/tree`,
+						params,
+						ctx.abort,
+					);
+				}
 
 				if (typeof result === "string") return result;
 
-				if (!result.tree || result.tree.length === 0) {
+				const treeArray = Array.isArray(result.tree) ? result.tree : [];
+				if (treeArray.length === 0) {
 					return `No files found${args.path ? ` at path: ${args.path}` : ""}`;
 				}
 
 				const header = `## File Tree: ${result.repository}${result.branch ? ` (${result.branch})` : ""}`;
 				const pathInfo = args.path ? `\n**Path:** ${args.path}` : "";
-				const tree = formatTree(result.tree);
+				const tree = formatTree(treeArray);
 
 				return `${header}${pathInfo}\n\n${tree}`;
 			} catch (error) {

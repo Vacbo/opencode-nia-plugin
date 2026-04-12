@@ -1,6 +1,7 @@
 import { tool } from "@opencode-ai/plugin";
 
 import type { NiaClient } from "../api/client.js";
+import type { SdkAdapter } from "../api/nia-sdk.js";
 import type {
 	PackageSearchResponse,
 	PackageSearchResultItem,
@@ -64,7 +65,7 @@ const formatError = createToolErrorFormatter("package_search");
 const ABORT_ERROR = "abort_error [package_search]: request aborted";
 
 export function createNiaPackageSearchTool(
-	client: NiaClient,
+	client: NiaClient | SdkAdapter,
 	config: NiaConfig,
 ) {
 	return tool({
@@ -122,11 +123,18 @@ export function createNiaPackageSearchTool(
 					body.code_snippets = [args.pattern];
 				}
 
-			const result = await client.post<PackageSearchResponse>(
-				"/packages/search",
-				body,
-				context.abort,
-			);
+			let result: PackageSearchResponse | string;
+				if (config.useSdk) {
+					const sdk = client as SdkAdapter;
+					result = await sdk.packages.search(body) as PackageSearchResponse | string;
+				} else {
+					const legacyClient = client as NiaClient;
+					result = await legacyClient.post<PackageSearchResponse>(
+						"/packages/search",
+						body,
+						context.abort,
+					);
+				}
 
 				if (typeof result === "string") return result;
 

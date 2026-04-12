@@ -1,6 +1,7 @@
 import { tool } from "@opencode-ai/plugin";
 
 import type { NiaClient } from "../api/client.js";
+import type { SdkAdapter } from "../api/nia-sdk.js";
 import type {
 	AdvisorOutputFormat,
 	AdvisorResult,
@@ -49,7 +50,7 @@ export interface NiaAdvisorArgs {
 	output_format?: AdvisorOutputFormat;
 }
 
-export function createNiaAdvisorTool(client: NiaClient, config: NiaConfig) {
+export function createNiaAdvisorTool(client: NiaClient | SdkAdapter, config: NiaConfig) {
 	return tool({
 		description: "Get Nia advice for a query with markdown recommendations",
 		args: niaAdvisorArgsShape,
@@ -68,11 +69,19 @@ export function createNiaAdvisorTool(client: NiaClient, config: NiaConfig) {
 					return "config_error: NIA_API_KEY is not set";
 				}
 
-				const response = (await client.post(
-					"/advisor",
-					buildRequestBody(args),
-					context.abort,
-				)) as string | AdvisorResult;
+				let response: AdvisorResult | string;
+
+				if (config.useSdk) {
+					const sdk = client as SdkAdapter;
+					response = await sdk.advisor.ask(buildRequestBody(args)) as AdvisorResult | string;
+				} else {
+					const legacyClient = client as NiaClient;
+					response = (await legacyClient.post(
+						"/advisor",
+						buildRequestBody(args),
+						context.abort,
+					)) as string | AdvisorResult;
+				}
 
 				if (typeof response === "string") {
 					return response;

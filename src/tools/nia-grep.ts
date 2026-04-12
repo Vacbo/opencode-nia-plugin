@@ -1,5 +1,6 @@
 import { tool } from "@opencode-ai/plugin";
 import type { NiaClient } from "../api/client.js";
+import type { SdkAdapter } from "../api/nia-sdk.js";
 import type { GrepResultItem } from "../api/types.js";
 import type { NiaConfig } from "../config.js";
 import { createToolErrorFormatter } from "../utils/format.js";
@@ -8,7 +9,7 @@ import { resolveSource } from "./source-resolver.js";
 const MAX_MATCHES = 100;
 const ABORT_ERROR = "abort_error [nia_grep]: request aborted";
 
-export function createNiaGrepTool(client: NiaClient, config: NiaConfig) {
+export function createNiaGrepTool(client: NiaClient | SdkAdapter, config: NiaConfig) {
 	return tool({
 		description:
 			"Search for code patterns in a Nia-indexed repository via grep. " +
@@ -74,11 +75,18 @@ export function createNiaGrepTool(client: NiaClient, config: NiaConfig) {
 				if (args.case_sensitive !== undefined)
 					body.case_sensitive = args.case_sensitive;
 
-				const result = await client.post<GrepResultItem[]>(
-					`/fs/${resolved.id}/grep`,
-					body,
-					ctx.abort,
-				);
+				let result: GrepResultItem[] | string;
+				if (config.useSdk) {
+					const sdk = client as SdkAdapter;
+					result = await sdk.filesystem.grep(resolved.id, body, ctx.abort) as GrepResultItem[] | string;
+				} else {
+					const legacyClient = client as NiaClient;
+					result = await legacyClient.post<GrepResultItem[]>(
+						`/fs/${resolved.id}/grep`,
+						body,
+						ctx.abort,
+					);
+				}
 
 				if (typeof result === "string") return result;
 

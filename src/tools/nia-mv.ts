@@ -1,6 +1,7 @@
 import { tool } from "@opencode-ai/plugin";
 
 import type { NiaClient } from "../api/client.js";
+import type { SdkAdapter } from "../api/nia-sdk.js";
 import type { NiaConfig } from "../config.js";
 import { createToolErrorFormatter } from "../utils/format.js";
 import { resolveSource } from "./source-resolver.js";
@@ -12,7 +13,7 @@ function jsonResult(value: unknown): string {
 	return JSON.stringify(value, null, 2);
 }
 
-export function createNiaMvTool(client: NiaClient, config: NiaConfig) {
+export function createNiaMvTool(client: NiaClient | SdkAdapter, config: NiaConfig) {
 	return tool({
 		description:
 			"Move or rename a file in an indexed source's filesystem store.",
@@ -59,17 +60,27 @@ export function createNiaMvTool(client: NiaClient, config: NiaConfig) {
 					return "config_error: NIA_API_KEY is not set";
 				}
 
-				const resolved = await resolveSource(client, args, ctx.abort);
+				const resolved = await resolveSource(client, args, ctx.abort, config.useSdk);
 				if (typeof resolved === "string") return resolved;
 
-				const result = await client.post<unknown>(
-					`/fs/${resolved.id}/mv`,
-					{
+				let result: unknown;
+				if (config.useSdk) {
+					const sdk = client as SdkAdapter;
+					result = await sdk.filesystem.mv(resolved.id, {
 						old_path: args.old_path,
 						new_path: args.new_path,
-					},
-					ctx.abort,
-				);
+					});
+				} else {
+					const legacyClient = client as NiaClient;
+					result = await legacyClient.post<unknown>(
+						`/fs/${resolved.id}/mv`,
+						{
+							old_path: args.old_path,
+							new_path: args.new_path,
+						},
+						ctx.abort,
+					);
+				}
 
 				if (typeof result === "string") return result;
 

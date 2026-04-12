@@ -1,5 +1,6 @@
 import { tool } from "@opencode-ai/plugin";
 import type { NiaClient } from "../api/client.js";
+import type { SdkAdapter } from "../api/nia-sdk.js";
 import type { FileContentResponse } from "../api/types.js";
 import type { NiaConfig } from "../config.js";
 import { createToolErrorFormatter } from "../utils/format.js";
@@ -9,7 +10,7 @@ const MAX_CONTENT_BYTES = 50 * 1024;
 const ABORT_ERROR = "abort_error [nia_read]: request aborted";
 const formatError = createToolErrorFormatter("read");
 
-export function createNiaReadTool(client: NiaClient, config: NiaConfig) {
+export function createNiaReadTool(client: NiaClient | SdkAdapter, config: NiaConfig) {
 	return tool({
 		description:
 			"Read file content from a Nia-indexed repository or data source. " +
@@ -67,15 +68,22 @@ export function createNiaReadTool(client: NiaClient, config: NiaConfig) {
 				const resolved = await resolveSource(client, args, ctx.abort);
 				if (typeof resolved === "string") return resolved;
 
-			const params: Record<string, string | number> = { path: args.path };
+			const params: { path: string; line_start?: number; line_end?: number } = { path: args.path };
 			if (args.line_start !== undefined) params.line_start = args.line_start;
 			if (args.line_end !== undefined) params.line_end = args.line_end;
 
-				const result = await client.get<FileContentResponse>(
-					`/fs/${resolved.id}/read`,
-					params,
-					ctx.abort,
-				);
+				let result: FileContentResponse | string;
+				if (config.useSdk) {
+					const sdk = client as SdkAdapter;
+					result = await sdk.filesystem.read(resolved.id, params, ctx.abort) as FileContentResponse | string;
+				} else {
+					const legacyClient = client as NiaClient;
+					result = await legacyClient.get<FileContentResponse>(
+						`/fs/${resolved.id}/read`,
+						params as Record<string, string | number>,
+						ctx.abort,
+					);
+				}
 
 				if (typeof result === "string") return result;
 

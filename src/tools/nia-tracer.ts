@@ -2,6 +2,7 @@ import { tool } from "@opencode-ai/plugin";
 import { z } from "zod";
 
 import type { NiaClient } from "../api/client.js";
+import type { SdkAdapter } from "../api/nia-sdk.js";
 import type { TracerResultItem } from "../api/types.js";
 import type { NiaConfig } from "../config.js";
 import { jobManager } from "../state/job-manager.js";
@@ -67,7 +68,7 @@ export const niaTracerArgsSchema = z
 		}
 	});
 
-export function createNiaTracerTool(client: NiaClient, config: NiaConfig) {
+export function createNiaTracerTool(client: NiaClient | SdkAdapter, config: NiaConfig) {
 	return tool({
 		description:
 			"Search public GitHub repositories with Nia Tracer in fast or deep mode.",
@@ -92,65 +93,47 @@ export function createNiaTracerTool(client: NiaClient, config: NiaConfig) {
 					(config.tracerTimeout ?? DEFAULT_TIMEOUT_SECONDS) * 1000,
 				);
 
-				if (args.job_id) {
-					const response = (await client.get(
+			if (args.job_id) {
+				let response: TracerJobResponse | string;
+
+				if (config.useSdk) {
+					const sdk = client as SdkAdapter;
+					response = await sdk.get<TracerJobResponse>(`/github/tracer/${encodeURIComponent(args.job_id)}`);
+				} else {
+					const legacyClient = client as NiaClient;
+					response = (await legacyClient.get(
 						`/github/tracer/${encodeURIComponent(args.job_id)}`,
 						undefined,
 						context.abort,
 						timeoutMs,
 					)) as string | TracerJobResponse;
-
-					if (typeof response === "string") {
-						return response;
-					}
-
-					return formatTracerResponse(response, { query: args.query });
 				}
-
-			if (args.tracer_mode === "tracer-deep") {
-				const response = (await client.post(
-					"/github/tracer",
-					buildCreateBody(args),
-					context.abort,
-					timeoutMs,
-				)) as string | TracerJobResponse;
-
-					if (typeof response === "string") {
-						return response;
-					}
-
-					const jobId = getJobId(response);
-					if (!jobId) {
-						return "invalid_response: missing job_id in Nia tracer response";
-					}
-
-					jobManager.submitJob(
-						"tracer",
-						jobId,
-						context.sessionID,
-						context.agent,
-					);
-					jobManager.consumeSSE(jobId, client);
-
-					return `Deep tracer analysis started. Results will be delivered when complete. Job ID: ${jobId}`;
-				}
-
-				const response = (await client.post(
-					"/github/tracer",
-					buildCreateBody(args),
-					context.abort,
-					timeoutMs,
-				)) as string | TracerJobResponse;
 
 				if (typeof response === "string") {
 					return response;
 				}
 
-				if (hasInlineResult(response) || isTerminalStatus(response.status)) {
-					return formatTracerResponse(response, {
-						mode: args.tracer_mode,
-						query: args.query,
-					});
+				return formatTracerResponse(response, { query: args.query });
+			}
+
+			if (args.tracer_mode === "tracer-deep") {
+				let response: TracerJobResponse | string;
+
+				if (config.useSdk) {
+					const sdk = client as SdkAdapter;
+					response = await sdk.tracer.createJob(buildCreateBody(args)) as TracerJobResponse | string;
+				} else {
+					const legacyClient = client as NiaClient;
+					response = (await legacyClient.post(
+						"/github/tracer",
+						buildCreateBody(args),
+						context.abort,
+						timeoutMs,
+					)) as string | TracerJobResponse;
+				}
+
+				if (typeof response === "string") {
+					return response;
 				}
 
 				const jobId = getJobId(response);
@@ -158,7 +141,55 @@ export function createNiaTracerTool(client: NiaClient, config: NiaConfig) {
 					return "invalid_response: missing job_id in Nia tracer response";
 				}
 
-				return formatQueuedResponse(response, args.tracer_mode, args.query);
+				jobManager.submitJob(
+					"tracer",
+					jobId,
+					context.sessionID,
+					context.agent,
+				);
+
+				if (config.useSdk) {
+					const sdk = client as SdkAdapter;
+					jobManager.consumeSSEWithSdk(jobId, sdk);
+				} else {
+					jobManager.consumeSSE(jobId, client as NiaClient);
+				}
+
+				return `Deep tracer analysis started. Results will be delivered when complete. Job ID: ${jobId}`;
+			}
+
+			let response: TracerJobResponse | string;
+
+			if (config.useSdk) {
+				const sdk = client as SdkAdapter;
+				response = await sdk.tracer.createJob(buildCreateBody(args)) as TracerJobResponse | string;
+			} else {
+				const legacyClient = client as NiaClient;
+				response = (await legacyClient.post(
+					"/github/tracer",
+					buildCreateBody(args),
+					context.abort,
+					timeoutMs,
+				)) as string | TracerJobResponse;
+			}
+
+			if (typeof response === "string") {
+				return response;
+			}
+
+			if (hasInlineResult(response) || isTerminalStatus(response.status)) {
+				return formatTracerResponse(response, {
+					mode: args.tracer_mode,
+					query: args.query,
+				});
+			}
+
+			const jobId = getJobId(response);
+			if (!jobId) {
+				return "invalid_response: missing job_id in Nia tracer response";
+			}
+
+			return formatQueuedResponse(response, args.tracer_mode, args.query);
 			} catch (error) {
 				if (context.abort.aborted || isAbortError(error)) {
 					return ABORT_ERROR;
