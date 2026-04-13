@@ -17,6 +17,7 @@ import { getSessionState, removeSessionState, resetSessionStates } from "./state
 import { createNiaAdvisorTool } from "./tools/nia-advisor.js";
 import { createNiaAutoSubscribeTool } from "./tools/nia-auto-subscribe.js";
 import { createNiaContextTool } from "./tools/nia-context.js";
+import { createNiaDocumentAgentTool } from "./tools/nia-document-agent.js";
 import { createNiaE2ETool } from "./tools/nia-e2e.js";
 import { createNiaExploreTool } from "./tools/nia-explore.js";
 import { createNiaFeedbackTool } from "./tools/nia-feedback.js";
@@ -81,6 +82,9 @@ function createToolRegistry(config: NiaConfig, client: SdkAdapter) {
 			: {}),
 		...(config.feedbackEnabled
 			? { nia_feedback: createNiaFeedbackTool(client, config) }
+			: {}),
+		...(config.documentAgentEnabled ?? true
+			? { nia_document_agent: createNiaDocumentAgentTool(client, config) }
 			: {}),
 	};
 }

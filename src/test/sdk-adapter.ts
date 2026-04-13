@@ -185,6 +185,13 @@ export function createMockSdkAdapter(
 			getJob: (id) => request("GET", `/sandbox/jobs/${id}`),
 			streamJob: (id) => streamFrom(`/sandbox/jobs/${id}/stream`),
 		},
+		documentAgent: {
+			query: (body) => request("POST", "/document/agent", body),
+			createJob: (body) => request("POST", "/document/agent/jobs", body),
+			getJob: (id) => request("GET", `/document/agent/jobs/${id}`),
+			streamJob: (id) => streamFrom(`/document/agent/jobs/${id}/stream`),
+			deleteJob: (id) => request("DELETE", `/document/agent/jobs/${id}`),
+		},
 		contexts: {
 			create: (body) => request("POST", "/contexts", body),
 			list: (params) => request("GET", "/contexts", undefined, params),

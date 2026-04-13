@@ -25,6 +25,7 @@ const ALL_TOOL_NAMES = [
   "nia_e2e",
   "nia_usage",
   "nia_feedback",
+	"nia_document_agent",
 ] as const;
 
 const ALWAYS_ON_TOOL_NAMES = [
@@ -103,6 +104,7 @@ describe("Nia plugin entrypoint", () => {
     process.env.NIA_SANDBOX_ENABLED = "false";
     process.env.NIA_TRACER = "false";
     process.env.NIA_E2E = "false";
+    process.env.NIA_DOCUMENT_AGENT_ENABLED = "false";
 
     const hooks = await NiaPlugin({ directory: "/tmp/project" } as never);
 

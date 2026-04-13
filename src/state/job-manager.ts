@@ -1,7 +1,7 @@
 import type { SdkAdapter } from "../api/nia-sdk.js";
 import { getOpencodeClient } from "../opencode-client.js";
 
-export type JobType = "oracle" | "tracer" | "sandbox";
+export type JobType = "oracle" | "tracer" | "sandbox" | "document_agent";
 
 interface PendingJob {
   jobId: string;
@@ -66,7 +66,9 @@ export class NiaJobManager {
 					? client.oracle.streamJob(jobId)
 					: job.type === "tracer"
 						? client.tracer.streamJob(jobId)
-						: client.sandbox.streamJob(jobId);
+						: job.type === "document_agent"
+							? client.documentAgent.streamJob(jobId)
+							: client.sandbox.streamJob(jobId);
 			const events: Record<string, unknown>[] = [];
 
 			for await (const event of stream) {
@@ -110,7 +112,11 @@ export class NiaJobManager {
 		}
 	}
 
-	async cancelJob(jobId: string, client: Pick<SdkAdapter, "delete">): Promise<void> {
+	async cancelJob(
+		jobId: string,
+		client: SdkAdapter,
+		typeHint?: JobType,
+	): Promise<unknown> {
 		const controller = abortControllers.get(jobId);
 		if (controller) {
 			controller.abort();
@@ -118,23 +124,20 @@ export class NiaJobManager {
     }
 
 		const job = jobs.get(jobId);
-		if (job) {
-			const path =
-				job.type === "oracle"
-					? `/oracle/jobs/${jobId}/stream`
-					: job.type === "tracer"
-						? `/github/tracer/${jobId}/stream`
-						: `/sandbox/jobs/${jobId}/stream`;
+		const jobType = job?.type ?? typeHint;
+		let response: unknown;
 
-      try {
-        await client.delete(path);
-      } catch {
-        // Ignore delete errors
-      }
+		if (jobType) {
+			try {
+				response = await deleteJob(jobType, jobId, client);
+			} catch {
+				// Ignore delete errors
+			}
+		}
 
-      jobs.delete(jobId);
-    }
-  }
+		jobs.delete(jobId);
+		return response;
+	}
 
   private async notifyComplete(job: PendingJob, content: string): Promise<void> {
     const opencodeClient = getOpencodeClient();
@@ -192,7 +195,27 @@ function getJobLabel(type: JobType): string {
 		return "TRACER";
 	}
 
+	if (type === "document_agent") {
+		return "DOCUMENT AGENT";
+	}
+
 	return "SANDBOX";
+}
+
+function deleteJob(type: JobType, jobId: string, client: SdkAdapter): Promise<unknown> {
+	if (type === "oracle") {
+		return client.delete(`/oracle/jobs/${jobId}/stream`);
+	}
+
+	if (type === "tracer") {
+		return client.delete(`/github/tracer/${jobId}/stream`);
+	}
+
+	if (type === "document_agent") {
+		return client.documentAgent.deleteJob(jobId);
+	}
+
+	return client.delete(`/sandbox/jobs/${jobId}/stream`);
 }
 
 export const jobManager = new NiaJobManager();

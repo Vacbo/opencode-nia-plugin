@@ -101,6 +101,7 @@ Store your API key in `~/.config/opencode/nia.json`:
 | `nia_mkdir` | Create a directory in an indexed source |
 | `nia_usage` | Retrieve current Nia API quota and usage information |
 | `nia_feedback` | Submit thumbs up/down feedback on answers, sources, and interactions |
+| `nia_document_agent` | Analyze indexed PDFs with cited answers and async job support |
 
 ## Agent Skills Path (OpenCode >= v1.1.50)
 

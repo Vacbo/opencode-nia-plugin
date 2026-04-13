@@ -11,6 +11,7 @@ export interface NiaConfig {
 	bulkDeleteEnabled: boolean;
 	usageEnabled: boolean;
 	feedbackEnabled: boolean;
+	documentAgentEnabled?: boolean;
 	cacheTTL: number;
 	maxPendingOps: number;
 	checkInterval: number;
@@ -50,6 +51,7 @@ const DEFAULTS: NiaConfig = {
 	bulkDeleteEnabled: true,
 	usageEnabled: true,
 	feedbackEnabled: true,
+	documentAgentEnabled: true,
 	cacheTTL: 300,
 	maxPendingOps: 5,
 	checkInterval: 15,
@@ -191,6 +193,10 @@ export function loadConfig(): NiaConfig {
 		bulkDeleteEnabled: parseBoolean(process.env.NIA_BULK_DELETE_ENABLED, DEFAULTS.bulkDeleteEnabled),
 		usageEnabled: parseBoolean(process.env.NIA_USAGE_ENABLED, DEFAULTS.usageEnabled),
 		feedbackEnabled: parseBoolean(process.env.NIA_FEEDBACK_ENABLED, DEFAULTS.feedbackEnabled),
+		documentAgentEnabled: parseBoolean(
+			process.env.NIA_DOCUMENT_AGENT_ENABLED,
+			DEFAULTS.documentAgentEnabled ?? true,
+		),
 		cacheTTL: parseNumber(process.env.NIA_CACHE_TTL, DEFAULTS.cacheTTL),
 		maxPendingOps: parseNumber(
 			process.env.NIA_MAX_PENDING_OPS,

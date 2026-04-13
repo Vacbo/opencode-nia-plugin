@@ -76,3 +76,9 @@
 - The SDK adapter now has a shared SSE helper for tracer + sandbox streams, which avoids duplicating the `data:` line parsing logic.
 - `createMockSdkAdapter()` must preserve base paths like `/v2` and forward `Authorization` from `NIA_API_KEY`; otherwise live integration tests silently hit the wrong URL or miss auth headers.
 - Adding a required `NiaConfig` flag (`sandboxEnabled`) means every typed test fixture casting to `NiaConfig` must be updated or the TypeScript build fails.
+
+## Phase 5 - nia_document_agent
+- `nia_document_agent` mirrors the async research/sandbox pattern but needs its own `jobManager` type so queued document jobs can reuse the existing SSE completion notification flow.
+- The SDK adapter and `createMockSdkAdapter()` both need a `documentAgent` namespace (`query`, `createJob`, `getJob`, `streamJob`, `deleteJob`) so tool tests stay adapter-only and never fall back to `NiaClient`.
+- Making `documentAgentEnabled` optional in `NiaConfig` avoids forcing broad fixture churn in older tests while still letting `loadConfig()` expose `NIA_DOCUMENT_AGENT_ENABLED` with a default of `true`.
+- Live document-agent integration is more stable if it first reuses an existing ready `research_paper` source, then falls back to indexing a known PDF and retries sync/async calls while the source finishes indexing.

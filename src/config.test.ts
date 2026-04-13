@@ -20,6 +20,7 @@ const VALID_CONFIG: NiaConfig = {
 	bulkDeleteEnabled: true,
 	usageEnabled: true,
 	feedbackEnabled: true,
+	documentAgentEnabled: true,
 	cacheTTL: 300,
 	maxPendingOps: 5,
 	checkInterval: 15,
@@ -50,6 +51,7 @@ describe("loadConfig", () => {
 		delete process.env.NIA_ADVISOR;
 		delete process.env.NIA_CONTEXT;
 		delete process.env.NIA_E2E;
+		delete process.env.NIA_DOCUMENT_AGENT_ENABLED;
 		delete process.env.NIA_CACHE_TTL;
 		delete process.env.NIA_MAX_PENDING_OPS;
 		delete process.env.NIA_CHECK_INTERVAL;
@@ -68,6 +70,7 @@ describe("loadConfig", () => {
 		expect(config.advisorEnabled).toBe(true);
 		expect(config.contextEnabled).toBe(true);
 		expect(config.e2eEnabled).toBe(true);
+		expect(config.documentAgentEnabled).toBe(true);
 		expect(config.cacheTTL).toBe(300);
 		expect(config.maxPendingOps).toBe(5);
 		expect(config.checkInterval).toBe(15);
@@ -86,6 +89,7 @@ describe("loadConfig", () => {
 		process.env.NIA_ADVISOR = "false";
 		process.env.NIA_CONTEXT = "false";
 		process.env.NIA_E2E = "false";
+		process.env.NIA_DOCUMENT_AGENT_ENABLED = "false";
 		process.env.NIA_CACHE_TTL = "600";
 		process.env.NIA_MAX_PENDING_OPS = "10";
 		process.env.NIA_CHECK_INTERVAL = "30";
@@ -104,6 +108,7 @@ describe("loadConfig", () => {
 		expect(config.advisorEnabled).toBe(false);
 		expect(config.contextEnabled).toBe(false);
 		expect(config.e2eEnabled).toBe(false);
+		expect(config.documentAgentEnabled).toBe(false);
 		expect(config.cacheTTL).toBe(600);
 		expect(config.maxPendingOps).toBe(10);
 		expect(config.checkInterval).toBe(30);

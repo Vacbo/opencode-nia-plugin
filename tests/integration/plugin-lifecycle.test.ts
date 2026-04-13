@@ -19,7 +19,7 @@ import { createNiaIndexTool } from "../../src/tools/nia-index";
 import { createNiaManageResourceTool } from "../../src/tools/nia-manage-resource";
 import { createNiaSearchTool } from "../../src/tools/nia-search";
 
-const TEST_CONFIG = { apiKey: "test-key", searchEnabled: true, sandboxEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] }, mcpServerName: "nia", mcpMaxRetries: 5, mcpReconnectBaseDelay: 100 } as NiaConfig;
+const TEST_CONFIG = { apiKey: "test-key", searchEnabled: true, sandboxEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, annotationsEnabled: true, bulkDeleteEnabled: true, usageEnabled: true, feedbackEnabled: true, documentAgentEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] }, mcpServerName: "nia", mcpMaxRetries: 5, mcpReconnectBaseDelay: 100 } as NiaConfig;
 
 const ALL_TOOL_NAMES = [
   "nia_search",
@@ -40,6 +40,9 @@ const ALL_TOOL_NAMES = [
   "nia_sandbox",
   "nia_tracer",
   "nia_e2e",
+	"nia_usage",
+	"nia_feedback",
+	"nia_document_agent",
 ] as const;
 
 const ALWAYS_ON_TOOL_NAMES = [
@@ -125,6 +128,9 @@ describe("plugin lifecycle integration", () => {
     process.env.NIA_SANDBOX_ENABLED = "false";
     process.env.NIA_TRACER = "false";
     process.env.NIA_E2E = "false";
+    process.env.NIA_USAGE_ENABLED = "false";
+    process.env.NIA_FEEDBACK_ENABLED = "false";
+    process.env.NIA_DOCUMENT_AGENT_ENABLED = "false";
 
     const hooks = await NiaPlugin({ directory: "/tmp/project" } as never);
 

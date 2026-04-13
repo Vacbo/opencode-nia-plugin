@@ -33,6 +33,13 @@ export interface SdkAdapter {
 		getJob: (id: string) => Promise<unknown>;
 		streamJob: (id: string) => AsyncGenerator<Record<string, unknown>>;
 	};
+	documentAgent: {
+		query: (body: unknown) => Promise<unknown>;
+		createJob: (body: unknown) => Promise<unknown>;
+		getJob: (id: string) => Promise<unknown>;
+		streamJob: (id: string) => AsyncGenerator<Record<string, unknown>>;
+		deleteJob: (id: string) => Promise<unknown>;
+	};
 	contexts: {
 		create: (body: unknown) => Promise<unknown>;
 		list: (params?: { limit?: number; offset?: number; tags?: string }) => Promise<unknown>;
@@ -239,6 +246,13 @@ export function createSdkAdapter(config: NiaConfig): SdkAdapter {
 			createJob: async (body) => request("POST", "/sandbox/search", body),
 			getJob: async (id) => request("GET", `/sandbox/jobs/${id}`),
 			streamJob: (id) => streamEvents(`/sandbox/jobs/${id}/stream`),
+		},
+		documentAgent: {
+			query: async (body) => request("POST", "/document/agent", body),
+			createJob: async (body) => request("POST", "/document/agent/jobs", body),
+			getJob: async (id) => request("GET", `/document/agent/jobs/${id}`),
+			streamJob: (id) => streamEvents(`/document/agent/jobs/${id}/stream`),
+			deleteJob: async (id) => request("DELETE", `/document/agent/jobs/${id}`),
 		},
 		contexts: {
 			create: async (body) => request("POST", "/contexts", body),
