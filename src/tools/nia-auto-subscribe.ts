@@ -1,6 +1,5 @@
 import { tool } from "@opencode-ai/plugin";
 
-import type { NiaClient } from "../api/client.js";
 import type { SdkAdapter } from "../api/nia-sdk.js";
 import type { NiaConfig } from "../config.js";
 import { createToolErrorFormatter } from "../utils/format.js";
@@ -41,7 +40,7 @@ function formatResponse(
 }
 
 export function createNiaAutoSubscribeTool(
-	client: NiaClient | SdkAdapter,
+	client: SdkAdapter,
 	config: NiaConfig,
 ) {
 	return tool({
@@ -111,22 +110,13 @@ export function createNiaAutoSubscribeTool(
 					dry_run: isDryRun,
 				};
 
-			let result: AutoSubscribeResponse | string;
-			if (config.useSdk) {
-				const sdk = client as SdkAdapter;
-				result = isDryRun 
-					? await sdk.dependencies.analyze(body) as AutoSubscribeResponse
-					: await sdk.dependencies.subscribe(body) as AutoSubscribeResponse;
-			} else {
-				const endpoint = isDryRun ? "/dependencies/analyze" : "/dependencies/subscribe";
-				result = await (client as NiaClient).post<AutoSubscribeResponse>(
+				const endpoint = isDryRun
+					? "/dependencies/analyze"
+					: "/dependencies/subscribe";
+				const result = (await client.post(
 					endpoint,
 					body,
-					context.abort,
-				);
-			}
-
-				if (typeof result === "string") return result;
+				)) as AutoSubscribeResponse;
 
 				return formatResponse(result, isDryRun);
 			} catch (error) {

@@ -1,15 +1,21 @@
 import { tool } from "@opencode-ai/plugin";
-import type { NiaClient } from "../api/client.js";
 import type { SdkAdapter } from "../api/nia-sdk.js";
-import type { GrepResultItem } from "../api/types.js";
 import type { NiaConfig } from "../config.js";
 import { createToolErrorFormatter } from "../utils/format.js";
 import { resolveSource } from "./source-resolver.js";
 
+type GrepResultItem = {
+	path: string;
+	line_number: number;
+	content: string;
+	context_before?: string[];
+	context_after?: string[];
+};
+
 const MAX_MATCHES = 100;
 const ABORT_ERROR = "abort_error [nia_grep]: request aborted";
 
-export function createNiaGrepTool(client: NiaClient | SdkAdapter, config: NiaConfig) {
+export function createNiaGrepTool(client: SdkAdapter, config: NiaConfig) {
 	return tool({
 		description:
 			"Search for code patterns in a Nia-indexed repository via grep. " +
@@ -19,23 +25,21 @@ export function createNiaGrepTool(client: NiaClient | SdkAdapter, config: NiaCon
 				.string()
 				.optional()
 				.describe("Direct source ID. Use this OR source_type + identifier."),
-			source_type: tool.schema
-				.enum([
-					"repository",
-					"data_source",
-					"documentation",
-					"research_paper",
-					"huggingface_dataset",
-					"local_folder",
-					"slack",
-					"google_drive",
-					"x",
-					"connector",
-				])
-				.optional()
-				.describe(
-					"Source type (repository, data_source, documentation, research_paper, huggingface_dataset, local_folder, slack, google_drive, x, or connector)",
-				),
+				source_type: tool.schema
+					.enum([
+						"repository",
+						"data_source",
+						"documentation",
+						"research_paper",
+						"huggingface_dataset",
+						"local_folder",
+						"slack",
+						"google_drive",
+					])
+					.optional()
+					.describe(
+						"Source type (repository, data_source, documentation, research_paper, huggingface_dataset, local_folder, slack, or google_drive)",
+					),
 			identifier: tool.schema
 				.string()
 				.optional()
@@ -75,20 +79,10 @@ export function createNiaGrepTool(client: NiaClient | SdkAdapter, config: NiaCon
 				if (args.case_sensitive !== undefined)
 					body.case_sensitive = args.case_sensitive;
 
-				let result: GrepResultItem[] | string;
-				if (config.useSdk) {
-					const sdk = client as SdkAdapter;
-					result = await sdk.filesystem.grep(resolved.id, body, ctx.abort) as GrepResultItem[] | string;
-				} else {
-					const legacyClient = client as NiaClient;
-					result = await legacyClient.post<GrepResultItem[]>(
-						`/fs/${resolved.id}/grep`,
-						body,
-						ctx.abort,
-					);
-				}
-
-				if (typeof result === "string") return result;
+				const result = await client.post<GrepResultItem[]>(
+					`/fs/${resolved.id}/grep`,
+					body,
+				);
 
 				if (!result || result.length === 0) {
 					return `No matches found for pattern: \`${args.pattern}\``;

@@ -1,13 +1,21 @@
 import { tool } from "@opencode-ai/plugin";
-import type { NiaClient } from "../api/client.js";
 import type { SdkAdapter } from "../api/nia-sdk.js";
-import type {
-	RepositoryTreeNode,
-	RepositoryTreeResponse,
-} from "../api/types.js";
 import type { NiaConfig } from "../config.js";
 import { createToolErrorFormatter } from "../utils/format.js";
 import { resolveSource } from "./source-resolver.js";
+
+type RepositoryTreeNode = {
+	path: string;
+	type: "file" | "directory";
+	size?: number;
+	children?: RepositoryTreeNode[];
+};
+
+type RepositoryTreeResponse = {
+	repository: string;
+	branch: string;
+	tree: RepositoryTreeNode[];
+};
 
 const ABORT_ERROR = "abort_error [nia_explore]: request aborted";
 
@@ -24,7 +32,7 @@ function formatTree(nodes: RepositoryTreeNode[], indent = ""): string {
 	return lines.join("\n");
 }
 
-export function createNiaExploreTool(client: NiaClient | SdkAdapter, config: NiaConfig) {
+export function createNiaExploreTool(client: SdkAdapter, config: NiaConfig) {
 	return tool({
 		description:
 			"Explore the file tree of a Nia-indexed repository or data source. " +
@@ -34,23 +42,21 @@ export function createNiaExploreTool(client: NiaClient | SdkAdapter, config: Nia
 				.string()
 				.optional()
 				.describe("Direct source ID. Use this OR source_type + identifier."),
-			source_type: tool.schema
-				.enum([
-					"repository",
-					"data_source",
-					"documentation",
-					"research_paper",
-					"huggingface_dataset",
-					"local_folder",
-					"slack",
-					"google_drive",
-					"x",
-					"connector",
-				])
-				.optional()
-				.describe(
-					"Source type (repository, data_source, documentation, research_paper, huggingface_dataset, local_folder, slack, google_drive, x, or connector)",
-				),
+				source_type: tool.schema
+					.enum([
+						"repository",
+						"data_source",
+						"documentation",
+						"research_paper",
+						"huggingface_dataset",
+						"local_folder",
+						"slack",
+						"google_drive",
+					])
+					.optional()
+					.describe(
+						"Source type (repository, data_source, documentation, research_paper, huggingface_dataset, local_folder, slack, or google_drive)",
+					),
 			identifier: tool.schema
 				.string()
 				.optional()
@@ -85,20 +91,10 @@ export function createNiaExploreTool(client: NiaClient | SdkAdapter, config: Nia
 				if (args.path) params.path = args.path;
 				if (args.max_depth !== undefined) params.max_depth = args.max_depth;
 
-				let result: RepositoryTreeResponse | string;
-				if (config.useSdk) {
-					const sdk = client as SdkAdapter;
-					result = await sdk.filesystem.tree(resolved.id, params, ctx.abort) as RepositoryTreeResponse | string;
-				} else {
-					const legacyClient = client as NiaClient;
-					result = await legacyClient.get<RepositoryTreeResponse>(
-						`/fs/${resolved.id}/tree`,
-						params,
-						ctx.abort,
-					);
-				}
-
-				if (typeof result === "string") return result;
+				const result = await client.get<RepositoryTreeResponse>(
+					`/fs/${resolved.id}/tree`,
+					params,
+				);
 
 				const treeArray = Array.isArray(result.tree) ? result.tree : [];
 				if (treeArray.length === 0) {

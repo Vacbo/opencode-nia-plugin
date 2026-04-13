@@ -1,13 +1,6 @@
 import { tool } from "@opencode-ai/plugin";
 
-import type { NiaClient } from "../api/client.js";
 import type { SdkAdapter } from "../api/nia-sdk.js";
-import type {
-	DeepSearchResponse,
-	OracleJobResponse,
-	SearchResultItem,
-	WebSearchResponse,
-} from "../api/types.js";
 import type { NiaConfig } from "../config.js";
 import { jobManager } from "../state/job-manager.js";
 import {
@@ -17,6 +10,40 @@ import {
 	inlineCode,
 	stringOrFallback,
 } from "../utils/format.js";
+
+type SearchResultItem = {
+	title?: string;
+	content: string;
+	url?: string;
+	file_path?: string;
+	source_type?: string;
+	score?: number;
+	highlights?: string[];
+};
+
+type WebSearchResponse = {
+	results?: WebResult[];
+	query?: string;
+};
+
+type DeepSearchResponse = {
+	id?: string;
+	status?: string;
+	result?: string;
+	sources?: SearchResultItem[];
+	citations?: string[];
+};
+
+type OracleJobResponse = {
+	id?: string;
+	status?: string;
+	query?: string;
+	created_at?: string;
+	completed_at?: string;
+	result?: string;
+	sources?: SearchResultItem[];
+	error?: string;
+};
 
 const formatError = createToolErrorFormatter("research");
 
@@ -75,7 +102,7 @@ export interface NiaResearchArgs {
 	num_results?: number;
 }
 
-export function createNiaResearchTool(client: NiaClient | SdkAdapter, config: NiaConfig) {
+export function createNiaResearchTool(client: SdkAdapter, config: NiaConfig) {
 	return tool({
 		description: "Run quick, deep, or oracle research with Nia.",
 		args: niaResearchArgsShape,
@@ -96,97 +123,39 @@ export function createNiaResearchTool(client: NiaClient | SdkAdapter, config: Ni
 
 				if (args.job_id) {
 					// Oracle job status check
-					if (config.useSdk) {
-						const sdk = client as SdkAdapter;
-						const response = await sdk.oracle.getJob(args.job_id);
-						return formatOracleResponse(response as OracleJobLike, {
-							query: args.query,
-							submitted: false,
-						});
-					} else {
-						const legacyClient = client as NiaClient;
-						const response = (await legacyClient.get(
-							`/oracle/jobs/${encodeURIComponent(args.job_id)}`,
-							undefined,
-							context.abort,
-							ORACLE_TIMEOUT_MS,
-						)) as string | OracleJobLike;
-
-						if (typeof response === "string") {
-							return response;
-						}
-
-						return formatOracleResponse(response, {
-							query: args.query,
-							submitted: false,
-						});
-					}
+					const response = (await client.get(
+						`/oracle/jobs/${encodeURIComponent(args.job_id)}`,
+					)) as OracleJobLike;
+					return formatOracleResponse(response, {
+						query: args.query,
+						submitted: false,
+					});
 				}
 
 				switch (args.mode) {
 				case "quick": {
-					let response: WebSearchResponse | string;
-					
-					if (config.useSdk) {
-						const sdk = client as SdkAdapter;
-						response = await sdk.search.web(args.query ?? "", { num_results: args.num_results }) as WebSearchResponse;
-					} else {
-						const legacyClient = client as NiaClient;
-						response = (await legacyClient.post(
-							"/search",
-							buildQuickBody(args),
-							context.abort,
-						)) as string | WebSearchResponse;
-					}
-					
-					if (typeof response === "string") {
-						return response;
-					}
+					const response = (await client.post(
+						"/search",
+						buildQuickBody(args),
+					)) as WebSearchResponse;
 
 					return formatQuickResponse(args, response);
 				}
 
 				case "deep": {
-					let response: DeepSearchResponse | string;
-					
-					if (config.useSdk) {
-						const sdk = client as SdkAdapter;
-						response = await sdk.search.deep(args.query ?? "", { num_results: args.num_results }) as DeepSearchResponse;
-					} else {
-						const legacyClient = client as NiaClient;
-						response = (await legacyClient.post(
-							"/search",
-							buildDeepBody(args),
-							context.abort,
-						)) as string | DeepSearchResponse;
-					}
-					
-					if (typeof response === "string") {
-						return response;
-					}
+					const response = (await client.post(
+						"/search",
+						buildDeepBody(args),
+					)) as DeepSearchResponse;
 
 					return formatDeepResponse(args, response);
 				}
 
 				case "oracle": {
-					let response: OracleJobLike | string;
-					
-					if (config.useSdk) {
-						const sdk = client as SdkAdapter;
-						response = await sdk.oracle.createJob(buildOracleBody(args)) as OracleJobLike;
-					} else {
-						const legacyClient = client as NiaClient;
-						response = (await legacyClient.post(
-							"/oracle/jobs",
-							buildOracleBody(args),
-							context.abort,
-							ORACLE_TIMEOUT_MS,
-						)) as string | OracleJobLike;
-					}
-					
-					if (typeof response === "string") {
-						return response;
-					}
+					const response = (await client.post(
+						"/oracle/jobs",
+						buildOracleBody(args),
+					)) as OracleJobLike;
 
 					const jobId = getOracleJobId(response);
 					if (jobId) {
@@ -196,7 +165,7 @@ export function createNiaResearchTool(client: NiaClient | SdkAdapter, config: Ni
 							context.sessionID,
 							context.agent,
 						);
-						jobManager.consumeSSE(jobId, client as NiaClient);
+						jobManager.consumeSSE(jobId, client);
 					}
 
 					return `Oracle research started. Results will be delivered when complete. Job ID: ${jobId || "unknown"}`;

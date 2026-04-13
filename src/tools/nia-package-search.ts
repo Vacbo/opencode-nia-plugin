@@ -1,13 +1,25 @@
 import { tool } from "@opencode-ai/plugin";
 
-import type { NiaClient } from "../api/client.js";
 import type { SdkAdapter } from "../api/nia-sdk.js";
-import type {
-	PackageSearchResponse,
-	PackageSearchResultItem,
-} from "../api/types.js";
 import type { NiaConfig } from "../config.js";
 import { createToolErrorFormatter } from "../utils/format.js";
+
+type PackageSearchResultItem = {
+	package_name: string;
+	version: string;
+	description?: string;
+	repository_url?: string;
+	code_results: Array<{
+		file_path: string;
+		content: string;
+		score: number;
+	}>;
+};
+
+type PackageSearchResponse = {
+	results: PackageSearchResultItem[];
+	total: number;
+};
 
 const VALID_REGISTRIES = new Set<string>(["npm", "pypi", "crates", "go"]);
 
@@ -65,7 +77,7 @@ const formatError = createToolErrorFormatter("package_search");
 const ABORT_ERROR = "abort_error [package_search]: request aborted";
 
 export function createNiaPackageSearchTool(
-	client: NiaClient | SdkAdapter,
+	client: SdkAdapter,
 	config: NiaConfig,
 ) {
 	return tool({
@@ -123,20 +135,10 @@ export function createNiaPackageSearchTool(
 					body.code_snippets = [args.pattern];
 				}
 
-			let result: PackageSearchResponse | string;
-				if (config.useSdk) {
-					const sdk = client as SdkAdapter;
-					result = await sdk.packages.search(body) as PackageSearchResponse | string;
-				} else {
-					const legacyClient = client as NiaClient;
-					result = await legacyClient.post<PackageSearchResponse>(
-						"/packages/search",
-						body,
-						context.abort,
-					);
-				}
-
-				if (typeof result === "string") return result;
+				const result = (await client.post(
+					"/packages/search",
+					body,
+				)) as PackageSearchResponse;
 
 				return formatResponse(result);
 			} catch (error) {

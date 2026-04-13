@@ -1,10 +1,14 @@
 import { describe, expect, it } from "bun:test";
 import type { ToolContext } from "@opencode-ai/plugin";
-import { type FetchFn, NiaClient } from "../api/client.js";
+import {
+	asSdkAdapter,
+	createMatchedResponseHandler,
+	createResponseSdkAdapter,
+} from "../test/sdk-adapter.js";
 import type { NiaConfig } from "../config.js";
 import { createNiaExploreTool } from "./nia-explore.js";
 
-const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", useSdk: false, keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
 
 function jsonResponse(status: number, body?: unknown): Response {
 	return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -13,18 +17,10 @@ function jsonResponse(status: number, body?: unknown): Response {
 	});
 }
 
-function mockFetch(
+function createClient(
 	handlers: Array<{ match: string; response: unknown; status?: number }>,
-): FetchFn {
-	return async (input: RequestInfo | URL) => {
-		const url = String(input);
-		for (const h of handlers) {
-			if (url.includes(h.match)) {
-				return jsonResponse(h.status ?? 200, h.response);
-			}
-		}
-		return jsonResponse(404, { message: "not found" });
-	};
+) {
+	return createResponseSdkAdapter(createMatchedResponseHandler(handlers));
 }
 
 function mockContext(): ToolContext {
@@ -42,22 +38,19 @@ function mockContext(): ToolContext {
 
 describe("nia_explore", () => {
 	it("returns formatted tree for a repository", async () => {
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: mockFetch([
-				{
-					match: "/fs/repo-1/tree",
-					response: {
-						repository: "owner/repo",
-						branch: "main",
-						tree: [
-							{ path: "src", type: "directory" },
-							{ path: "README.md", type: "file", size: 1024 },
-						],
-					},
+		const client = createClient([
+			{
+				match: "/fs/repo-1/tree",
+				response: {
+					repository: "owner/repo",
+					branch: "main",
+					tree: [
+						{ path: "src", type: "directory" },
+						{ path: "README.md", type: "file", size: 1024 },
+					],
 				},
-			]),
-		});
+			},
+		]);
 
 		const tool = createNiaExploreTool(client, TEST_CONFIG);
 		const result = await tool.execute(
@@ -73,32 +66,29 @@ describe("nia_explore", () => {
 	});
 
 	it("renders nested directory tree with children", async () => {
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: mockFetch([
-				{
-					match: "/fs/repo-1/tree",
-					response: {
-						repository: "owner/repo",
-						branch: "main",
-						tree: [
-							{
-								path: "src",
-								type: "directory",
-								children: [
-									{ path: "index.ts", type: "file", size: 200 },
-									{
-										path: "utils",
-										type: "directory",
-										children: [{ path: "helper.ts", type: "file", size: 50 }],
-									},
-								],
-							},
-						],
-					},
+		const client = createClient([
+			{
+				match: "/fs/repo-1/tree",
+				response: {
+					repository: "owner/repo",
+					branch: "main",
+					tree: [
+						{
+							path: "src",
+							type: "directory",
+							children: [
+								{ path: "index.ts", type: "file", size: 200 },
+								{
+									path: "utils",
+									type: "directory",
+									children: [{ path: "helper.ts", type: "file", size: 50 }],
+								},
+							],
+						},
+					],
 				},
-			]),
-		});
+			},
+		]);
 
 		const tool = createNiaExploreTool(client, TEST_CONFIG);
 		const result = await tool.execute(
@@ -117,17 +107,14 @@ describe("nia_explore", () => {
 
 	it("passes path and max_depth as query params", async () => {
 		let capturedUrl = "";
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: async (input: RequestInfo | URL) => {
-				capturedUrl = String(input);
+		const client = createResponseSdkAdapter(async (url) => {
+				capturedUrl = String(url);
 				return jsonResponse(200, {
 					repository: "r",
 					branch: "main",
 					tree: [{ path: "sub/file.ts", type: "file", size: 10 }],
 				});
-			},
-		});
+			});
 
 		const tool = createNiaExploreTool(client, TEST_CONFIG);
 		await tool.execute(
@@ -145,15 +132,10 @@ describe("nia_explore", () => {
 	});
 
 	it("returns API error on failure", async () => {
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: mockFetch([
-				{
-					match: "/fs/repo-1/tree",
-					response: { message: "not found" },
-					status: 404,
-				},
-			]),
+		const client = asSdkAdapter({
+			get: async () => {
+				throw new Error('HTTP 404: {"message":"not found"}');
+			},
 		});
 
 		const tool = createNiaExploreTool(client, TEST_CONFIG);
@@ -162,16 +144,13 @@ describe("nia_explore", () => {
 			mockContext(),
 		);
 
-		expect(result).toContain("not_found");
-		expect(result).toContain("404");
+		expect(result).toContain("explore_error: HTTP 404");
+		expect(result).toContain("not found");
 	});
 
 	it("resolves source via source_type + identifier", async () => {
 		let treeUrl = "";
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: async (input: RequestInfo | URL) => {
-				const url = String(input);
+		const client = createResponseSdkAdapter(async (url) => {
 				if (url.includes("/sources")) {
 					return jsonResponse(200, {
 						sources: [{ id: "r-id", type: "repository" }],
@@ -187,8 +166,7 @@ describe("nia_explore", () => {
 					});
 				}
 				return jsonResponse(404, { message: "not found" });
-			},
-		});
+			});
 
 		const tool = createNiaExploreTool(client, TEST_CONFIG);
 		const result = await tool.execute(
@@ -202,17 +180,14 @@ describe("nia_explore", () => {
 
 	it("uses unified fs endpoint for data_source type", async () => {
 		let capturedUrl = "";
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: async (input: RequestInfo | URL) => {
-				capturedUrl = String(input);
+		const client = createResponseSdkAdapter(async (url) => {
+				capturedUrl = String(url);
 				return jsonResponse(200, {
 					repository: "docs-site",
 					branch: "",
 					tree: [{ path: "index.html", type: "file", size: 2048 }],
 				});
-			},
-		});
+			});
 
 		const tool = createNiaExploreTool(client, TEST_CONFIG);
 		const result = await tool.execute(
@@ -225,15 +200,12 @@ describe("nia_explore", () => {
 	});
 
 	it("handles empty tree gracefully", async () => {
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: mockFetch([
-				{
-					match: "/fs/repo-1/tree",
-					response: { repository: "r", branch: "main", tree: [] },
-				},
-			]),
-		});
+		const client = createClient([
+			{
+				match: "/fs/repo-1/tree",
+				response: { repository: "r", branch: "main", tree: [] },
+			},
+		]);
 
 		const tool = createNiaExploreTool(client, TEST_CONFIG);
 		const result = await tool.execute(
@@ -245,10 +217,7 @@ describe("nia_explore", () => {
 	});
 
 	it("returns config_error when searchEnabled is false", async () => {
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: mockFetch([]),
-		});
+		const client = createClient([]);
 
 		const disabledConfig = { ...TEST_CONFIG, searchEnabled: false };
 		const tool = createNiaExploreTool(client, disabledConfig);
@@ -262,10 +231,7 @@ describe("nia_explore", () => {
 	});
 
 	it("returns config_error when apiKey is not set", async () => {
-		const client = new NiaClient({
-			apiKey: "",
-			fetchFn: mockFetch([]),
-		});
+		const client = createClient([]);
 
 		const noApiKeyConfig = { ...TEST_CONFIG, apiKey: "" };
 		const tool = createNiaExploreTool(client, noApiKeyConfig);
@@ -279,10 +245,7 @@ describe("nia_explore", () => {
 	});
 
 	it("returns abort_error when request is aborted", async () => {
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: mockFetch([]),
-		});
+		const client = createClient([]);
 
 		const abortController = new AbortController();
 		const abortedContext: ToolContext = {

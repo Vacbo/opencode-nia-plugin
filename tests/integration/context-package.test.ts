@@ -4,8 +4,8 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import type { ToolContext } from "@opencode-ai/plugin";
 import { z } from "zod";
 
-import { NiaClient, type FetchFn } from "../../src/api/client";
 import type { NiaConfig } from "../../src/config";
+import { createMockSdkAdapter } from "../../src/test/sdk-adapter";
 import { createNiaContextTool } from "../../src/tools/nia-context";
 import { createNiaPackageSearchTool } from "../../src/tools/nia-package-search";
 
@@ -47,23 +47,15 @@ const LIVE_CONFIG = {
 
 const requestLog: RequestRecord[] = [];
 
-const fetchFn: FetchFn = async (input, init) => {
-	const response = await fetch(input, init);
-	const url = typeof input === "string" ? input : input.toString();
+const client = createMockSdkAdapter(async (url, init) => {
+	const response = await fetch(url, init);
 	requestLog.push({
-		method: init?.method ?? "GET",
+		method: init.method ?? "GET",
 		path: new URL(url).pathname,
 		status: response.status,
 	});
 	return response;
-};
-
-const client = new NiaClient({
-	apiKey: process.env.NIA_API_KEY ?? "missing-api-key",
-	baseUrl: BASE_URL,
-	fetchFn,
-	timeout: 60_000,
-});
+}, BASE_URL);
 
 function createContext(overrides: Partial<ToolContext> = {}): ToolContext {
 	return {

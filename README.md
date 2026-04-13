@@ -234,7 +234,7 @@ This handles "Failed to get tools" errors, network timeouts, and connection drop
 | `NIA_MCP_RECONNECT_DELAY` | `100` | Initial backoff delay in ms (doubles each attempt, max 30s) |
 
 **How it works:**
-- **Network Retry**: The NiaClient automatically retries transient network errors (ECONNREFUSED, DNS failures, etc.) with exponential backoff up to 3 times
+- **Network Errors**: SDK-backed requests classify transient network failures (ECONNREFUSED, DNS failures, timeouts) and surface actionable retry guidance
 - **Circuit Breaker**: If reconnection fails 5 times (configurable), the circuit opens for 30 seconds to prevent retry storms
 - **Best-Effort Reconnection**: When a tool call fails with a connection error, the plugin checks server status and attempts to reconnect
 - **Debounced**: Multiple simultaneous failures trigger only one reconnection attempt

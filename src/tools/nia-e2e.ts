@@ -1,10 +1,16 @@
 import { type ToolContext, tool } from "@opencode-ai/plugin";
 
-import type { NiaClient } from "../api/client.js";
 import type { SdkAdapter } from "../api/nia-sdk.js";
-import type { E2ESession } from "../api/types.js";
 import type { NiaConfig } from "../config.js";
 import { createToolErrorFormatter } from "../utils/format.js";
+
+type E2ESession = {
+	id: string;
+	local_folder_id: string;
+	expires_at: string;
+	max_chunks: number;
+	allowed_operations: Array<"search" | "read">;
+};
 
 type E2EAction = "create_session" | "get_session" | "purge" | "sync";
 
@@ -65,82 +71,42 @@ function formatObjectResult(title: string, value: unknown): string {
 }
 
 async function handleCreateSession(
-	client: NiaClient | SdkAdapter,
+	client: SdkAdapter,
 	args: E2EArgs,
-	context: ToolContext,
-	config: NiaConfig,
 ): Promise<string> {
 	if (!args.local_folder_id?.trim()) {
 		return "error: local_folder_id is required for create_session action";
 	}
 
-	let result: E2ESession;
-	if (config.useSdk) {
-		const sdk = client as SdkAdapter;
-		const response = await sdk.daemon.createE2ESession({
-			local_folder_id: args.local_folder_id,
-			ttl_seconds: args.ttl_seconds ?? 300,
-			max_chunks: args.max_chunks ?? 50,
-			allowed_operations: args.allowed_operations ?? DEFAULT_ALLOWED_OPERATIONS,
-		});
-		result = response as E2ESession;
-	} else {
-		const legacyClient = client as NiaClient;
-		const response = await legacyClient.post<E2ESession>(
-			"/daemon/e2e/sessions",
-			{
-				local_folder_id: args.local_folder_id,
-				ttl_seconds: args.ttl_seconds ?? 300,
-				max_chunks: args.max_chunks ?? 50,
-				allowed_operations: args.allowed_operations ?? DEFAULT_ALLOWED_OPERATIONS,
-			},
-			context.abort,
-		);
-		if (typeof response === "string") {
-			return response;
-		}
-		result = response;
-	}
+	const result = (await client.post("/daemon/e2e/sessions", {
+		local_folder_id: args.local_folder_id,
+		ttl_seconds: args.ttl_seconds ?? 300,
+		max_chunks: args.max_chunks ?? 50,
+		allowed_operations: args.allowed_operations ?? DEFAULT_ALLOWED_OPERATIONS,
+	})) as E2ESession;
 
 	return formatSession(result, "E2E session created successfully.");
 }
 
 async function handleGetSession(
-	client: NiaClient | SdkAdapter,
+	client: SdkAdapter,
 	args: E2EArgs,
-	context: ToolContext,
-	config: NiaConfig,
 ): Promise<string> {
 	if (!args.session_id?.trim()) {
 		return "error: session_id is required for get_session action";
 	}
 
-	let result: E2ESession;
-	if (config.useSdk) {
-		const sdk = client as SdkAdapter;
-		const response = await sdk.daemon.getE2ESessionStatus(args.session_id);
-		result = response as E2ESession;
-	} else {
-		const legacyClient = client as NiaClient;
-		const response = await legacyClient.get<E2ESession>(
-			`/daemon/e2e/sessions/${args.session_id}`,
-			undefined,
-			context.abort,
-		);
-		if (typeof response === "string") {
-			return response;
-		}
-		result = response;
-	}
+	const result = (await client.get(
+		`/daemon/e2e/sessions/${args.session_id}`,
+	)) as E2ESession;
 
 	return formatSession(result, "E2E session details.");
 }
 
 async function handlePurge(
-	client: NiaClient | SdkAdapter,
+	client: SdkAdapter,
 	args: E2EArgs,
 	context: PermissionContext,
-	config: NiaConfig,
 ): Promise<string> {
 	if (!args.source_id?.trim()) {
 		return "error: source_id is required for purge action";
@@ -162,22 +128,9 @@ async function handlePurge(
 		return "error: permission denied";
 	}
 
-	let result: Record<string, unknown>;
-	if (config.useSdk) {
-		const sdk = client as SdkAdapter;
-		result = await sdk.delete<Record<string, unknown>>(`/daemon/e2e/sources/${args.source_id}/data`);
-	} else {
-		const legacyClient = client as NiaClient;
-		const response = await legacyClient.delete<Record<string, unknown>>(
-			`/daemon/e2e/sources/${args.source_id}/data`,
-			undefined,
-			context.abort,
-		);
-		if (typeof response === "string") {
-			return response;
-		}
-		result = response;
-	}
+	const result = await client.delete<Record<string, unknown>>(
+		`/daemon/e2e/sources/${args.source_id}/data`,
+	);
 
 	return formatObjectResult(
 		`E2E data purged successfully for source ${args.source_id}.`,
@@ -186,33 +139,17 @@ async function handlePurge(
 }
 
 async function handleSync(
-	client: NiaClient | SdkAdapter,
+	client: SdkAdapter,
 	args: E2EArgs,
-	context: ToolContext,
-	config: NiaConfig,
 ): Promise<string> {
 	if (!args.local_folder_id?.trim()) {
 		return "error: local_folder_id is required for sync action";
 	}
 
-	let result: Record<string, unknown>;
-	if (config.useSdk) {
-		const sdk = client as SdkAdapter;
-		result = await sdk.post<Record<string, unknown>>("/daemon/e2e/sync", {
-			local_folder_id: args.local_folder_id,
-		});
-	} else {
-		const legacyClient = client as NiaClient;
-		const response = await legacyClient.post<Record<string, unknown>>(
-			"/daemon/e2e/sync",
-			{ local_folder_id: args.local_folder_id },
-			context.abort,
-		);
-		if (typeof response === "string") {
-			return response;
-		}
-		result = response;
-	}
+	const result = await client.post<Record<string, unknown>>(
+		"/daemon/e2e/sync",
+		{ local_folder_id: args.local_folder_id },
+	);
 
 	return formatObjectResult(
 		`E2E sync requested for local folder ${args.local_folder_id}.`,
@@ -222,16 +159,16 @@ async function handleSync(
 
 const ACTION_HANDLERS: Record<
 	E2EAction,
-	(client: NiaClient | SdkAdapter, args: E2EArgs, context: ToolContext, config: NiaConfig) => Promise<string>
+	(client: SdkAdapter, args: E2EArgs, context: ToolContext) => Promise<string>
 > = {
 	create_session: handleCreateSession,
 	get_session: handleGetSession,
-	purge: (client, args, context, config) =>
-		handlePurge(client, args, context as PermissionContext, config),
+	purge: (client, args, context) =>
+		handlePurge(client, args, context as PermissionContext),
 	sync: handleSync,
 };
 
-export function createNiaE2ETool(client: NiaClient | SdkAdapter, config: NiaConfig) {
+export function createNiaE2ETool(client: SdkAdapter, config: NiaConfig) {
 	if (!config.e2eEnabled) {
 		return null;
 	}
@@ -290,7 +227,7 @@ export function createNiaE2ETool(client: NiaClient | SdkAdapter, config: NiaConf
 					return `error: unknown action "${args.action}". Valid actions: ${VALID_ACTIONS.join(", ")}`;
 				}
 
-				return handler(client, args as E2EArgs, context, config);
+				return handler(client, args as E2EArgs, context);
 			} catch (error) {
 				return formatError(error, context.abort.aborted);
 			}

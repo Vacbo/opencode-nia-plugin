@@ -2,12 +2,12 @@ import { describe, expect, it } from "bun:test";
 import type { ToolContext } from "@opencode-ai/plugin/tool";
 import { z } from "zod";
 
-import type { NiaClient } from "../api/client";
+import type { SdkAdapter } from "../api/nia-sdk";
 import type { NiaConfig } from "../config";
 import { getSessionState } from "../state/session";
 import { createNiaIndexTool } from "./nia-index";
 
-const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", useSdk: false, keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
 
 function parseArgs<TArgs extends z.ZodRawShape>(
 	definition: { args: TArgs },
@@ -26,7 +26,7 @@ describe("createNiaIndexTool", () => {
 			},
 		};
 		const tool = createNiaIndexTool(
-			client as unknown as NiaClient,
+			client as unknown as SdkAdapter,
 			TEST_CONFIG,
 		);
 
@@ -59,7 +59,7 @@ describe("createNiaIndexTool", () => {
 			},
 		};
 		const tool = createNiaIndexTool(
-			client as unknown as NiaClient,
+			client as unknown as SdkAdapter,
 			TEST_CONFIG,
 		);
 
@@ -97,7 +97,7 @@ describe("createNiaIndexTool", () => {
 			},
 		};
 		const tool = createNiaIndexTool(
-			client as unknown as NiaClient,
+			client as unknown as SdkAdapter,
 			TEST_CONFIG,
 		);
 
@@ -124,7 +124,7 @@ describe("createNiaIndexTool", () => {
 			post: async <T>() => ({ source_id: "repo_tracked_1" }) as T,
 		};
 		const indexTool = createNiaIndexTool(
-			client as unknown as NiaClient,
+			client as unknown as SdkAdapter,
 			TEST_CONFIG,
 		);
 		const controller = new AbortController();
@@ -163,7 +163,7 @@ describe("createNiaIndexTool", () => {
 			post: async <T>() => ({ source_id: "repo_no_track" }) as T,
 		};
 		const indexTool = createNiaIndexTool(
-			client as unknown as NiaClient,
+			client as unknown as SdkAdapter,
 			TEST_CONFIG,
 		);
 
@@ -175,13 +175,14 @@ describe("createNiaIndexTool", () => {
 		expect(JSON.parse(result)).toMatchObject({ source_id: "repo_no_track" });
 	});
 
-	it("returns client error strings unchanged", async () => {
+	it("returns formatted error for API errors", async () => {
 		const client = {
-			post: async <T>() =>
-				"validation_failed [422]: unsupported url" as T | string,
+			post: async <T>() => {
+				throw new Error("HTTP 422: unsupported url");
+			},
 		};
 		const tool = createNiaIndexTool(
-			client as unknown as NiaClient,
+			client as unknown as SdkAdapter,
 			TEST_CONFIG,
 		);
 
@@ -190,7 +191,7 @@ describe("createNiaIndexTool", () => {
 			{} as never,
 		);
 
-		expect(result).toBe("validation_failed [422]: unsupported url");
+		expect(result).toContain("index_error: HTTP 422: unsupported url");
 	});
 
 	it("returns config_error when searchEnabled is false", async () => {
@@ -198,7 +199,7 @@ describe("createNiaIndexTool", () => {
 			post: async <T>() => ({ source_id: "repo_123" }) as T,
 		};
 		const config = { ...TEST_CONFIG, searchEnabled: false };
-		const tool = createNiaIndexTool(client as unknown as NiaClient, config);
+		const tool = createNiaIndexTool(client as unknown as SdkAdapter, config);
 
 		const result = await tool.execute(
 			parseArgs(tool, { url: "https://github.com/nozomio-labs/nia-opencode" }),
@@ -213,7 +214,7 @@ describe("createNiaIndexTool", () => {
 			post: async <T>() => ({ source_id: "repo_123" }) as T,
 		};
 		const config = { ...TEST_CONFIG, apiKey: "" };
-		const tool = createNiaIndexTool(client as unknown as NiaClient, config);
+		const tool = createNiaIndexTool(client as unknown as SdkAdapter, config);
 
 		const result = await tool.execute(
 			parseArgs(tool, { url: "https://github.com/nozomio-labs/nia-opencode" }),
@@ -230,7 +231,7 @@ describe("createNiaIndexTool", () => {
 			},
 		};
 		const tool = createNiaIndexTool(
-			client as unknown as NiaClient,
+			client as unknown as SdkAdapter,
 			TEST_CONFIG,
 		);
 		const controller = new AbortController();
@@ -252,7 +253,7 @@ describe("createNiaIndexTool", () => {
 			},
 		};
 		const tool = createNiaIndexTool(
-			client as unknown as NiaClient,
+			client as unknown as SdkAdapter,
 			TEST_CONFIG,
 		);
 

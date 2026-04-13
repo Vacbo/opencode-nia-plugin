@@ -1,9 +1,7 @@
 import { tool } from "@opencode-ai/plugin";
 import { z } from "zod";
 
-import type { NiaClient } from "../api/client.js";
 import type { SdkAdapter } from "../api/nia-sdk.js";
-import type { TracerResultItem } from "../api/types.js";
 import type { NiaConfig } from "../config.js";
 import { jobManager } from "../state/job-manager.js";
 import {
@@ -11,6 +9,14 @@ import {
 	inlineCode,
 	isAbortError,
 } from "../utils/format.js";
+
+type TracerResultItem = {
+	repository?: string;
+	path: string;
+	content: string;
+	line_number?: number;
+	score: number;
+};
 
 const ABORT_ERROR = "abort_error [nia_tracer]: request aborted";
 const formatError = createToolErrorFormatter("tracer");
@@ -68,7 +74,7 @@ export const niaTracerArgsSchema = z
 		}
 	});
 
-export function createNiaTracerTool(client: NiaClient | SdkAdapter, config: NiaConfig) {
+export function createNiaTracerTool(client: SdkAdapter, config: NiaConfig) {
 	return tool({
 		description:
 			"Search public GitHub repositories with Nia Tracer in fast or deep mode.",
@@ -93,50 +99,22 @@ export function createNiaTracerTool(client: NiaClient | SdkAdapter, config: NiaC
 					(config.tracerTimeout ?? DEFAULT_TIMEOUT_SECONDS) * 1000,
 				);
 
-			if (args.job_id) {
-				let response: TracerJobResponse | string;
-
-				if (config.useSdk) {
-					const sdk = client as SdkAdapter;
-					response = await sdk.get<TracerJobResponse>(`/github/tracer/${encodeURIComponent(args.job_id)}`);
-				} else {
-					const legacyClient = client as NiaClient;
-					response = (await legacyClient.get(
+				if (args.job_id) {
+					let response: TracerJobResponse | string;
+					response = await client.get<TracerJobResponse>(
 						`/github/tracer/${encodeURIComponent(args.job_id)}`,
-						undefined,
-						context.abort,
-						timeoutMs,
-					)) as string | TracerJobResponse;
+					);
+
+					return formatTracerResponse(response, { query: args.query });
 				}
 
-				if (typeof response === "string") {
-					return response;
-				}
-
-				return formatTracerResponse(response, { query: args.query });
-			}
-
-			if (args.tracer_mode === "tracer-deep") {
-				let response: TracerJobResponse | string;
-
-				if (config.useSdk) {
-					const sdk = client as SdkAdapter;
-					response = await sdk.tracer.createJob(buildCreateBody(args)) as TracerJobResponse | string;
-				} else {
-					const legacyClient = client as NiaClient;
-					response = (await legacyClient.post(
+				if (args.tracer_mode === "tracer-deep") {
+					const response = (await client.post(
 						"/github/tracer",
 						buildCreateBody(args),
-						context.abort,
-						timeoutMs,
-					)) as string | TracerJobResponse;
-				}
+					)) as TracerJobResponse;
 
-				if (typeof response === "string") {
-					return response;
-				}
-
-				const jobId = getJobId(response);
+					const jobId = getJobId(response);
 				if (!jobId) {
 					return "invalid_response: missing job_id in Nia tracer response";
 				}
@@ -145,37 +123,17 @@ export function createNiaTracerTool(client: NiaClient | SdkAdapter, config: NiaC
 					"tracer",
 					jobId,
 					context.sessionID,
-					context.agent,
-				);
+						context.agent,
+					);
+					jobManager.consumeSSE(jobId, client);
 
-				if (config.useSdk) {
-					const sdk = client as SdkAdapter;
-					jobManager.consumeSSEWithSdk(jobId, sdk);
-				} else {
-					jobManager.consumeSSE(jobId, client as NiaClient);
+					return `Deep tracer analysis started. Results will be delivered when complete. Job ID: ${jobId}`;
 				}
 
-				return `Deep tracer analysis started. Results will be delivered when complete. Job ID: ${jobId}`;
-			}
-
-			let response: TracerJobResponse | string;
-
-			if (config.useSdk) {
-				const sdk = client as SdkAdapter;
-				response = await sdk.tracer.createJob(buildCreateBody(args)) as TracerJobResponse | string;
-			} else {
-				const legacyClient = client as NiaClient;
-				response = (await legacyClient.post(
+				const response = (await client.post(
 					"/github/tracer",
 					buildCreateBody(args),
-					context.abort,
-					timeoutMs,
-				)) as string | TracerJobResponse;
-			}
-
-			if (typeof response === "string") {
-				return response;
-			}
+				)) as TracerJobResponse;
 
 			if (hasInlineResult(response) || isTerminalStatus(response.status)) {
 				return formatTracerResponse(response, {

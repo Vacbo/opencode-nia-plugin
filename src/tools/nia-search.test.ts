@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import type { ToolContext } from "@opencode-ai/plugin/tool";
 
-import type { NiaClient } from "../api/client";
+import type { SdkAdapter } from "../api/nia-sdk";
 import type { NiaConfig } from "../config";
 import { createNiaSearchTool, niaSearchArgsSchema } from "./nia-search";
 
-const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", useSdk: false, keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
 
 function createContext(signal?: AbortSignal): ToolContext {
 	const controller = new AbortController();
@@ -40,7 +40,7 @@ describe("nia_search tool", () => {
       },
     };
 
-    const niaSearchTool = createNiaSearchTool(client as unknown as NiaClient, TEST_CONFIG);
+		const niaSearchTool = createNiaSearchTool(client as unknown as SdkAdapter, TEST_CONFIG);
     const args = niaSearchArgsSchema.parse({ query: "vector databases" });
     const context = createContext();
     const result = await niaSearchTool.execute(args, context);
@@ -65,7 +65,7 @@ describe("nia_search tool", () => {
       }),
     };
 
-    const niaSearchTool = createNiaSearchTool(client as unknown as NiaClient, TEST_CONFIG);
+		const niaSearchTool = createNiaSearchTool(client as unknown as SdkAdapter, TEST_CONFIG);
     const args = niaSearchArgsSchema.parse({ query: "How should I test this?", search_mode: "query" });
     const result = await niaSearchTool.execute(args, createContext());
 
@@ -77,22 +77,22 @@ describe("nia_search tool", () => {
     expect(result).toContain("src/api/client.ts");
   });
 
-  for (const [label, error] of [
-    ["401", "unauthorized [401]: bad key"],
-    ["403", "forbidden [403]: missing scope"],
-    ["404", "not_found [404]: search mode unavailable"],
-    ["429", "rate_limited [429]: slow down (retry-after=1)"],
-    ["500", "server_error [500]: upstream exploded"],
+  for (const [label, status, text] of [
+    ["401", "401", "bad key"],
+    ["403", "403", "missing scope"],
+    ["404", "404", "search mode unavailable"],
+    ["429", "429", "slow down (retry-after=1)"],
+    ["500", "500", "upstream exploded"],
   ] as const) {
     it(`returns the ${label} client error string without throwing`, async () => {
-      const niaSearchTool = createNiaSearchTool({ post: async () => error } as unknown as NiaClient, TEST_CONFIG);
+		const niaSearchTool = createNiaSearchTool({ post: async () => { throw new Error(`HTTP ${status}: ${text}`); } } as unknown as SdkAdapter, TEST_CONFIG);
       const result = await niaSearchTool.execute(niaSearchArgsSchema.parse({ query: "search failures" }), createContext());
-      expect(result).toBe(error);
+      expect(result).toContain(`search_error: HTTP ${status}: ${text}`);
     });
   }
 
   it("returns a friendly empty-results markdown message", async () => {
-    const niaSearchTool = createNiaSearchTool({ post: async () => ({ query: "nothing", total: 0, results: [] }) } as unknown as NiaClient, TEST_CONFIG);
+		const niaSearchTool = createNiaSearchTool({ post: async () => ({ query: "nothing", total: 0, results: [] }) } as unknown as SdkAdapter, TEST_CONFIG);
     const result = await niaSearchTool.execute(niaSearchArgsSchema.parse({ query: "nothing" }), createContext());
     expect(result).toContain("No results found");
     expect(result).toContain("nothing");
@@ -101,7 +101,7 @@ describe("nia_search tool", () => {
   it("returns an abort string when the request signal is already aborted", async () => {
     const controller = new AbortController();
     controller.abort();
-    const niaSearchTool = createNiaSearchTool({ post: async () => { throw new Error("should not reach client"); } } as unknown as NiaClient, TEST_CONFIG);
+		const niaSearchTool = createNiaSearchTool({ post: async () => { throw new Error("should not reach client"); } } as unknown as SdkAdapter, TEST_CONFIG);
     const result = await niaSearchTool.execute(niaSearchArgsSchema.parse({ query: "cancel me" }), createContext(controller.signal));
     expect(result).toContain("abort_error");
   });
@@ -110,7 +110,7 @@ describe("nia_search tool", () => {
     const longContent = "A".repeat(800);
     const niaSearchTool = createNiaSearchTool({
       post: async () => ({ query: "very long", total: 1, results: [{ id: "res_3", source_id: "repo_3", source_type: "repository", title: "Long result", content: longContent, score: 0.8 }] }),
-    } as unknown as NiaClient, TEST_CONFIG);
+		} as unknown as SdkAdapter, TEST_CONFIG);
     const result = await niaSearchTool.execute(niaSearchArgsSchema.parse({ query: "very long", max_tokens: 120 }), createContext());
     expect(result).toContain("[truncated]");
     expect(result.length).toBeLessThanOrEqual(120 + "\n\n[truncated]".length);

@@ -4,8 +4,8 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import type { ToolContext } from "@opencode-ai/plugin";
 import { z } from "zod";
 
-import { NiaClient, type FetchFn } from "../../src/api/client";
 import type { NiaConfig } from "../../src/config";
+import { createMockSdkAdapter } from "../../src/test/sdk-adapter";
 import { createNiaAdvisorTool } from "../../src/tools/nia-advisor";
 import { createNiaIndexTool } from "../../src/tools/nia-index";
 import { createNiaManageResourceTool } from "../../src/tools/nia-manage-resource";
@@ -68,23 +68,15 @@ const requestLog: RequestRecord[] = [];
 const cleanupDataSourceIds = new Set<string>();
 let baselineDataSourceIds = new Set<string>();
 
-const fetchFn: FetchFn = async (input, init) => {
-  const response = await fetch(input, init);
-  const url = typeof input === "string" ? input : input.toString();
-  requestLog.push({
-    method: init?.method ?? "GET",
-    path: new URL(url).pathname,
-    status: response.status,
-  });
-  return response;
-};
-
-const client = new NiaClient({
-  apiKey: process.env.NIA_API_KEY ?? "missing-api-key",
-  baseUrl: BASE_URL,
-  fetchFn,
-  timeout: 60_000,
-});
+const client = createMockSdkAdapter(async (url, init) => {
+	const response = await fetch(url, init);
+	requestLog.push({
+		method: init.method ?? "GET",
+		path: new URL(url).pathname,
+		status: response.status,
+	});
+	return response;
+}, BASE_URL);
 
 function createContext(overrides: Partial<ToolContext> = {}): ToolContext {
   return {

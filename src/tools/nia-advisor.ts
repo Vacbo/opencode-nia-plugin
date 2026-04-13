@@ -1,16 +1,35 @@
 import { tool } from "@opencode-ai/plugin";
 
-import type { NiaClient } from "../api/client.js";
 import type { SdkAdapter } from "../api/nia-sdk.js";
-import type {
-	AdvisorOutputFormat,
-	AdvisorResult,
-	CodebaseContext,
-	SearchScope,
-} from "../api/types.js";
 import type { NiaConfig } from "../config.js";
 
 import { createToolErrorFormatter, inlineCode } from "../utils/format.js";
+
+type CodebaseContext = {
+	files?: Record<string, string>;
+	file_tree?: string;
+	dependencies?: string[];
+	git_diff?: string;
+	summary?: string;
+	focus_paths?: string[];
+};
+
+type SearchScope = {
+	repositories?: string[];
+	data_sources?: string[];
+};
+
+type AdvisorOutputFormat =
+	| "explanation"
+	| "checklist"
+	| "diff"
+	| "structured";
+
+type AdvisorResult = {
+	advice: string;
+	sources_searched: string[];
+	output_format: string;
+};
 
 const formatUnexpectedError = createToolErrorFormatter("advisor");
 
@@ -50,7 +69,7 @@ export interface NiaAdvisorArgs {
 	output_format?: AdvisorOutputFormat;
 }
 
-export function createNiaAdvisorTool(client: NiaClient | SdkAdapter, config: NiaConfig) {
+export function createNiaAdvisorTool(client: SdkAdapter, config: NiaConfig) {
 	return tool({
 		description: "Get Nia advice for a query with markdown recommendations",
 		args: niaAdvisorArgsShape,
@@ -69,23 +88,10 @@ export function createNiaAdvisorTool(client: NiaClient | SdkAdapter, config: Nia
 					return "config_error: NIA_API_KEY is not set";
 				}
 
-				let response: AdvisorResult | string;
-
-				if (config.useSdk) {
-					const sdk = client as SdkAdapter;
-					response = await sdk.advisor.ask(buildRequestBody(args)) as AdvisorResult | string;
-				} else {
-					const legacyClient = client as NiaClient;
-					response = (await legacyClient.post(
-						"/advisor",
-						buildRequestBody(args),
-						context.abort,
-					)) as string | AdvisorResult;
-				}
-
-				if (typeof response === "string") {
-					return response;
-				}
+				const response = (await client.post(
+					"/advisor",
+					buildRequestBody(args),
+				)) as AdvisorResult;
 
 				return formatResponse(args, response);
 			} catch (error) {

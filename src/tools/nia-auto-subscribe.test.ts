@@ -1,10 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
-import { type FetchFn, NiaClient } from "../api/client";
+import type { SdkAdapter } from "../api/nia-sdk";
 import type { NiaConfig } from "../config";
+import { createResponseSdkAdapter } from "../test/sdk-adapter";
 import { createNiaAutoSubscribeTool } from "./nia-auto-subscribe";
 
-const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", useSdk: false, keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
 
 import type { ToolContext } from "@opencode-ai/plugin";
 
@@ -15,20 +16,10 @@ function jsonResponse(status: number, body?: unknown): Response {
 	});
 }
 
-function createFetchMock(
-	handler: (url: string, init: RequestInit) => Response | Promise<Response>,
-): FetchFn {
-	return async (input: RequestInfo | URL, init?: RequestInit) =>
-		handler(String(input), init ?? {});
-}
-
 function createClient(
 	handler: (url: string, init: RequestInit) => Response | Promise<Response>,
-): NiaClient {
-	return new NiaClient({
-		apiKey: "nk_test",
-		fetchFn: createFetchMock(handler),
-	});
+): SdkAdapter {
+	return createResponseSdkAdapter(handler);
 }
 
 function createMockContext(overrides?: Partial<ToolContext>): ToolContext {
@@ -343,7 +334,7 @@ describe("nia_auto_subscribe tool", () => {
 				createMockContext(),
 			);
 
-			expect(result).toContain("validation_failed");
+			expect(result).toContain("auto_subscribe_error: HTTP 422: invalid manifest");
 		});
 
 		it("returns API error for 401", async () => {
@@ -357,7 +348,7 @@ describe("nia_auto_subscribe tool", () => {
 				createMockContext(),
 			);
 
-			expect(result).toContain("unauthorized");
+			expect(result).toContain("auto_subscribe_error: HTTP 401: invalid key");
 		});
 	});
 
@@ -413,7 +404,7 @@ describe("nia_auto_subscribe tool", () => {
 				post: async () => {
 					throw new Error("Unexpected error");
 				},
-			} as unknown as NiaClient;
+			} as unknown as SdkAdapter;
 
 			const tool = createNiaAutoSubscribeTool(throwingClient, TEST_CONFIG);
 

@@ -2,10 +2,18 @@ import { describe, expect, it } from "bun:test";
 
 import type { ToolContext } from "@opencode-ai/plugin";
 
-import { type FetchFn, NiaClient } from "../api/client";
-import type { E2ESession } from "../api/types";
+import type { SdkAdapter } from "../api/nia-sdk";
 import type { NiaConfig } from "../config";
+import { asSdkAdapter, createResponseSdkAdapter } from "../test/sdk-adapter";
 import { createNiaE2ETool } from "./nia-e2e";
+
+type E2ESession = {
+	id: string;
+	local_folder_id: string;
+	expires_at: string;
+	max_chunks: number;
+	allowed_operations: Array<"search" | "read">;
+};
 
 const TEST_CONFIG = {
 	apiKey: "nk_test",
@@ -21,7 +29,7 @@ const TEST_CONFIG = {
 	tracerTimeout: 120,
 	debug: false,
 	triggersEnabled: true,
-	apiUrl: "https://apigcp.trynia.ai/v2", useSdk: false,
+	apiUrl: "https://apigcp.trynia.ai/v2",
 	keywords: { enabled: true, customPatterns: [] },
 } as NiaConfig;
 
@@ -32,23 +40,13 @@ function jsonResponse(status: number, body?: unknown): Response {
 	});
 }
 
-function createFetchMock(
-	handler: (url: string, init: RequestInit) => Response | Promise<Response>,
-): FetchFn {
-	return async (input: RequestInfo | URL, init?: RequestInit) =>
-		handler(String(input), init ?? {});
-}
-
 function createClient(
 	handler: (url: string, init: RequestInit) => Response | Promise<Response>,
-): NiaClient {
-	return new NiaClient({
-		apiKey: "nk_test",
-		fetchFn: createFetchMock(handler),
-	});
+): SdkAdapter {
+	return createResponseSdkAdapter(handler);
 }
 
-function createNiaE2EToolOrThrow(client: NiaClient, config: NiaConfig) {
+function createNiaE2EToolOrThrow(client: SdkAdapter, config: NiaConfig) {
 	const tool = createNiaE2ETool(client, config);
 	if (!tool) {
 		throw new Error("E2E tool is null - e2eEnabled must be true in config");
@@ -169,17 +167,19 @@ describe("nia_e2e tool", () => {
 		});
 
 		it("propagates validation failures", async () => {
-			const client = createClient(() =>
-				jsonResponse(422, { message: "invalid local_folder_id" }),
-			);
+			const client = asSdkAdapter({
+				post: async () => {
+					throw new Error('HTTP 422: {"message":"invalid local_folder_id"}');
+				},
+			});
 			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
-			const result = await tool.execute(
-				{ action: "create_session", local_folder_id: "folder_123" },
-				createMockContext(),
-			);
-
-			expect(result).toContain("validation_failed");
+			await expect(
+				tool.execute(
+					{ action: "create_session", local_folder_id: "folder_123" },
+					createMockContext(),
+				),
+			).rejects.toThrow("HTTP 422");
 		});
 	});
 
@@ -217,17 +217,19 @@ describe("nia_e2e tool", () => {
 		});
 
 		it("propagates not found responses", async () => {
-			const client = createClient(() =>
-				jsonResponse(404, { message: "missing session" }),
-			);
+			const client = asSdkAdapter({
+				get: async () => {
+					throw new Error('HTTP 404: {"message":"missing session"}');
+				},
+			});
 			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
-			const result = await tool.execute(
-				{ action: "get_session", session_id: "missing" },
-				createMockContext(),
-			);
-
-			expect(result).toContain("not_found");
+			await expect(
+				tool.execute(
+					{ action: "get_session", session_id: "missing" },
+					createMockContext(),
+				),
+			).rejects.toThrow("HTTP 404");
 		});
 	});
 
@@ -317,17 +319,19 @@ describe("nia_e2e tool", () => {
 		});
 
 		it("propagates API errors on purge", async () => {
-			const client = createClient(() =>
-				jsonResponse(403, { message: "forbidden purge" }),
-			);
+			const client = asSdkAdapter({
+				delete: async () => {
+					throw new Error('HTTP 403: {"message":"forbidden purge"}');
+				},
+			});
 			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
-			const result = await tool.execute(
-				{ action: "purge", source_id: "source_123" },
-				createMockContext(),
-			);
-
-			expect(result).toContain("forbidden");
+			await expect(
+				tool.execute(
+					{ action: "purge", source_id: "source_123" },
+					createMockContext(),
+				),
+			).rejects.toThrow("HTTP 403");
 		});
 	});
 
@@ -374,17 +378,19 @@ describe("nia_e2e tool", () => {
 		});
 
 		it("propagates rate limit errors", async () => {
-			const client = createClient(() =>
-				jsonResponse(429, { message: "slow down" }),
-			);
+			const client = asSdkAdapter({
+				post: async () => {
+					throw new Error("HTTP 429: slow down");
+				},
+			});
 			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
-			const result = await tool.execute(
-				{ action: "sync", local_folder_id: "folder_123" },
-				createMockContext(),
-			);
-
-			expect(result).toContain("rate_limited");
+			await expect(
+				tool.execute(
+					{ action: "sync", local_folder_id: "folder_123" },
+					createMockContext(),
+				),
+			).rejects.toThrow("HTTP 429: slow down");
 		});
 	});
 
@@ -442,17 +448,19 @@ describe("nia_e2e tool", () => {
 		});
 
 		it("formats errors with e2e prefix", async () => {
-			const client = createClient(() => {
-				throw new Error("network error");
+			const client = asSdkAdapter({
+				post: async () => {
+					throw new Error("network error");
+				},
 			});
 			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
-			const result = await tool.execute(
-				{ action: "create_session", local_folder_id: "folder_123" },
-				createMockContext(),
-			);
-
-			expect(result).toContain("network_error");
+			await expect(
+				tool.execute(
+					{ action: "create_session", local_folder_id: "folder_123" },
+					createMockContext(),
+				),
+			).rejects.toThrow("network error");
 		});
 	});
 });

@@ -1,6 +1,5 @@
 import { tool } from "@opencode-ai/plugin";
 
-import type { NiaClient } from "../api/client.js";
 import type { SdkAdapter } from "../api/nia-sdk.js";
 import type { NiaConfig } from "../config.js";
 import { createToolErrorFormatter } from "../utils/format.js";
@@ -13,7 +12,7 @@ function jsonResult(value: unknown): string {
 	return JSON.stringify(value, null, 2);
 }
 
-export function createNiaMkdirTool(client: NiaClient | SdkAdapter, config: NiaConfig) {
+export function createNiaMkdirTool(client: SdkAdapter, config: NiaConfig) {
 	return tool({
 		description:
 			"Create a directory in an indexed source's filesystem store.",
@@ -22,23 +21,21 @@ export function createNiaMkdirTool(client: NiaClient | SdkAdapter, config: NiaCo
 				.string()
 				.optional()
 				.describe("Direct source ID. Use this OR source_type + identifier."),
-			source_type: tool.schema
-				.enum([
-					"repository",
-					"data_source",
-					"documentation",
-					"research_paper",
-					"huggingface_dataset",
-					"local_folder",
-					"slack",
-					"google_drive",
-					"x",
-					"connector",
-				])
-				.optional()
-				.describe(
-					"Source type (repository, data_source, documentation, research_paper, huggingface_dataset, local_folder, slack, google_drive, x, or connector)",
-				),
+				source_type: tool.schema
+					.enum([
+						"repository",
+						"data_source",
+						"documentation",
+						"research_paper",
+						"huggingface_dataset",
+						"local_folder",
+						"slack",
+						"google_drive",
+					])
+					.optional()
+					.describe(
+						"Source type (repository, data_source, documentation, research_paper, huggingface_dataset, local_folder, slack, or google_drive)",
+					),
 			identifier: tool.schema
 				.string()
 				.optional()
@@ -64,20 +61,7 @@ export function createNiaMkdirTool(client: NiaClient | SdkAdapter, config: NiaCo
 
 				const body = { path: args.path };
 
-				let result: unknown | string;
-				if (config.useSdk) {
-					const sdk = client as SdkAdapter;
-					result = await sdk.filesystem.mkdir(resolved.id, body, ctx.abort);
-				} else {
-					const legacyClient = client as NiaClient;
-					result = await legacyClient.post<unknown>(
-						`/fs/${resolved.id}/mkdir`,
-						body,
-						ctx.abort,
-					);
-				}
-
-				if (typeof result === "string") return result;
+				const result = await client.post<unknown>(`/fs/${resolved.id}/mkdir`, body);
 
 				return jsonResult({
 					path: args.path,

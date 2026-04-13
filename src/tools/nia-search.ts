@@ -1,15 +1,6 @@
 import { tool } from "@opencode-ai/plugin";
 
-import type { NiaClient } from "../api/client.js";
 import type { SdkAdapter } from "../api/nia-sdk.js";
-import type {
-	DeepSearchResponse,
-	QuerySearchResponse,
-	SearchMode,
-	SearchResultItem,
-	UniversalSearchResponse,
-	WebSearchResponse,
-} from "../api/types.js";
 import type { NiaConfig } from "../config.js";
 import {
 	type NormalizedResult,
@@ -19,6 +10,50 @@ import {
 	stringOrFallback,
 	truncateMarkdown,
 } from "../utils/format.js";
+
+type SearchResultItem = {
+	id: string;
+	source_id: string;
+	source_type: string;
+	title?: string;
+	content: string;
+	url?: string;
+	file_path?: string;
+	score: number;
+	highlights?: string[];
+};
+
+type SearchMode = "universal" | "query" | "web" | "deep";
+
+type UniversalSearchResponse = {
+	results: SearchResultItem[];
+	query: string;
+	total: number;
+};
+
+type QuerySearchResponse = {
+	answer: string;
+	sources: SearchResultItem[];
+	citations?: string[];
+};
+
+type WebSearchResponse = {
+	results: Array<{
+		title: string;
+		url: string;
+		snippet: string;
+		score: number;
+	}>;
+	query: string;
+};
+
+type DeepSearchResponse = {
+	id: string;
+	status: "processing" | "completed" | "error";
+	result?: string;
+	sources?: SearchResultItem[];
+	citations?: string[];
+};
 
 type SearchResponse =
 	| UniversalSearchResponse
@@ -58,7 +93,7 @@ export interface NiaSearchArgs {
 	local_folders?: string[];
 }
 
-export function createNiaSearchTool(client: NiaClient | SdkAdapter, config: NiaConfig) {
+export function createNiaSearchTool(client: SdkAdapter, config: NiaConfig) {
 	return tool({
 		description: "Search Nia across repos, docs, web, and research",
 		args: niaSearchArgsShape,
@@ -77,42 +112,10 @@ export function createNiaSearchTool(client: NiaClient | SdkAdapter, config: NiaC
 					return "config_error: NIA_API_KEY is not set";
 				}
 
-				let response: SearchResponse | string;
-				
-				if (config.useSdk) {
-					const sdk = client as SdkAdapter;
-					const searchOptions = {
-						num_results: args.num_results,
-						repositories: args.repositories,
-						data_sources: args.data_sources,
-					};
-					
-					switch (args.search_mode) {
-						case "universal":
-							response = await sdk.search.universal(args.query, searchOptions) as SearchResponse;
-							break;
-						case "query":
-							response = await sdk.search.query(args.query, { num_results: args.num_results }) as SearchResponse;
-							break;
-						case "web":
-							response = await sdk.search.web(args.query, { num_results: args.num_results }) as SearchResponse;
-							break;
-						case "deep":
-							response = await sdk.search.deep(args.query, { num_results: args.num_results }) as SearchResponse;
-							break;
-					}
-				} else {
-					const legacyClient = client as NiaClient;
-					response = (await legacyClient.post(
-						"/search",
-						buildRequestBody(args),
-						context.abort,
-					)) as string | SearchResponse;
-				}
-
-				if (typeof response === "string") {
-					return response;
-				}
+				const response = (await client.post(
+					"/search",
+					buildRequestBody(args),
+				)) as SearchResponse;
 
 				return truncateMarkdown(
 					formatResponse(args, response),
@@ -264,6 +267,6 @@ function getStringArray(input: unknown, key: string): string[] {
 		: [];
 }
 
-const formatError = createToolErrorFormatter("search");
-
 export type { SearchMode };
+
+const formatError = createToolErrorFormatter("search");

@@ -1,6 +1,5 @@
 import { tool } from "@opencode-ai/plugin";
 
-import type { NiaClient } from "../api/client.js";
 import type { SdkAdapter } from "../api/nia-sdk.js";
 import type { NiaConfig } from "../config.js";
 import { createToolErrorFormatter } from "../utils/format.js";
@@ -13,7 +12,7 @@ function jsonResult(value: unknown): string {
 	return JSON.stringify(value, null, 2);
 }
 
-export function createNiaMvTool(client: NiaClient | SdkAdapter, config: NiaConfig) {
+export function createNiaMvTool(client: SdkAdapter, config: NiaConfig) {
 	return tool({
 		description:
 			"Move or rename a file in an indexed source's filesystem store.",
@@ -22,23 +21,21 @@ export function createNiaMvTool(client: NiaClient | SdkAdapter, config: NiaConfi
 				.string()
 				.optional()
 				.describe("Direct source ID. Use this OR source_type + identifier."),
-			source_type: tool.schema
-				.enum([
-					"repository",
-					"data_source",
-					"documentation",
-					"research_paper",
-					"huggingface_dataset",
-					"local_folder",
-					"slack",
-					"google_drive",
-					"x",
-					"connector",
-				])
-				.optional()
-				.describe(
-					"Source type (repository, data_source, documentation, research_paper, huggingface_dataset, local_folder, slack, google_drive, x, or connector)",
-				),
+				source_type: tool.schema
+					.enum([
+						"repository",
+						"data_source",
+						"documentation",
+						"research_paper",
+						"huggingface_dataset",
+						"local_folder",
+						"slack",
+						"google_drive",
+					])
+					.optional()
+					.describe(
+						"Source type (repository, data_source, documentation, research_paper, huggingface_dataset, local_folder, slack, or google_drive)",
+					),
 			identifier: tool.schema
 				.string()
 				.optional()
@@ -60,29 +57,13 @@ export function createNiaMvTool(client: NiaClient | SdkAdapter, config: NiaConfi
 					return "config_error: NIA_API_KEY is not set";
 				}
 
-				const resolved = await resolveSource(client, args, ctx.abort, config.useSdk);
+				const resolved = await resolveSource(client, args, ctx.abort);
 				if (typeof resolved === "string") return resolved;
 
-				let result: unknown;
-				if (config.useSdk) {
-					const sdk = client as SdkAdapter;
-					result = await sdk.filesystem.mv(resolved.id, {
-						old_path: args.old_path,
-						new_path: args.new_path,
-					});
-				} else {
-					const legacyClient = client as NiaClient;
-					result = await legacyClient.post<unknown>(
-						`/fs/${resolved.id}/mv`,
-						{
-							old_path: args.old_path,
-							new_path: args.new_path,
-						},
-						ctx.abort,
-					);
-				}
-
-				if (typeof result === "string") return result;
+				const result = await client.post<unknown>(`/fs/${resolved.id}/mv`, {
+					old_path: args.old_path,
+					new_path: args.new_path,
+				});
 
 				return jsonResult({
 					old_path: args.old_path,

@@ -4,25 +4,22 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ToolContext } from "@opencode-ai/plugin";
 import { z } from "zod";
 
-import { NiaClient, type FetchFn } from "../../src/api/client";
+import type { SdkAdapter } from "../../src/api/nia-sdk";
 import NiaPlugin from "../../src/index";
 import { NIA_NUDGE_MESSAGE } from "../../src/hooks/smart-triggers";
 import { OpsTracker } from "../../src/state/ops-tracker";
 import { resetSessionStates } from "../../src/state/session";
 import type { NiaConfig } from "../../src/config";
+import {
+	createMockSdkAdapter,
+	type MockHandler,
+	type MockResponse,
+} from "../../src/test/sdk-adapter";
 import { createNiaIndexTool } from "../../src/tools/nia-index";
 import { createNiaManageResourceTool } from "../../src/tools/nia-manage-resource";
 import { createNiaSearchTool } from "../../src/tools/nia-search";
 
 const TEST_CONFIG = { apiKey: "test-key", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] }, mcpServerName: "nia", mcpMaxRetries: 5, mcpReconnectBaseDelay: 100 } as NiaConfig;
-
-type MockResponse = {
-  status: number;
-  body?: unknown;
-  headers?: HeadersInit;
-};
-
-type MockHandler = (url: string, init: RequestInit) => MockResponse | Promise<MockResponse>;
 
 const ALL_TOOL_NAMES = [
   "nia_search",
@@ -69,31 +66,8 @@ function parseArgs<TArgs extends z.ZodRawShape>(definition: { args: TArgs }, inp
   return z.object(definition.args).parse(input);
 }
 
-function createMockClient(responsesOrHandler: MockResponse[] | MockHandler): NiaClient {
-  const pendingResponses = Array.isArray(responsesOrHandler) ? [...responsesOrHandler] : undefined;
-  const handler = Array.isArray(responsesOrHandler) ? undefined : responsesOrHandler;
-  const fetchFn: FetchFn = async (input, init) => {
-    const requestInit = init ?? {};
-    const nextResponse = pendingResponses
-      ? pendingResponses.shift() ?? (() => {
-          throw new Error(`Unexpected request for ${String(input)}`);
-        })()
-      : await handler!(String(input), requestInit);
-
-    return new Response(nextResponse.body === undefined ? null : JSON.stringify(nextResponse.body), {
-      status: nextResponse.status,
-      headers: {
-        "content-type": "application/json",
-        ...nextResponse.headers,
-      },
-    });
-  };
-
-  return new NiaClient({
-    apiKey: "test-key",
-    baseUrl: "https://nia.test/v2",
-    fetchFn,
-  });
+function createMockClient(responsesOrHandler: MockResponse[] | MockHandler): SdkAdapter {
+	return createMockSdkAdapter(responsesOrHandler, "https://nia.test/v2");
 }
 
 function createChatOutput(messageID: string, text: string) {
@@ -162,24 +136,24 @@ describe("plugin lifecycle integration", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
       inFlight -= 1;
 
-      if (parsedUrl.pathname === "/v2/search/universal") {
-        return { status: 200, body: { query: "bun docs", total: 0, results: [] } };
-      }
+		if (parsedUrl.pathname === "/v2/search") {
+			return { status: 200, body: { query: "bun docs", total: 0, results: [] } };
+		}
 
-      if (parsedUrl.pathname === "/v2/repositories") {
-        return { status: 200, body: { source_id: "repo_1" } };
-      }
+		if (parsedUrl.pathname === "/v2/sources") {
+			return { status: 200, body: { source_id: "repo_1" } };
+		}
 
-      if (parsedUrl.pathname === "/v2/repositories/repo_1") {
-        return { status: 200, body: { id: "repo_1", status: "ready" } };
-      }
+		if (parsedUrl.pathname === "/v2/sources/repo_1") {
+			return { status: 200, body: { id: "repo_1", status: "ready" } };
+		}
 
       throw new Error(`Unhandled request: ${method} ${parsedUrl.pathname}`);
     };
 
-    const searchTool = createNiaSearchTool(createMockClient(handler) as unknown as NiaClient, TEST_CONFIG);
-    const indexTool = createNiaIndexTool(createMockClient(handler) as unknown as NiaClient, TEST_CONFIG);
-    const manageResourceTool = createNiaManageResourceTool(createMockClient(handler) as unknown as NiaClient, TEST_CONFIG);
+		const searchTool = createNiaSearchTool(createMockClient(handler), TEST_CONFIG);
+		const indexTool = createNiaIndexTool(createMockClient(handler), TEST_CONFIG);
+		const manageResourceTool = createNiaManageResourceTool(createMockClient(handler), TEST_CONFIG);
 
     const [searchResult, indexResult, statusResult] = await Promise.all([
       searchTool.execute(parseArgs(searchTool, { query: "bun docs" }), createContext()),
@@ -198,23 +172,27 @@ describe("plugin lifecycle integration", () => {
     expect(JSON.parse(indexResult)).toMatchObject({ source_id: "repo_1", status: "queued" });
     expect(JSON.parse(statusResult)).toEqual({ id: "repo_1", status: "ready" });
     expect(maxInFlight).toBe(3);
-    expect(requests).toEqual(
-      expect.arrayContaining([
-        {
-          method: "POST",
-          path: "/v2/search/universal",
-          body: expect.objectContaining({ query: "bun docs" }),
-        },
-        {
-          method: "POST",
-          path: "/v2/repositories",
-          body: { repository: "example/repo" },
-        },
-        {
-          method: "GET",
-          path: "/v2/repositories/repo_1",
-          body: undefined,
-        },
+		expect(requests).toEqual(
+			expect.arrayContaining([
+				{
+					method: "POST",
+					path: "/v2/search",
+					body: expect.objectContaining({ query: "bun docs", mode: "universal" }),
+				},
+				{
+					method: "POST",
+					path: "/v2/sources",
+					body: {
+						type: "repository",
+						url: "https://github.com/example/repo",
+						repository: "example/repo",
+					},
+				},
+				{
+					method: "GET",
+					path: "/v2/sources/repo_1",
+					body: undefined,
+				},
       ])
     );
   });

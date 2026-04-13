@@ -1,10 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import type { ToolContext } from "@opencode-ai/plugin";
-import { type FetchFn, NiaClient } from "../api/client.js";
+import {
+	createMatchedResponseHandler,
+	createResponseSdkAdapter,
+} from "../test/sdk-adapter.js";
 import type { NiaConfig } from "../config.js";
 import { createNiaReadTool } from "./nia-read.js";
 
-const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", useSdk: false, keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
 
 function jsonResponse(status: number, body?: unknown): Response {
 	return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -13,18 +16,10 @@ function jsonResponse(status: number, body?: unknown): Response {
 	});
 }
 
-function mockFetch(
+function createClient(
 	handlers: Array<{ match: string; response: unknown; status?: number }>,
-): FetchFn {
-	return async (input: RequestInfo | URL) => {
-		const url = String(input);
-		for (const h of handlers) {
-			if (url.includes(h.match)) {
-				return jsonResponse(h.status ?? 200, h.response);
-			}
-		}
-		return jsonResponse(404, { message: "not found" });
-	};
+) {
+	return createResponseSdkAdapter(createMatchedResponseHandler(handlers));
 }
 
 function mockContext(): ToolContext {
@@ -42,21 +37,18 @@ function mockContext(): ToolContext {
 
 describe("nia_read", () => {
 	it("returns file content via source_id", async () => {
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: mockFetch([
-				{
-					match: "/fs/repo-1/read",
-					response: {
-						content: "const x = 1;\nconst y = 2;",
-						path: "src/index.ts",
-						size: 26,
-						line_count: 2,
-						encoding: "utf-8",
-					},
+		const client = createClient([
+			{
+				match: "/fs/repo-1/read",
+				response: {
+					content: "const x = 1;\nconst y = 2;",
+					path: "src/index.ts",
+					size: 26,
+					line_count: 2,
+					encoding: "utf-8",
 				},
-			]),
-		});
+			},
+		]);
 
 		const tool = createNiaReadTool(client, TEST_CONFIG);
 		const result = await tool.execute(
@@ -73,10 +65,8 @@ describe("nia_read", () => {
 
 	it("passes line_start and line_end as query params", async () => {
 		let capturedUrl = "";
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: async (input: RequestInfo | URL) => {
-				capturedUrl = String(input);
+		const client = createResponseSdkAdapter(async (url) => {
+				capturedUrl = String(url);
 				return jsonResponse(200, {
 					content: "line 5 content",
 					path: "file.ts",
@@ -84,8 +74,7 @@ describe("nia_read", () => {
 					line_count: 10,
 					encoding: "utf-8",
 				});
-			},
-		});
+			});
 
 		const tool = createNiaReadTool(client, TEST_CONFIG);
 		await tool.execute(
@@ -105,21 +94,18 @@ describe("nia_read", () => {
 
 	it("truncates content exceeding 50KB", async () => {
 		const largeContent = "x".repeat(60 * 1024); // 60KB
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: mockFetch([
-				{
-					match: "/fs/repo-1/read",
-					response: {
-						content: largeContent,
-						path: "big.bin",
-						size: 60 * 1024,
-						line_count: 1,
-						encoding: "utf-8",
-					},
+		const client = createClient([
+			{
+				match: "/fs/repo-1/read",
+				response: {
+					content: largeContent,
+					path: "big.bin",
+					size: 60 * 1024,
+					line_count: 1,
+					encoding: "utf-8",
 				},
-			]),
-		});
+			},
+		]);
 
 		const tool = createNiaReadTool(client, TEST_CONFIG);
 		const result = await tool.execute(
@@ -133,10 +119,7 @@ describe("nia_read", () => {
 	});
 
 	it("returns validation error when neither source_id nor identifier given", async () => {
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: mockFetch([]),
-		});
+		const client = createClient([]);
 
 		const tool = createNiaReadTool(client, TEST_CONFIG);
 		const result = await tool.execute({ path: "file.ts" }, mockContext());
@@ -146,16 +129,13 @@ describe("nia_read", () => {
 	});
 
 	it("returns API error on 404", async () => {
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: mockFetch([
-				{
-					match: "/fs/repo-1/read",
-					response: { message: "file not found" },
-					status: 404,
-				},
-			]),
-		});
+		const client = createClient([
+			{
+				match: "/fs/repo-1/read",
+				response: { message: "file not found" },
+				status: 404,
+			},
+		]);
 
 		const tool = createNiaReadTool(client, TEST_CONFIG);
 		const result = await tool.execute(
@@ -163,16 +143,12 @@ describe("nia_read", () => {
 			mockContext(),
 		);
 
-		expect(result).toContain("not_found");
-		expect(result).toContain("404");
+		expect(result).toContain("read_error: HTTP 404: file not found");
 	});
 
 	it("resolves source via source_type + identifier", async () => {
 		let contentUrl = "";
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: async (input: RequestInfo | URL) => {
-				const url = String(input);
+		const client = createResponseSdkAdapter(async (url) => {
 				if (url.includes("/sources")) {
 					return jsonResponse(200, {
 						sources: [
@@ -196,8 +172,7 @@ describe("nia_read", () => {
 					});
 				}
 				return jsonResponse(404, { message: "not found" });
-			},
-		});
+			});
 
 		const tool = createNiaReadTool(client, TEST_CONFIG);
 		const result = await tool.execute(
@@ -215,10 +190,8 @@ describe("nia_read", () => {
 
 	it("reads from unified fs endpoint when source_type is data_source", async () => {
 		let capturedUrl = "";
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: async (input: RequestInfo | URL) => {
-				capturedUrl = String(input);
+		const client = createResponseSdkAdapter(async (url) => {
+				capturedUrl = String(url);
 				return jsonResponse(200, {
 					content: "docs content",
 					path: "index.html",
@@ -226,8 +199,7 @@ describe("nia_read", () => {
 					line_count: 1,
 					encoding: "utf-8",
 				});
-			},
-		});
+			});
 
 		const tool = createNiaReadTool(client, TEST_CONFIG);
 		const result = await tool.execute(
@@ -240,10 +212,7 @@ describe("nia_read", () => {
 	});
 
 	it("returns config_error when apiKey is missing", async () => {
-		const client = new NiaClient({
-			apiKey: "",
-			fetchFn: mockFetch([]),
-		});
+		const client = createClient([]);
 
 		const configWithoutApiKey = { ...TEST_CONFIG, apiKey: "" };
 		const tool = createNiaReadTool(client, configWithoutApiKey);
@@ -257,10 +226,7 @@ describe("nia_read", () => {
 	});
 
 	it("returns config_error when searchEnabled is false", async () => {
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: mockFetch([]),
-		});
+		const client = createClient([]);
 
 		const configDisabled = { ...TEST_CONFIG, searchEnabled: false };
 		const tool = createNiaReadTool(client, configDisabled);
@@ -277,12 +243,9 @@ describe("nia_read", () => {
 		const abortController = new AbortController();
 		// Abort BEFORE execute - signal is already aborted when execute starts
 		abortController.abort();
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: async () => {
+		const client = createResponseSdkAdapter(async () => {
 				throw new Error("should not reach client");
-			},
-		});
+			});
 
 		const tool = createNiaReadTool(client, TEST_CONFIG);
 		const result = await tool.execute(
@@ -295,10 +258,7 @@ describe("nia_read", () => {
 
 	it("formats unexpected errors with read_error prefix", async () => {
 		// Test that non-network errors (e.g., from resolveSource) get formatted with read_error
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: mockFetch([]),
-		});
+		const client = createClient([]);
 
 		// Pass invalid source_type to trigger a validation error from resolveSource
 		const tool = createNiaReadTool(client, TEST_CONFIG);

@@ -1,13 +1,27 @@
 import { describe, expect, it } from "bun:test";
 
-import { type FetchFn, NiaClient } from "../api/client";
+import type { SdkAdapter } from "../api/nia-sdk";
 import type { NiaConfig } from "../config";
+import { asSdkAdapter, createResponseSdkAdapter } from "../test/sdk-adapter";
 import { createNiaPackageSearchTool } from "./nia-package-search";
 
-const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", useSdk: false, keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
 
 import type { ToolContext } from "@opencode-ai/plugin";
-import type { PackageSearchResponse } from "../api/types";
+type PackageSearchResponse = {
+	results: Array<{
+		package_name: string;
+		version: string;
+		description?: string;
+		repository_url?: string;
+		code_results: Array<{
+			file_path: string;
+			content: string;
+			score: number;
+		}>;
+	}>;
+	total: number;
+};
 
 function jsonResponse(status: number, body?: unknown): Response {
 	return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -16,20 +30,10 @@ function jsonResponse(status: number, body?: unknown): Response {
 	});
 }
 
-function createFetchMock(
-	handler: (url: string, init: RequestInit) => Response | Promise<Response>,
-): FetchFn {
-	return async (input: RequestInfo | URL, init?: RequestInit) =>
-		handler(String(input), init ?? {});
-}
-
 function createClient(
 	handler: (url: string, init: RequestInit) => Response | Promise<Response>,
-): NiaClient {
-	return new NiaClient({
-		apiKey: "nk_test",
-		fetchFn: createFetchMock(handler),
-	});
+): SdkAdapter {
+	return createResponseSdkAdapter(handler);
 }
 
 function createMockContext(): ToolContext {
@@ -218,10 +222,12 @@ describe("nia_package_search tool", () => {
 		]);
 	});
 
-	it("returns API error strings", async () => {
-		const client = createClient(() =>
-			jsonResponse(422, { message: "invalid registry" }),
-		);
+	it("formats SDK 422 errors", async () => {
+		const client = asSdkAdapter({
+			post: async () => {
+				throw new Error('HTTP 422: {"message":"invalid registry"}');
+			},
+		});
 		const tool = createNiaPackageSearchTool(client, TEST_CONFIG);
 
 		const result = await tool.execute(
@@ -229,13 +235,16 @@ describe("nia_package_search tool", () => {
 			createMockContext(),
 		);
 
-		expect(result).toContain("validation_failed");
+		expect(result).toContain("package_search_error: HTTP 422");
+		expect(result).toContain("invalid registry");
 	});
 
-	it("returns 401 error", async () => {
-		const client = createClient(() =>
-			jsonResponse(401, { message: "bad key" }),
-		);
+	it("formats SDK 401 errors", async () => {
+		const client = asSdkAdapter({
+			post: async () => {
+				throw new Error("HTTP 401: bad key");
+			},
+		});
 		const tool = createNiaPackageSearchTool(client, TEST_CONFIG);
 
 		const result = await tool.execute(
@@ -243,7 +252,8 @@ describe("nia_package_search tool", () => {
 			createMockContext(),
 		);
 
-		expect(result).toContain("unauthorized");
+		expect(result).toContain("package_search_error: HTTP 401: bad key");
+		expect(result).toContain("Nia API key is invalid or expired");
 	});
 
 	it("returns config_error when apiKey is missing", async () => {
@@ -309,8 +319,10 @@ describe("nia_package_search tool", () => {
 	});
 
 	it("formats unexpected errors via client error handling", async () => {
-		const client = createClient(() => {
-			throw new Error("Network error");
+		const client = asSdkAdapter({
+			post: async () => {
+				throw new Error("Network error");
+			},
 		});
 		const tool = createNiaPackageSearchTool(client, TEST_CONFIG);
 
@@ -319,6 +331,6 @@ describe("nia_package_search tool", () => {
 			createMockContext(),
 		);
 
-		expect(result).toContain("network_error");
+		expect(result).toContain("package_search_error: Network error");
 	});
 });

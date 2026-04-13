@@ -1,10 +1,23 @@
 import { type ToolContext, tool } from "@opencode-ai/plugin";
 
-import type { NiaClient } from "../api/client.js";
 import type { SdkAdapter } from "../api/nia-sdk.js";
-import type { ContextListResponse, ContextResponse } from "../api/types.js";
 import type { NiaConfig } from "../config.js";
 import { createToolErrorFormatter } from "../utils/format.js";
+
+type ContextResponse = {
+	id: string;
+	title: string;
+	summary: string;
+	content: string;
+	tags: string[];
+	created_at: string;
+	updated_at: string;
+};
+
+type ContextListResponse = {
+	contexts: ContextResponse[];
+	total: number;
+};
 
 type ContextAction =
 	| "save"
@@ -70,10 +83,8 @@ function formatList(data: ContextListResponse): string {
 }
 
 async function handleSave(
-	client: NiaClient | SdkAdapter,
+	client: SdkAdapter,
 	args: ContextArgs,
-	context: ToolContext,
-	config: NiaConfig,
 ): Promise<string> {
 	if (!args.title?.trim()) return "error: title is required for save action";
 	if (!args.content?.trim())
@@ -87,73 +98,39 @@ async function handleSave(
 		agent_source: "opencode-nia-plugin",
 	};
 
-	let result: ContextResponse | string;
-	if (config.useSdk) {
-		const sdkAdapter = client as SdkAdapter;
-		result = await sdkAdapter.contexts.create(body) as ContextResponse | string;
-	} else {
-		const legacyClient = client as NiaClient;
-		result = await legacyClient.post<ContextResponse>("/contexts", body, context.abort);
-	}
-	if (typeof result === "string") return result;
+	const result = (await client.post("/contexts", body)) as ContextResponse;
 
 	return `Context saved successfully.\n\n${formatContext(result)}`;
 }
 
 async function handleList(
-	client: NiaClient | SdkAdapter,
+	client: SdkAdapter,
 	args: ContextArgs,
-	context: ToolContext,
-	config: NiaConfig,
 ): Promise<string> {
 	const params: { limit?: number; offset?: number; tags?: string } = {};
 	if (args.limit) params.limit = Number(args.limit);
 	if (args.offset) params.offset = Number(args.offset);
 	if (args.tags) params.tags = args.tags;
 
-	let result: ContextListResponse | string;
-	if (config.useSdk) {
-		const sdkAdapter = client as SdkAdapter;
-		result = await sdkAdapter.contexts.list(params) as ContextListResponse | string;
-	} else {
-		const legacyClient = client as NiaClient;
-		const legacyParams: Record<string, string | number | undefined> = {};
-		if (args.limit) legacyParams.limit = Number(args.limit);
-		if (args.offset) legacyParams.offset = Number(args.offset);
-		if (args.tags) legacyParams.tags = args.tags;
-		result = await legacyClient.get<ContextListResponse>("/contexts", legacyParams, context.abort);
-	}
-	if (typeof result === "string") return result;
+	const result = (await client.get("/contexts", params)) as ContextListResponse;
 
 	return formatList(result);
 }
 
 async function handleRetrieve(
-	client: NiaClient | SdkAdapter,
+	client: SdkAdapter,
 	args: ContextArgs,
-	context: ToolContext,
-	config: NiaConfig,
 ): Promise<string> {
 	if (!args.id?.trim()) return "error: id is required for retrieve action";
 
-	let result: ContextResponse | string;
-	if (config.useSdk) {
-		const sdkAdapter = client as SdkAdapter;
-		result = await sdkAdapter.contexts.get(args.id) as ContextResponse | string;
-	} else {
-		const legacyClient = client as NiaClient;
-		result = await legacyClient.get<ContextResponse>(`/contexts/${args.id}`, undefined, context.abort);
-	}
-	if (typeof result === "string") return result;
+	const result = (await client.get(`/contexts/${args.id}`)) as ContextResponse;
 
 	return formatContext(result);
 }
 
 async function handleSearch(
-	client: NiaClient | SdkAdapter,
+	client: SdkAdapter,
 	args: ContextArgs,
-	context: ToolContext,
-	config: NiaConfig,
 ): Promise<string> {
 	if (!args.query?.trim()) return "error: query is required for search action";
 
@@ -163,27 +140,17 @@ async function handleSearch(
 	if (args.limit) params.limit = Number(args.limit);
 	if (args.tags) params.tags = args.tags;
 
-	let result: ContextListResponse | string;
-	if (config.useSdk) {
-		const sdkAdapter = client as SdkAdapter;
-		result = await sdkAdapter.contexts.semanticSearch(params) as ContextListResponse | string;
-	} else {
-		const legacyClient = client as NiaClient;
-		const legacyParams: Record<string, string | number | undefined> = { q: args.query };
-		if (args.limit) legacyParams.limit = Number(args.limit);
-		if (args.tags) legacyParams.tags = args.tags;
-		result = await legacyClient.get<ContextListResponse>("/contexts/semantic-search", legacyParams, context.abort);
-	}
-	if (typeof result === "string") return result;
+	const result = (await client.get(
+		"/contexts/semantic-search",
+		params,
+	)) as ContextListResponse;
 
 	return formatList(result);
 }
 
 async function handleUpdate(
-	client: NiaClient | SdkAdapter,
+	client: SdkAdapter,
 	args: ContextArgs,
-	context: ToolContext,
-	config: NiaConfig,
 ): Promise<string> {
 	if (!args.id?.trim()) return "error: id is required for update action";
 
@@ -193,24 +160,18 @@ async function handleUpdate(
 	if (args.content !== undefined) body.content = args.content;
 	if (args.tags !== undefined) body.tags = parseTags(args.tags);
 
-	let result: ContextResponse | string;
-	if (config.useSdk) {
-		const sdkAdapter = client as SdkAdapter;
-		result = await sdkAdapter.contexts.update(args.id, body) as ContextResponse | string;
-	} else {
-		const legacyClient = client as NiaClient;
-		result = await legacyClient.put<ContextResponse>(`/contexts/${args.id}`, body, context.abort);
-	}
-	if (typeof result === "string") return result;
+	const result = (await client.put(
+		`/contexts/${args.id}`,
+		body,
+	)) as ContextResponse;
 
 	return `Context updated successfully.\n\n${formatContext(result)}`;
 }
 
 async function handleDelete(
-	client: NiaClient | SdkAdapter,
+	client: SdkAdapter,
 	args: ContextArgs,
 	context: ToolContext,
-	config: NiaConfig,
 ): Promise<string> {
 	if (!args.id?.trim()) return "error: id is required for delete action";
 
@@ -230,15 +191,7 @@ async function handleDelete(
 		return "error: permission denied";
 	}
 
-	let result: { deleted: boolean } | string;
-	if (config.useSdk) {
-		const sdkAdapter = client as SdkAdapter;
-		result = await sdkAdapter.contexts.delete(args.id) as { deleted: boolean } | string;
-	} else {
-		const legacyClient = client as NiaClient;
-		result = await legacyClient.delete<{ deleted: boolean }>(`/contexts/${args.id}`, undefined, context.abort);
-	}
-	if (typeof result === "string") return result;
+	await client.delete(`/contexts/${args.id}`);
 
 	return `Context ${args.id} deleted successfully.`;
 }
@@ -246,10 +199,9 @@ async function handleDelete(
 const ACTION_HANDLERS: Record<
 	ContextAction,
 	(
-		client: NiaClient | SdkAdapter,
+		client: SdkAdapter,
 		args: ContextArgs,
 		context: ToolContext,
-		config: NiaConfig,
 	) => Promise<string>
 > = {
 	save: handleSave,
@@ -260,7 +212,7 @@ const ACTION_HANDLERS: Record<
 	delete: handleDelete,
 };
 
-export function createNiaContextTool(client: NiaClient | SdkAdapter, config: NiaConfig) {
+export function createNiaContextTool(client: SdkAdapter, config: NiaConfig) {
 	return tool({
 		description:
 			"Manage Nia knowledge contexts. Save, list, retrieve, search, update, or delete context entries that persist across sessions and agents.",
@@ -315,7 +267,7 @@ export function createNiaContextTool(client: NiaClient | SdkAdapter, config: Nia
 				}
 
 			const handler = ACTION_HANDLERS[action];
-			return handler(client, args as ContextArgs, context, config);
+			return await handler(client, args as ContextArgs, context);
 			} catch (error) {
 				return formatError(error, context.abort.aborted);
 			}

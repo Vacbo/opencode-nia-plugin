@@ -21,7 +21,7 @@ const VALID_CONFIG: NiaConfig = {
 	tracerTimeout: 120,
 	debug: false,
 	triggersEnabled: true,
-	apiUrl: "https://apigcp.trynia.ai/v2", useSdk: false,
+	apiUrl: "https://apigcp.trynia.ai/v2",
 	keywords: { enabled: true, customPatterns: [] },
 };
 

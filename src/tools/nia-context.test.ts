@@ -1,13 +1,27 @@
 import { describe, expect, it } from "bun:test";
 
-import { type FetchFn, NiaClient } from "../api/client";
+import type { SdkAdapter } from "../api/nia-sdk";
 import type { NiaConfig } from "../config";
+import { createResponseSdkAdapter } from "../test/sdk-adapter";
 import { createNiaContextTool } from "./nia-context";
 
-const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", useSdk: false, keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
 
 import type { ToolContext } from "@opencode-ai/plugin";
-import type { ContextListResponse, ContextResponse } from "../api/types";
+type ContextResponse = {
+	id: string;
+	title: string;
+	summary: string;
+	content: string;
+	tags: string[];
+	created_at: string;
+	updated_at: string;
+};
+
+type ContextListResponse = {
+	contexts: ContextResponse[];
+	total: number;
+};
 
 function jsonResponse(status: number, body?: unknown): Response {
 	return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -16,20 +30,10 @@ function jsonResponse(status: number, body?: unknown): Response {
 	});
 }
 
-function createFetchMock(
-	handler: (url: string, init: RequestInit) => Response | Promise<Response>,
-): FetchFn {
-	return async (input: RequestInfo | URL, init?: RequestInit) =>
-		handler(String(input), init ?? {});
-}
-
 function createClient(
 	handler: (url: string, init: RequestInit) => Response | Promise<Response>,
-): NiaClient {
-	return new NiaClient({
-		apiKey: "nk_test",
-		fetchFn: createFetchMock(handler),
-	});
+): SdkAdapter {
+	return createResponseSdkAdapter(handler);
 }
 
 function createMockContext(overrides?: Partial<ToolContext>): ToolContext {
@@ -203,7 +207,7 @@ describe("nia_context tool", () => {
 				createMockContext(),
 			);
 
-			expect(result).toContain("not_found");
+			expect(result).toContain("context_error: HTTP 404: not found");
 		});
 	});
 
@@ -376,7 +380,7 @@ describe("nia_context tool", () => {
 				createMockContext(),
 			);
 
-			expect(result).toContain("not_found");
+			expect(result).toContain("context_error: HTTP 404: not found");
 		});
 	});
 
@@ -407,7 +411,7 @@ describe("nia_context tool", () => {
 				createMockContext(),
 			);
 
-			expect(result).toContain("unauthorized");
+			expect(result).toContain("context_error: HTTP 401: invalid api key");
 		});
 	});
 
@@ -470,8 +474,7 @@ describe("nia_context tool", () => {
 				createMockContext(),
 			);
 
-			expect(result).toContain("error");
-			expect(result).toContain("network_error");
+			expect(result).toContain("context_error: unexpected network error");
 		});
 	});
 });

@@ -1,10 +1,14 @@
 import { describe, expect, it } from "bun:test";
 import type { ToolContext } from "@opencode-ai/plugin";
-import { type FetchFn, NiaClient } from "../api/client.js";
+import {
+	asSdkAdapter,
+	createMatchedResponseHandler,
+	createResponseSdkAdapter,
+} from "../test/sdk-adapter.js";
 import type { NiaConfig } from "../config.js";
 import { createNiaGrepTool } from "./nia-grep.js";
 
-const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", useSdk: false, keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
 
 function jsonResponse(status: number, body?: unknown): Response {
 	return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -13,18 +17,10 @@ function jsonResponse(status: number, body?: unknown): Response {
 	});
 }
 
-function mockFetch(
+function createClient(
 	handlers: Array<{ match: string; response: unknown; status?: number }>,
-): FetchFn {
-	return async (input: RequestInfo | URL) => {
-		const url = String(input);
-		for (const h of handlers) {
-			if (url.includes(h.match)) {
-				return jsonResponse(h.status ?? 200, h.response);
-			}
-		}
-		return jsonResponse(404, { message: "not found" });
-	};
+) {
+	return createResponseSdkAdapter(createMatchedResponseHandler(handlers));
 }
 
 function mockContext(): ToolContext {
@@ -42,22 +38,19 @@ function mockContext(): ToolContext {
 
 describe("nia_grep", () => {
 	it("returns formatted grep matches", async () => {
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: mockFetch([
-				{
-					match: "/fs/repo-1/grep",
-					response: [
-						{
-							path: "src/app.ts",
-							line_number: 10,
-							content: "const foo = bar;",
-						},
-						{ path: "src/util.ts", line_number: 25, content: "let foo = baz;" },
-					],
-				},
-			]),
-		});
+		const client = createClient([
+			{
+				match: "/fs/repo-1/grep",
+				response: [
+					{
+						path: "src/app.ts",
+						line_number: 10,
+						content: "const foo = bar;",
+					},
+					{ path: "src/util.ts", line_number: 25, content: "let foo = baz;" },
+				],
+			},
+		]);
 
 		const tool = createNiaGrepTool(client, TEST_CONFIG);
 		const result = await tool.execute(
@@ -79,12 +72,7 @@ describe("nia_grep", () => {
 			content: `match ${i}`,
 		}));
 
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: mockFetch([
-				{ match: "/fs/repo-1/grep", response: matches },
-			]),
-		});
+		const client = createClient([{ match: "/fs/repo-1/grep", response: matches }]);
 
 		const tool = createNiaGrepTool(client, TEST_CONFIG);
 		const result = await tool.execute(
@@ -101,17 +89,14 @@ describe("nia_grep", () => {
 
 	it("passes context_lines and case_sensitive in POST body", async () => {
 		let capturedBody = "";
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: async (_input: RequestInfo | URL, init?: RequestInit) => {
+		const client = createResponseSdkAdapter(async (_url, init) => {
 				if (init?.body) {
 					capturedBody = String(init.body);
 				}
 				return jsonResponse(200, [
 					{ path: "a.ts", line_number: 1, content: "hit" },
 				]);
-			},
-		});
+			});
 
 		const tool = createNiaGrepTool(client, TEST_CONFIG);
 		await tool.execute(
@@ -132,15 +117,10 @@ describe("nia_grep", () => {
 	});
 
 	it("returns API error on failure", async () => {
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: mockFetch([
-				{
-					match: "/fs/repo-1/grep",
-					response: { message: "internal error" },
-					status: 500,
-				},
-			]),
+		const client = asSdkAdapter({
+			post: async () => {
+				throw new Error('HTTP 500: {"message":"internal error"}');
+			},
 		});
 
 		const tool = createNiaGrepTool(client, TEST_CONFIG);
@@ -149,17 +129,12 @@ describe("nia_grep", () => {
 			mockContext(),
 		);
 
-		expect(result).toContain("server_error");
-		expect(result).toContain("500");
+		expect(result).toContain("grep_error: HTTP 500");
+		expect(result).toContain("internal error");
 	});
 
 	it("returns no-matches message for empty results", async () => {
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: mockFetch([
-				{ match: "/fs/repo-1/grep", response: [] },
-			]),
-		});
+		const client = createClient([{ match: "/fs/repo-1/grep", response: [] }]);
 
 		const tool = createNiaGrepTool(client, TEST_CONFIG);
 		const result = await tool.execute(
@@ -177,10 +152,7 @@ describe("nia_grep", () => {
 
 	it("resolves source via source_type + identifier", async () => {
 		let grepUrl = "";
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: async (input: RequestInfo | URL) => {
-				const url = String(input);
+		const client = createResponseSdkAdapter(async (url) => {
 				if (url.includes("/sources")) {
 					return jsonResponse(200, {
 						sources: [{ id: "r-id", type: "repository" }],
@@ -194,8 +166,7 @@ describe("nia_grep", () => {
 					]);
 				}
 				return jsonResponse(404, { message: "not found" });
-			},
-		});
+			});
 
 		const tool = createNiaGrepTool(client, TEST_CONFIG);
 		const result = await tool.execute(
@@ -208,10 +179,7 @@ describe("nia_grep", () => {
 	});
 
 	it("returns config_error when searchEnabled is false", async () => {
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: mockFetch([]),
-		});
+		const client = createClient([]);
 
 		const disabledConfig = { ...TEST_CONFIG, searchEnabled: false };
 		const tool = createNiaGrepTool(client, disabledConfig);
@@ -225,10 +193,7 @@ describe("nia_grep", () => {
 	});
 
 	it("returns config_error when apiKey is missing", async () => {
-		const client = new NiaClient({
-			apiKey: "",
-			fetchFn: mockFetch([]),
-		});
+		const client = createClient([]);
 
 		const noApiKeyConfig = { ...TEST_CONFIG, apiKey: "" };
 		const tool = createNiaGrepTool(client, noApiKeyConfig);
@@ -242,10 +207,7 @@ describe("nia_grep", () => {
 	});
 
 	it("returns abort_error when request is aborted", async () => {
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: mockFetch([]),
-		});
+		const client = createClient([]);
 
 		const abortController = new AbortController();
 		abortController.abort();
@@ -264,9 +226,10 @@ describe("nia_grep", () => {
 	});
 
 	it("handles unexpected errors with try-catch", async () => {
-		const client = new NiaClient({
-			apiKey: "k",
-			fetchFn: () => {
+		const client = asSdkAdapter({
+			get: async <T>(_path: string, _params?: Record<string, unknown>) =>
+				({ sources: [{ id: "r-id" }] }) as T,
+			post: async () => {
 				throw new Error("unexpected network error");
 			},
 		});
@@ -277,7 +240,6 @@ describe("nia_grep", () => {
 			mockContext(),
 		);
 
-		expect(result).toContain("error");
-		expect(result).toContain("network_error");
+		expect(result).toContain("grep_error: unexpected network error");
 	});
 });

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import type { ToolContext } from "@opencode-ai/plugin/tool";
 
-import type { NiaClient } from "../api/client";
+import type { SdkAdapter } from "../api/nia-sdk";
 import type { NiaConfig } from "../config";
 import { createNiaAdvisorTool, niaAdvisorArgsSchema } from "./nia-advisor";
 
-const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", useSdk: false, keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
 
 function createContext(signal?: AbortSignal): ToolContext {
   const controller = new AbortController();
@@ -23,7 +23,7 @@ describe("nia_advisor tool", () => {
         return { advice: "Add request-scoped retries with exponential backoff. Avoid leaking raw upstream errors to callers.", sources_searched: ["src/api/client.ts"], output_format: "explanation" };
       },
     };
-    const niaAdvisorTool = createNiaAdvisorTool(client as unknown as NiaClient, TEST_CONFIG);
+		const niaAdvisorTool = createNiaAdvisorTool(client as unknown as SdkAdapter, TEST_CONFIG);
     const args = niaAdvisorArgsSchema.parse({ query: "How should I harden this API client?" });
     const result = await niaAdvisorTool.execute(args, createContext());
     expect(capturedPath).toBe("/advisor");
@@ -39,7 +39,7 @@ describe("nia_advisor tool", () => {
     let capturedBody: Record<string, unknown> | undefined;
     const niaAdvisorTool = createNiaAdvisorTool({
       post: async (_path: string, body?: unknown) => { capturedBody = body as Record<string, unknown>; return { advice: "Break the tool into request, formatting, and validation modules.", sources_searched: ["src/tools/nia-search.ts"], output_format: "checklist" }; },
-    } as unknown as NiaClient, TEST_CONFIG);
+		} as unknown as SdkAdapter, TEST_CONFIG);
     const result = await niaAdvisorTool.execute(niaAdvisorArgsSchema.parse({ query: "Recommend a refactor plan", codebase: { summary: "opencode-nia-plugin" }, search_scope: { repositories: ["repo"] }, output_format: "checklist" }), createContext());
     expect(capturedBody).toEqual({ query: "Recommend a refactor plan", codebase: { summary: "opencode-nia-plugin" }, search_scope: { repositories: ["repo"] }, output_format: "checklist" });
     expect(result).toContain("- Codebase context provided");
@@ -59,18 +59,18 @@ describe("nia_advisor tool", () => {
     }
   });
 
-  for (const error of ["unauthorized [401]: bad key", "rate_limited [429]: slow down", "server_error [500]: upstream exploded"] as const) {
-    it(`returns ${error} without throwing`, async () => {
-      const niaAdvisorTool = createNiaAdvisorTool({ post: async () => error } as unknown as NiaClient, TEST_CONFIG);
+  for (const [status, text] of [["401", "bad key"], ["429", "slow down"], ["500", "upstream exploded"]] as const) {
+    it(`returns HTTP ${status}: ${text} without throwing`, async () => {
+		const niaAdvisorTool = createNiaAdvisorTool({ post: async () => { throw new Error(`HTTP ${status}: ${text}`); } } as unknown as SdkAdapter, TEST_CONFIG);
       const result = await niaAdvisorTool.execute(niaAdvisorArgsSchema.parse({ query: "What broke?" }), createContext());
-      expect(result).toBe(error);
+      expect(result).toContain(`advisor_error: HTTP ${status}: ${text}`);
     });
   }
 
   it("returns an abort string when the request signal is already aborted", async () => {
     const controller = new AbortController();
     controller.abort();
-    const niaAdvisorTool = createNiaAdvisorTool({ post: async () => { throw new Error("should not reach client"); } } as unknown as NiaClient, TEST_CONFIG);
+		const niaAdvisorTool = createNiaAdvisorTool({ post: async () => { throw new Error("should not reach client"); } } as unknown as SdkAdapter, TEST_CONFIG);
     const result = await niaAdvisorTool.execute(niaAdvisorArgsSchema.parse({ query: "cancel me" }), createContext(controller.signal));
     expect(result).toBe("abort_error [nia_advisor]: request aborted");
   });

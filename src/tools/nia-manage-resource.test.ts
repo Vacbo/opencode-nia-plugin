@@ -2,11 +2,11 @@ import { describe, expect, it, mock } from "bun:test";
 import type { ToolContext } from "@opencode-ai/plugin";
 import { z } from "zod";
 
-import type { NiaClient } from "../api/client";
+import type { SdkAdapter } from "../api/nia-sdk";
 import type { NiaConfig } from "../config";
 import { createNiaManageResourceTool } from "./nia-manage-resource";
 
-const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", useSdk: false, keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
 
 function parseArgs<TArgs extends z.ZodRawShape>(
 	definition: { args: TArgs },
@@ -29,19 +29,19 @@ function createContext(overrides: Partial<ToolContext> = {}): ToolContext {
 	};
 }
 
-const unusedGet: NiaClient["get"] = async () => {
+	const unusedGet: SdkAdapter["get"] = async () => {
 	throw new Error("not used");
 };
 
-const unusedPatch: NiaClient["patch"] = async () => {
+	const unusedPatch: SdkAdapter["patch"] = async () => {
 	throw new Error("not used");
 };
 
-const unusedDelete: NiaClient["delete"] = async () => {
+	const unusedDelete: SdkAdapter["delete"] = async () => {
 	throw new Error("not used");
 };
 
-const unusedPost: NiaClient["post"] = async () => {
+	const unusedPost: SdkAdapter["post"] = async () => {
 	throw new Error("not used");
 };
 
@@ -49,21 +49,22 @@ describe("createNiaManageResourceTool", () => {
 	it("lists repositories and data sources together", async () => {
 		const calls: string[] = [];
 		const client = {
-			get: async <T>(path: string, params?: unknown) => {
-				calls.push(`${path}?type=${(params as Record<string, string>)?.type || ""}`);
-
-				if ((params as Record<string, string>)?.type === "repository") {
-					return [{ id: "repo_1" }] as T;
-				}
-
-				return [{ id: "doc_1" }] as T;
+			sources: {
+				list: async (params?: unknown) => {
+					calls.push(`/sources?type=${(params as Record<string, string>)?.type || ""}`);
+					if ((params as Record<string, string>)?.type === "repository") {
+						return [{ id: "repo_1" }];
+					}
+					return [{ id: "doc_1" }];
+				},
 			},
+			get: unusedGet,
 			patch: unusedPatch,
 			delete: unusedDelete,
 			post: unusedPost,
-		} as unknown as NiaClient;
+	} as unknown as SdkAdapter;
 		const tool = createNiaManageResourceTool(
-			client as unknown as NiaClient,
+		client as unknown as SdkAdapter,
 			TEST_CONFIG,
 		);
 
@@ -81,13 +82,16 @@ describe("createNiaManageResourceTool", () => {
 
 	it("returns resource status for the requested type", async () => {
 		const client = {
-			get: async <T>(path: string) => ({ path, status: "ready" }) as T,
+			sources: {
+				get: async (id: string) => ({ id, path: `/sources/${id}`, status: "ready" }),
+			},
+			get: unusedGet,
 			patch: unusedPatch,
 			delete: unusedDelete,
 			post: unusedPost,
-		} as unknown as NiaClient;
+	} as unknown as SdkAdapter;
 		const tool = createNiaManageResourceTool(
-			client as unknown as NiaClient,
+		client as unknown as SdkAdapter,
 			TEST_CONFIG,
 		);
 
@@ -101,6 +105,7 @@ describe("createNiaManageResourceTool", () => {
 		);
 
 		expect(JSON.parse(result)).toEqual({
+			id: "repo_1",
 			path: "/sources/repo_1",
 			status: "ready",
 		});
@@ -109,16 +114,19 @@ describe("createNiaManageResourceTool", () => {
 	it("renames a resource with the provided name", async () => {
 		const calls: Array<{ path: string; body: unknown }> = [];
 		const client = {
-			get: unusedGet,
-			patch: async <T>(path: string, body?: unknown) => {
-				calls.push({ path, body });
-				return { ok: true } as T;
+			sources: {
+				update: async (id: string, body: unknown) => {
+					calls.push({ path: `/sources/${id}`, body });
+					return { ok: true };
+				},
 			},
+			get: unusedGet,
+			patch: unusedPatch,
 			delete: unusedDelete,
 			post: unusedPost,
-		} as unknown as NiaClient;
+	} as unknown as SdkAdapter;
 		const tool = createNiaManageResourceTool(
-			client as unknown as NiaClient,
+		client as unknown as SdkAdapter,
 			TEST_CONFIG,
 		);
 
@@ -145,16 +153,19 @@ describe("createNiaManageResourceTool", () => {
 		const ask = mock(async () => undefined);
 		const deleteCalls: string[] = [];
 		const client = {
+			sources: {
+				delete: async (id: string) => {
+					deleteCalls.push(`/sources/${id}`);
+					return { deleted: true };
+				},
+			},
 			get: unusedGet,
 			patch: unusedPatch,
-			delete: async <T>(path: string) => {
-				deleteCalls.push(path);
-				return { deleted: true } as T;
-			},
+			delete: unusedDelete,
 			post: unusedPost,
-		} as unknown as NiaClient;
+	} as unknown as SdkAdapter;
 		const tool = createNiaManageResourceTool(
-			client as unknown as NiaClient,
+		client as unknown as SdkAdapter,
 			TEST_CONFIG,
 		);
 
@@ -185,9 +196,9 @@ describe("createNiaManageResourceTool", () => {
 				return { deleted: true } as T;
 			},
 			post: unusedPost,
-		} as unknown as NiaClient;
+	} as unknown as SdkAdapter;
 		const tool = createNiaManageResourceTool(
-			client as unknown as NiaClient,
+		client as unknown as SdkAdapter,
 			TEST_CONFIG,
 		);
 
@@ -221,9 +232,9 @@ describe("createNiaManageResourceTool", () => {
 				calls.push({ method: "POST", path, body });
 				return { id: "cat_1" } as T;
 			},
-		} as unknown as NiaClient;
+	} as unknown as SdkAdapter;
 		const tool = createNiaManageResourceTool(
-			client as unknown as NiaClient,
+		client as unknown as SdkAdapter,
 			TEST_CONFIG,
 		);
 
@@ -274,10 +285,10 @@ describe("createNiaManageResourceTool", () => {
 			patch: unusedPatch,
 			delete: unusedDelete,
 			post: unusedPost,
-		} as unknown as NiaClient;
+	} as unknown as SdkAdapter;
 		const disabledConfig = { ...TEST_CONFIG, searchEnabled: false };
 		const tool = createNiaManageResourceTool(
-			client as unknown as NiaClient,
+		client as unknown as SdkAdapter,
 			disabledConfig,
 		);
 
@@ -295,10 +306,10 @@ describe("createNiaManageResourceTool", () => {
 			patch: unusedPatch,
 			delete: unusedDelete,
 			post: unusedPost,
-		} as unknown as NiaClient;
+	} as unknown as SdkAdapter;
 		const noApiKeyConfig = { ...TEST_CONFIG, apiKey: "" };
 		const tool = createNiaManageResourceTool(
-			client as unknown as NiaClient,
+		client as unknown as SdkAdapter,
 			noApiKeyConfig,
 		);
 
@@ -318,9 +329,9 @@ describe("createNiaManageResourceTool", () => {
 			patch: unusedPatch,
 			delete: unusedDelete,
 			post: unusedPost,
-		} as unknown as NiaClient;
+	} as unknown as SdkAdapter;
 		const tool = createNiaManageResourceTool(
-			client as unknown as NiaClient,
+		client as unknown as SdkAdapter,
 			TEST_CONFIG,
 		);
 
@@ -340,9 +351,9 @@ describe("createNiaManageResourceTool", () => {
 			patch: unusedPatch,
 			delete: unusedDelete,
 			post: unusedPost,
-		} as unknown as NiaClient;
+		} as unknown as SdkAdapter;
 		const tool = createNiaManageResourceTool(
-			client as unknown as NiaClient,
+			client as unknown as SdkAdapter,
 			TEST_CONFIG,
 		);
 

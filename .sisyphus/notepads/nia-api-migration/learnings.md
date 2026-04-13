@@ -65,3 +65,8 @@
 - [ ] bun run lint — biome passes
 - [ ] bun run test:integration — all existing integration tests pass
 - [ ] Phase 1 smoke test matrix (13 rows) passes
+
+## Phase 4 SDK-only cleanup
+- Removed the legacy NiaClient and the NIA_USE_SDK feature flag; plugin initialization now always creates the SDK adapter.
+- Tool tests migrate cleanly by mocking the SDK adapter surface instead of the deleted HTTP client class.
+- Shared API types now only keep plugin-internal contracts (source resolution, pending operations, SSE events, and error classification).

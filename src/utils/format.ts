@@ -1,10 +1,12 @@
+import type { ClassifiedApiError } from "../api/types.js";
+
 const ABORT_ERROR = "aborted";
 const TRUNCATED_MARKER = "\n\n[truncated]";
 const DEFAULT_TOOL_NAME = "unknown";
 
 export function classifyApiError(
 	errorString: string,
-): { category: string; actionableMessage: string } | null {
+): ClassifiedApiError | null {
 	if (errorString.includes("forbidden") && errorString.includes("403")) {
 		if (/plan required|credits?|quota|limit exceeded/i.test(errorString)) {
 			return {

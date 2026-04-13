@@ -1,16 +1,22 @@
 import { tool } from "@opencode-ai/plugin";
-import type { NiaClient } from "../api/client.js";
 import type { SdkAdapter } from "../api/nia-sdk.js";
-import type { FileContentResponse } from "../api/types.js";
 import type { NiaConfig } from "../config.js";
 import { createToolErrorFormatter } from "../utils/format.js";
 import { resolveSource } from "./source-resolver.js";
+
+type FileContentResponse = {
+	content: string;
+	path: string;
+	size: number;
+	line_count: number;
+	encoding: string;
+};
 
 const MAX_CONTENT_BYTES = 50 * 1024;
 const ABORT_ERROR = "abort_error [nia_read]: request aborted";
 const formatError = createToolErrorFormatter("read");
 
-export function createNiaReadTool(client: NiaClient | SdkAdapter, config: NiaConfig) {
+export function createNiaReadTool(client: SdkAdapter, config: NiaConfig) {
 	return tool({
 		description:
 			"Read file content from a Nia-indexed repository or data source. " +
@@ -20,23 +26,21 @@ export function createNiaReadTool(client: NiaClient | SdkAdapter, config: NiaCon
 				.string()
 				.optional()
 				.describe("Direct source ID. Use this OR source_type + identifier."),
-			source_type: tool.schema
-				.enum([
-					"repository",
-					"data_source",
-					"documentation",
-					"research_paper",
-					"huggingface_dataset",
-					"local_folder",
-					"slack",
-					"google_drive",
-					"x",
-					"connector",
-				])
-				.optional()
-				.describe(
-					"Source type (repository, data_source, documentation, research_paper, huggingface_dataset, local_folder, slack, google_drive, x, or connector)",
-				),
+				source_type: tool.schema
+					.enum([
+						"repository",
+						"data_source",
+						"documentation",
+						"research_paper",
+						"huggingface_dataset",
+						"local_folder",
+						"slack",
+						"google_drive",
+					])
+					.optional()
+					.describe(
+						"Source type (repository, data_source, documentation, research_paper, huggingface_dataset, local_folder, slack, or google_drive)",
+					),
 			identifier: tool.schema
 				.string()
 				.optional()
@@ -72,20 +76,10 @@ export function createNiaReadTool(client: NiaClient | SdkAdapter, config: NiaCon
 			if (args.line_start !== undefined) params.line_start = args.line_start;
 			if (args.line_end !== undefined) params.line_end = args.line_end;
 
-				let result: FileContentResponse | string;
-				if (config.useSdk) {
-					const sdk = client as SdkAdapter;
-					result = await sdk.filesystem.read(resolved.id, params, ctx.abort) as FileContentResponse | string;
-				} else {
-					const legacyClient = client as NiaClient;
-					result = await legacyClient.get<FileContentResponse>(
-						`/fs/${resolved.id}/read`,
-						params as Record<string, string | number>,
-						ctx.abort,
-					);
-				}
-
-				if (typeof result === "string") return result;
+				const result = await client.get<FileContentResponse>(
+					`/fs/${resolved.id}/read`,
+					params as Record<string, string | number>,
+				);
 
 				let content = result.content;
 				let truncated = false;

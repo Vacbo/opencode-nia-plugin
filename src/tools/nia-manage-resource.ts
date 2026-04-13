@@ -1,7 +1,6 @@
 import type { ToolContext } from "@opencode-ai/plugin";
 import { tool } from "@opencode-ai/plugin";
 
-import type { NiaClient } from "../api/client.js";
 import type { SdkAdapter } from "../api/nia-sdk.js";
 import type { NiaConfig } from "../config.js";
 import { createToolErrorFormatter } from "../utils/format.js";
@@ -117,11 +116,9 @@ async function requestDeletePermission(
 }
 
 export function createNiaManageResourceTool(
-	client: NiaClient | SdkAdapter,
+	client: SdkAdapter,
 	config: NiaConfig,
 ) {
-	const isSdkAdapter = (c: NiaClient | SdkAdapter): c is SdkAdapter =>
-		"sources" in c && c.sources !== undefined;
 	return tool({
 		description:
 			"List, inspect, rename, subscribe to, or delete Nia resources and categories.",
@@ -167,17 +164,10 @@ export function createNiaManageResourceTool(
 
 				switch (args.action) {
 			case "list": {
-				const [repositories, dataSources] = await Promise.all(
-					isSdkAdapter(client)
-						? [
-								client.sources.list({ type: "repository" }),
-								client.sources.list({ type: "documentation" }),
-							]
-						: [
-								client.get<unknown[]>("/sources", { type: "repository" }, context.abort),
-								client.get<unknown[]>("/sources", { type: "documentation" }, context.abort),
-							],
-				);
+				const [repositories, dataSources] = await Promise.all([
+					client.sources.list({ type: "repository" }),
+					client.sources.list({ type: "documentation" }),
+				]);
 
 				return jsonResult({
 					repositories,
@@ -189,12 +179,11 @@ export function createNiaManageResourceTool(
 					const identity = requireResourceIdentity(args);
 					if (typeof identity === "string") return identity;
 
-					const response = isSdkAdapter(client)
-						? await client.sources.get(identity.resourceId)
-						: await client.get(resourcePath(identity.resourceType, identity.resourceId), undefined, context.abort);
-					return typeof response === "string"
-						? response
-						: jsonResult(response);
+					const response =
+						identity.resourceType === "category"
+							? await client.get(resourcePath(identity.resourceType, identity.resourceId))
+							: await client.sources.get(identity.resourceId);
+					return jsonResult(response);
 				}
 
 				case "rename": {
@@ -208,13 +197,12 @@ export function createNiaManageResourceTool(
 						? { name: args.name, display_name: args.name }
 						: { name: args.name };
 
-					const response = isSdkAdapter(client)
-						? await client.sources.update(identity.resourceId, body)
-						: await client.patch(resourcePath(identity.resourceType, identity.resourceId), body, context.abort);
+					const response =
+						identity.resourceType === "category"
+							? await client.patch(resourcePath(identity.resourceType, identity.resourceId), body)
+							: await client.sources.update(identity.resourceId, body);
 
-					return typeof response === "string"
-						? response
-						: jsonResult(response);
+					return jsonResult(response);
 				}
 
 				case "delete": {
@@ -230,12 +218,11 @@ export function createNiaManageResourceTool(
 						return "Delete cancelled.";
 					}
 
-					const response = isSdkAdapter(client)
-						? await client.sources.delete(identity.resourceId)
-						: await client.delete(resourcePath(identity.resourceType, identity.resourceId), undefined, context.abort);
-					return typeof response === "string"
-						? response
-						: jsonResult(response);
+					const response =
+						identity.resourceType === "category"
+							? await client.delete(resourcePath(identity.resourceType, identity.resourceId))
+							: await client.sources.delete(identity.resourceId);
+					return jsonResult(response);
 				}
 
 				case "subscribe": {
@@ -247,12 +234,8 @@ export function createNiaManageResourceTool(
 				}
 
 				case "category_list": {
-					const response = isSdkAdapter(client)
-						? await client.get("/categories")
-						: await client.get(resourcePath("category"), undefined, context.abort);
-					return typeof response === "string"
-						? response
-						: jsonResult(response);
+					const response = await client.get("/categories");
+					return jsonResult(response);
 				}
 
 				case "category_create": {
@@ -265,13 +248,9 @@ export function createNiaManageResourceTool(
 						...(args.description ? { description: args.description } : {}),
 					};
 
-					const response = isSdkAdapter(client)
-						? await client.post("/categories", body)
-						: await client.post(resourcePath("category"), body, context.abort);
+					const response = await client.post("/categories", body);
 
-					return typeof response === "string"
-						? response
-						: jsonResult(response);
+					return jsonResult(response);
 				}
 
 				case "category_delete": {
@@ -288,12 +267,8 @@ export function createNiaManageResourceTool(
 						return "Delete cancelled.";
 					}
 
-					const response = isSdkAdapter(client)
-						? await client.delete(`/categories/${args.resource_id}`)
-						: await client.delete(resourcePath("category", args.resource_id), undefined, context.abort);
-					return typeof response === "string"
-						? response
-						: jsonResult(response);
+					const response = await client.delete(`/categories/${args.resource_id}`);
+					return jsonResult(response);
 				}
 				}
 			} catch (error) {

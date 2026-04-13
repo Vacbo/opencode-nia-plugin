@@ -4,8 +4,8 @@ import { beforeAll, describe, expect, it } from "bun:test";
 import type { ToolContext } from "@opencode-ai/plugin";
 import { z } from "zod";
 
-import { NiaClient, type FetchFn } from "../../src/api/client";
 import type { NiaConfig } from "../../src/config";
+import { createMockSdkAdapter } from "../../src/test/sdk-adapter";
 import { createNiaReadTool } from "../../src/tools/nia-read";
 import { createNiaGrepTool } from "../../src/tools/nia-grep";
 import { createNiaExploreTool } from "../../src/tools/nia-explore";
@@ -57,23 +57,15 @@ const LIVE_CONFIG = {
 
 const requestLog: RequestRecord[] = [];
 
-const fetchFn: FetchFn = async (input, init) => {
-	const response = await fetch(input, init);
-	const url = typeof input === "string" ? input : input.toString();
+const client = createMockSdkAdapter(async (url, init) => {
+	const response = await fetch(url, init);
 	requestLog.push({
-		method: init?.method ?? "GET",
+		method: init.method ?? "GET",
 		path: new URL(url).pathname,
 		status: response.status,
 	});
 	return response;
-};
-
-const client = new NiaClient({
-	apiKey: process.env.NIA_API_KEY ?? "missing-api-key",
-	baseUrl: BASE_URL,
-	fetchFn,
-	timeout: 60_000,
-});
+}, BASE_URL);
 
 function createContext(overrides: Partial<ToolContext> = {}): ToolContext {
 	return {
@@ -128,10 +120,11 @@ describe("nia-read / nia-grep / nia-explore live integration", () => {
 	beforeAll(async () => {
 		assertApiConfigured();
 
-		const repos = await client.get<RepoRecord[]>("/repositories");
-		if (typeof repos === "string") {
-			throw new Error(`Failed to list repositories: ${repos}`);
-		}
+		const reposResponse = await client.get<{ sources?: RepoRecord[] }>(
+			"/sources",
+			{ type: "repository", limit: 20 },
+		);
+		const repos = reposResponse.sources ?? [];
 
 		testRepo =
 			repos.find((r) => r.status === "ready") ?? repos[0] ?? null;
