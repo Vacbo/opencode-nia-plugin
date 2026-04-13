@@ -86,7 +86,7 @@ Store your API key in `~/.config/opencode/nia.json`:
 | `nia_grep` | Search indexed code and docs with grep |
 | `nia_explore` | Browse indexed file trees |
 | `nia_index` | Index repositories, docs, and papers |
-| `nia_manage_resource` | List, inspect, rename, subscribe to, or delete indexed resources |
+| `nia_manage_resource` | List, inspect, rename, subscribe to, delete, bulk delete, or annotate indexed resources |
 | `nia_research` | Run quick, deep, or oracle web research |
 | `nia_advisor` | Context-aware code analysis against indexed docs |
 | `nia_context` | Save, retrieve, search, and manage reusable context |
@@ -99,6 +99,8 @@ Store your API key in `~/.config/opencode/nia.json`:
 | `nia_rm` | Delete a file from an indexed source |
 | `nia_mv` | Move or rename a file in an indexed source |
 | `nia_mkdir` | Create a directory in an indexed source |
+| `nia_usage` | Retrieve current Nia API quota and usage information |
+| `nia_feedback` | Submit thumbs up/down feedback on answers, sources, and interactions |
 
 ## Agent Skills Path (OpenCode >= v1.1.50)
 

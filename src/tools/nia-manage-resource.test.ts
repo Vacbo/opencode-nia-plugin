@@ -6,7 +6,7 @@ import type { SdkAdapter } from "../api/nia-sdk";
 import type { NiaConfig } from "../config";
 import { createNiaManageResourceTool } from "./nia-manage-resource";
 
-const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, sandboxEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, sandboxEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, annotationsEnabled: true, bulkDeleteEnabled: true, usageEnabled: true, feedbackEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
 
 function parseArgs<TArgs extends z.ZodRawShape>(
 	definition: { args: TArgs },
@@ -364,5 +364,287 @@ describe("createNiaManageResourceTool", () => {
 
 		expect(result).toContain("error");
 		expect(result).toContain("manage_resource");
+	});
+
+	it("creates an annotation on a resource", async () => {
+		const calls: Array<{ method: string; path: string; body?: unknown }> = [];
+		const client = {
+			post: async <T>(path: string, body?: unknown) => {
+				calls.push({ method: "POST", path, body });
+				return { id: "ann_1", content: "Test annotation" } as T;
+			},
+			get: unusedGet,
+			patch: unusedPatch,
+			delete: unusedDelete,
+		} as unknown as SdkAdapter;
+		const tool = createNiaManageResourceTool(
+			client as unknown as SdkAdapter,
+			TEST_CONFIG,
+		);
+
+		const result = await tool.execute(
+			parseArgs(tool, {
+				action: "annotation_create",
+				resource_type: "repository",
+				resource_id: "repo_1",
+				content: "Test annotation",
+			}),
+			createContext(),
+		);
+
+		expect(calls).toEqual([
+			{
+				method: "POST",
+				path: "/sources/repo_1/annotations",
+				body: { content: "Test annotation" },
+			},
+		]);
+		expect(JSON.parse(result)).toEqual({ id: "ann_1", content: "Test annotation" });
+	});
+
+	it("returns validation error when annotation_create lacks content", async () => {
+		const client = {
+			post: unusedPost,
+			get: unusedGet,
+			patch: unusedPatch,
+			delete: unusedDelete,
+		} as unknown as SdkAdapter;
+		const tool = createNiaManageResourceTool(
+			client as unknown as SdkAdapter,
+			TEST_CONFIG,
+		);
+
+		const result = await tool.execute(
+			parseArgs(tool, {
+				action: "annotation_create",
+				resource_type: "repository",
+				resource_id: "repo_1",
+			}),
+			createContext(),
+		);
+
+		expect(result).toBe('validation_failed [422]: action "annotation_create" requires content');
+	});
+
+	it("lists annotations for a resource", async () => {
+		const calls: Array<{ method: string; path: string }> = [];
+		const client = {
+			get: async <T>(path: string) => {
+				calls.push({ method: "GET", path });
+				return [{ id: "ann_1", content: "First note" }, { id: "ann_2", content: "Second note" }] as T;
+			},
+			patch: unusedPatch,
+			delete: unusedDelete,
+			post: unusedPost,
+		} as unknown as SdkAdapter;
+		const tool = createNiaManageResourceTool(
+			client as unknown as SdkAdapter,
+			TEST_CONFIG,
+		);
+
+		const result = await tool.execute(
+			parseArgs(tool, {
+				action: "annotation_list",
+				resource_type: "repository",
+				resource_id: "repo_1",
+			}),
+			createContext(),
+		);
+
+		expect(calls).toEqual([{ method: "GET", path: "/sources/repo_1/annotations" }]);
+		expect(JSON.parse(result)).toEqual([
+			{ id: "ann_1", content: "First note" },
+			{ id: "ann_2", content: "Second note" },
+		]);
+	});
+
+	it("deletes an annotation from a resource", async () => {
+		const calls: Array<{ method: string; path: string }> = [];
+		const client = {
+			delete: async <T>(path: string) => {
+				calls.push({ method: "DELETE", path });
+				return { deleted: true } as T;
+			},
+			get: unusedGet,
+			patch: unusedPatch,
+			post: unusedPost,
+		} as unknown as SdkAdapter;
+		const tool = createNiaManageResourceTool(
+			client as unknown as SdkAdapter,
+			TEST_CONFIG,
+		);
+
+		const result = await tool.execute(
+			parseArgs(tool, {
+				action: "annotation_delete",
+				resource_type: "repository",
+				resource_id: "repo_1",
+				annotation_id: "ann_1",
+			}),
+			createContext(),
+		);
+
+		expect(calls).toEqual([{ method: "DELETE", path: "/sources/repo_1/annotations/ann_1" }]);
+		expect(JSON.parse(result)).toEqual({ deleted: true });
+	});
+
+	it("returns validation error when annotation_delete lacks annotation_id", async () => {
+		const client = {
+			post: unusedPost,
+			get: unusedGet,
+			patch: unusedPatch,
+			delete: unusedDelete,
+		} as unknown as SdkAdapter;
+		const tool = createNiaManageResourceTool(
+			client as unknown as SdkAdapter,
+			TEST_CONFIG,
+		);
+
+		const result = await tool.execute(
+			parseArgs(tool, {
+				action: "annotation_delete",
+				resource_type: "repository",
+				resource_id: "repo_1",
+			}),
+			createContext(),
+		);
+
+		expect(result).toBe('validation_failed [422]: action "annotation_delete" requires annotation_id');
+	});
+
+	it("requests permission before bulk deleting resources", async () => {
+		const ask = mock(async () => undefined);
+		const postCalls: Array<{ path: string; body: unknown }> = [];
+		const client = {
+			post: async <T>(path: string, body?: unknown) => {
+				postCalls.push({ path, body });
+				return { deleted: ["repo_1", "repo_2"], failed: [] } as T;
+			},
+			get: unusedGet,
+			patch: unusedPatch,
+			delete: unusedDelete,
+		} as unknown as SdkAdapter;
+		const tool = createNiaManageResourceTool(
+			client as unknown as SdkAdapter,
+			TEST_CONFIG,
+		);
+
+		const result = await tool.execute(
+			parseArgs(tool, {
+				action: "bulk_delete",
+				resource_ids: ["repo_1", "repo_2"],
+			}),
+			createContext({ ask }),
+		);
+
+		expect(ask).toHaveBeenCalledTimes(1);
+		expect(postCalls).toEqual([
+			{
+				path: "/sources/bulk-delete",
+				body: { ids: ["repo_1", "repo_2"] },
+			},
+		]);
+		expect(JSON.parse(result)).toEqual({ deleted: ["repo_1", "repo_2"], failed: [] });
+	});
+
+	it("does not bulk delete when permission is denied", async () => {
+		const ask = mock(async () => {
+			throw new Error("denied");
+		});
+		let postCalls = 0;
+		const client = {
+			post: async <T>() => {
+				postCalls += 1;
+				return { deleted: ["repo_1"], failed: [] } as T;
+			},
+			get: unusedGet,
+			patch: unusedPatch,
+			delete: unusedDelete,
+		} as unknown as SdkAdapter;
+		const tool = createNiaManageResourceTool(
+			client as unknown as SdkAdapter,
+			TEST_CONFIG,
+		);
+
+		const result = await tool.execute(
+			parseArgs(tool, {
+				action: "bulk_delete",
+				resource_ids: ["repo_1", "repo_2"],
+			}),
+			createContext({ ask }),
+		);
+
+		expect(ask).toHaveBeenCalledTimes(1);
+		expect(postCalls).toBe(0);
+		expect(result).toBe("Bulk delete cancelled.");
+	});
+
+	it("returns validation error when bulk_delete lacks resource_ids", async () => {
+		const client = {
+			post: unusedPost,
+			get: unusedGet,
+			patch: unusedPatch,
+			delete: unusedDelete,
+		} as unknown as SdkAdapter;
+		const tool = createNiaManageResourceTool(
+			client as unknown as SdkAdapter,
+			TEST_CONFIG,
+		);
+
+		const result = await tool.execute(
+			parseArgs(tool, {
+				action: "bulk_delete",
+			}),
+			createContext(),
+		);
+
+		expect(result).toBe('validation_failed [422]: action "bulk_delete" requires resource_ids array with at least one ID');
+	});
+
+	it("returns validation error when bulk_delete has empty resource_ids", async () => {
+		const client = {
+			post: unusedPost,
+			get: unusedGet,
+			patch: unusedPatch,
+			delete: unusedDelete,
+		} as unknown as SdkAdapter;
+		const tool = createNiaManageResourceTool(
+			client as unknown as SdkAdapter,
+			TEST_CONFIG,
+		);
+
+		const result = await tool.execute(
+			parseArgs(tool, {
+				action: "bulk_delete",
+				resource_ids: [],
+			}),
+			createContext(),
+		);
+
+		expect(result).toBe('validation_failed [422]: action "bulk_delete" requires resource_ids array with at least one ID');
+	});
+
+	it("returns config_error when bulkDeleteEnabled is false", async () => {
+		const client = {
+			post: unusedPost,
+			get: unusedGet,
+			patch: unusedPatch,
+			delete: unusedDelete,
+		} as unknown as SdkAdapter;
+		const disabledConfig = { ...TEST_CONFIG, bulkDeleteEnabled: false };
+		const tool = createNiaManageResourceTool(
+			client as unknown as SdkAdapter,
+			disabledConfig,
+		);
+
+		const result = await tool.execute(
+			parseArgs(tool, {
+				action: "bulk_delete",
+				resource_ids: ["repo_1"],
+			}),
+			createContext(),
+		);
+
+		expect(result).toBe("config_error: bulk delete is disabled");
 	});
 });

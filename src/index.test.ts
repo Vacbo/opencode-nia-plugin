@@ -23,6 +23,8 @@ const ALL_TOOL_NAMES = [
   "nia_sandbox",
   "nia_tracer",
   "nia_e2e",
+  "nia_usage",
+  "nia_feedback",
 ] as const;
 
 const ALWAYS_ON_TOOL_NAMES = [
@@ -38,6 +40,8 @@ const ALWAYS_ON_TOOL_NAMES = [
   "nia_manage_resource",
   "nia_package_search",
   "nia_auto_subscribe",
+  "nia_usage",
+  "nia_feedback",
 ] as const;
 
 describe("Nia plugin entrypoint", () => {

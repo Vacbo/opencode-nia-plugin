@@ -19,6 +19,7 @@ import { createNiaAutoSubscribeTool } from "./tools/nia-auto-subscribe.js";
 import { createNiaContextTool } from "./tools/nia-context.js";
 import { createNiaE2ETool } from "./tools/nia-e2e.js";
 import { createNiaExploreTool } from "./tools/nia-explore.js";
+import { createNiaFeedbackTool } from "./tools/nia-feedback.js";
 import { createNiaGrepTool } from "./tools/nia-grep.js";
 import { createNiaIndexTool } from "./tools/nia-index.js";
 import { createNiaManageResourceTool } from "./tools/nia-manage-resource.js";
@@ -31,6 +32,7 @@ import { createNiaRmTool } from "./tools/nia-rm.js";
 import { createNiaSandboxTool } from "./tools/nia-sandbox.js";
 import { createNiaSearchTool } from "./tools/nia-search.js";
 import { createNiaTracerTool } from "./tools/nia-tracer.js";
+import { createNiaUsageTool } from "./tools/nia-usage.js";
 import { createNiaWriteTool } from "./tools/nia-write.js";
 
 function createClient(config: NiaConfig): SdkAdapter {
@@ -74,6 +76,12 @@ function createToolRegistry(config: NiaConfig, client: SdkAdapter) {
 			? { nia_tracer: createNiaTracerTool(client, config) }
 			: {}),
 		...(e2eTool ? { nia_e2e: e2eTool } : {}),
+		...(config.usageEnabled
+			? { nia_usage: createNiaUsageTool(client, config) }
+			: {}),
+		...(config.feedbackEnabled
+			? { nia_feedback: createNiaFeedbackTool(client, config) }
+			: {}),
 	};
 }
 

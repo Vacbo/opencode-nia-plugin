@@ -7,6 +7,10 @@ export interface NiaConfig {
 	advisorEnabled: boolean;
 	contextEnabled: boolean;
 	e2eEnabled: boolean;
+	annotationsEnabled: boolean;
+	bulkDeleteEnabled: boolean;
+	usageEnabled: boolean;
+	feedbackEnabled: boolean;
 	cacheTTL: number;
 	maxPendingOps: number;
 	checkInterval: number;
@@ -42,6 +46,10 @@ const DEFAULTS: NiaConfig = {
 	advisorEnabled: true,
 	contextEnabled: true,
 	e2eEnabled: true,
+	annotationsEnabled: true,
+	bulkDeleteEnabled: true,
+	usageEnabled: true,
+	feedbackEnabled: true,
 	cacheTTL: 300,
 	maxPendingOps: 5,
 	checkInterval: 15,
@@ -179,6 +187,10 @@ export function loadConfig(): NiaConfig {
 			DEFAULTS.contextEnabled,
 		),
 		e2eEnabled: parseBoolean(process.env.NIA_E2E, DEFAULTS.e2eEnabled),
+		annotationsEnabled: parseBoolean(process.env.NIA_ANNOTATIONS_ENABLED, DEFAULTS.annotationsEnabled),
+		bulkDeleteEnabled: parseBoolean(process.env.NIA_BULK_DELETE_ENABLED, DEFAULTS.bulkDeleteEnabled),
+		usageEnabled: parseBoolean(process.env.NIA_USAGE_ENABLED, DEFAULTS.usageEnabled),
+		feedbackEnabled: parseBoolean(process.env.NIA_FEEDBACK_ENABLED, DEFAULTS.feedbackEnabled),
 		cacheTTL: parseNumber(process.env.NIA_CACHE_TTL, DEFAULTS.cacheTTL),
 		maxPendingOps: parseNumber(
 			process.env.NIA_MAX_PENDING_OPS,
