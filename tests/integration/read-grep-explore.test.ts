@@ -50,9 +50,7 @@ const LIVE_CONFIG = {
 	checkInterval: 15,
 	tracerTimeout: 120,
 	debug: true,
-	triggersEnabled: true,
 	apiUrl: BASE_URL,
-	keywords: { enabled: true, customPatterns: [] },
 } as NiaConfig;
 
 const requestLog: RequestRecord[] = [];
@@ -120,14 +118,17 @@ describe("nia-read / nia-grep / nia-explore live integration", () => {
 	beforeAll(async () => {
 		assertApiConfigured();
 
-		const reposResponse = await client.get<{ sources?: RepoRecord[] }>(
-			"/sources",
-			{ type: "repository", limit: 20 },
+		const reposResponse = await client.get<{ items?: RepoRecord[] } | RepoRecord[]>(
+			"/repositories",
 		);
-		const repos = reposResponse.sources ?? [];
+		const repos = Array.isArray(reposResponse)
+			? reposResponse
+			: reposResponse.items ?? [];
 
 		testRepo =
-			repos.find((r) => r.status === "ready") ?? repos[0] ?? null;
+			repos.find((r) => ["indexed", "completed", "ready"].includes(r.status)) ??
+			repos[0] ??
+			null;
 
 		if (!testRepo) {
 			throw new Error(
@@ -216,7 +217,9 @@ describe("nia-read / nia-grep / nia-explore live integration", () => {
 			expect(typeof result).toBe("string");
 			expect(result.length).toBeGreaterThan(0);
 			const hasContent = result.includes("**Size:**");
-			const isNotFound = result.toLowerCase().startsWith("not_found");
+			const isNotFound =
+				result.toLowerCase().startsWith("not_found") ||
+				result.toLowerCase().startsWith("read_error: http 404");
 			expect(
 				hasContent || isNotFound,
 				`Expected file content or not_found, got: ${result}`,

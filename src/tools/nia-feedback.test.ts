@@ -5,7 +5,7 @@ import type { NiaConfig } from "../config";
 import { createResponseSdkAdapter } from "../test/sdk-adapter";
 import { createNiaFeedbackTool } from "./nia-feedback";
 
-const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, sandboxEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, annotationsEnabled: true, bulkDeleteEnabled: true, usageEnabled: true, feedbackEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, sandboxEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, annotationsEnabled: true, bulkDeleteEnabled: true, usageEnabled: true, feedbackEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, apiUrl: "https://apigcp.trynia.ai/v2" } as NiaConfig;
 
 import type { ToolContext } from "@opencode-ai/plugin";
 
@@ -63,8 +63,8 @@ describe("nia_feedback tool", () => {
 			expect(JSON.parse(capturedBody)).toEqual({
 				answer_id: "ans-123",
 				feedback_type: "thumbs_up",
+				signal: "thumbs_up",
 				comment: "Very helpful answer",
-				metadata: undefined,
 			});
 			expect(result).toContain("Feedback submitted successfully");
 			expect(result).toContain("ans-123");
@@ -73,7 +73,7 @@ describe("nia_feedback tool", () => {
 		it("posts with metadata when provided", async () => {
 			let capturedBody = "";
 
-			const client = createClient((url, init) => {
+			const client = createClient((_url, init) => {
 				capturedBody = init.body as string;
 				return jsonResponse(200, { success: true });
 			});
@@ -92,7 +92,7 @@ describe("nia_feedback tool", () => {
 			expect(JSON.parse(capturedBody)).toEqual({
 				answer_id: "ans-456",
 				feedback_type: "thumbs_down",
-				comment: undefined,
+				signal: "thumbs_down",
 				metadata: { reason: "incomplete", score: 0.5 },
 			});
 		});
@@ -149,9 +149,10 @@ describe("nia_feedback tool", () => {
 			expect(capturedUrl).toContain("/feedback/source");
 			expect(JSON.parse(capturedBody)).toEqual({
 				source_id: "src-789",
+				chunk_id: "src-789",
 				feedback_type: "helpful",
+				signal: "helpful",
 				comment: "Great documentation",
-				metadata: undefined,
 			});
 			expect(result).toContain("Feedback submitted successfully");
 			expect(result).toContain("src-789");
@@ -200,7 +201,7 @@ describe("nia_feedback tool", () => {
 				{
 					action: "interaction",
 					interaction_id: "int-abc",
-					feedback_type: "viewed",
+					feedback_type: "navigated",
 				},
 				createMockContext(),
 			);
@@ -208,9 +209,9 @@ describe("nia_feedback tool", () => {
 			expect(capturedUrl).toContain("/feedback/interaction");
 			expect(JSON.parse(capturedBody)).toEqual({
 				interaction_id: "int-abc",
-				feedback_type: "viewed",
-				comment: undefined,
-				metadata: undefined,
+				chunk_id: "int-abc",
+				action: "navigated",
+				feedback_type: "navigated",
 			});
 			expect(result).toContain("Interaction signal submitted successfully");
 			expect(result).toContain("int-abc");
@@ -341,7 +342,7 @@ describe("nia_feedback tool", () => {
 		it("ignores invalid metadata JSON", async () => {
 			let capturedBody = "";
 
-			const client = createClient((url, init) => {
+			const client = createClient((_url, init) => {
 				capturedBody = init.body as string;
 				return jsonResponse(200, { success: true });
 			});

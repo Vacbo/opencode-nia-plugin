@@ -33,9 +33,7 @@ const TEST_CONFIG = {
 	checkInterval: 15,
 	tracerTimeout: 120,
 	debug: false,
-	triggersEnabled: true,
 	apiUrl: "https://apigcp.trynia.ai/v2",
-	keywords: { enabled: true, customPatterns: [] },
 } as NiaConfig;
 
 function jsonResponse(status: number, body?: unknown): Response {
@@ -179,12 +177,11 @@ describe("nia_e2e tool", () => {
 			});
 			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
-			await expect(
-				tool.execute(
-					{ action: "create_session", local_folder_id: "folder_123" },
-					createMockContext(),
-				),
-			).rejects.toThrow("HTTP 422");
+			const result = await tool.execute(
+				{ action: "create_session", local_folder_id: "folder_123" },
+				createMockContext(),
+			);
+			expect(result).toContain('e2e_error: HTTP 422: {"message":"invalid local_folder_id"}');
 		});
 	});
 
@@ -229,12 +226,11 @@ describe("nia_e2e tool", () => {
 			});
 			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
-			await expect(
-				tool.execute(
-					{ action: "get_session", session_id: "missing" },
-					createMockContext(),
-				),
-			).rejects.toThrow("HTTP 404");
+			const result = await tool.execute(
+				{ action: "get_session", session_id: "missing" },
+				createMockContext(),
+			);
+			expect(result).toContain('e2e_error: HTTP 404: {"message":"missing session"}');
 		});
 	});
 
@@ -331,12 +327,11 @@ describe("nia_e2e tool", () => {
 			});
 			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
-			await expect(
-				tool.execute(
-					{ action: "purge", source_id: "source_123" },
-					createMockContext(),
-				),
-			).rejects.toThrow("HTTP 403");
+			const result = await tool.execute(
+				{ action: "purge", source_id: "source_123" },
+				createMockContext(),
+			);
+			expect(result).toContain('e2e_error: HTTP 403: {"message":"forbidden purge"}');
 		});
 	});
 
@@ -390,12 +385,11 @@ describe("nia_e2e tool", () => {
 			});
 			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
-			await expect(
-				tool.execute(
-					{ action: "sync", local_folder_id: "folder_123" },
-					createMockContext(),
-				),
-			).rejects.toThrow("HTTP 429: slow down");
+			const result = await tool.execute(
+				{ action: "sync", local_folder_id: "folder_123" },
+				createMockContext(),
+			);
+			expect(result).toContain("e2e_error: HTTP 429: slow down");
 		});
 	});
 
@@ -460,12 +454,11 @@ describe("nia_e2e tool", () => {
 			});
 			const tool = createNiaE2EToolOrThrow(client, TEST_CONFIG);
 
-			await expect(
-				tool.execute(
-					{ action: "create_session", local_folder_id: "folder_123" },
-					createMockContext(),
-				),
-			).rejects.toThrow("network error");
+			const result = await tool.execute(
+				{ action: "create_session", local_folder_id: "folder_123" },
+				createMockContext(),
+			);
+			expect(result).toContain("e2e_error: network error");
 		});
 	});
 });

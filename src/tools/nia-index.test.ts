@@ -7,7 +7,7 @@ import type { NiaConfig } from "../config";
 import { getSessionState } from "../state/session";
 import { createNiaIndexTool } from "./nia-index";
 
-const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, sandboxEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, annotationsEnabled: true, bulkDeleteEnabled: true, usageEnabled: true, feedbackEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, sandboxEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, annotationsEnabled: true, bulkDeleteEnabled: true, usageEnabled: true, feedbackEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, apiUrl: "https://apigcp.trynia.ai/v2" } as NiaConfig;
 
 function parseArgs<TArgs extends z.ZodRawShape>(
 	definition: { args: TArgs },
@@ -177,7 +177,7 @@ describe("createNiaIndexTool", () => {
 
 	it("returns formatted error for API errors", async () => {
 		const client = {
-			post: async <T>() => {
+			post: async <_T>() => {
 				throw new Error("HTTP 422: unsupported url");
 			},
 		};

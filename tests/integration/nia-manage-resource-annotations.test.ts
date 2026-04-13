@@ -24,10 +24,8 @@ const LIVE_CONFIG = {
   maxPendingOps: 5,
   checkInterval: 15,
   tracerTimeout: 120,
-  debug: true,
-  triggersEnabled: true,
-  apiUrl: BASE_URL,
-  keywords: { enabled: true, customPatterns: [] },
+	debug: true,
+	apiUrl: BASE_URL,
 } as NiaConfig;
 
 const requestLog: { method: string; path: string; status: number }[] = [];
@@ -37,7 +35,7 @@ function createMockSdkAdapter(
   baseUrl: string,
 ): SdkAdapter {
   const request = async <T>(method: string, path: string, body?: unknown): Promise<T> => {
-    const url = new URL(path, baseUrl);
+    const url = new URL(path.replace(/^\//, ""), `${baseUrl.replace(/\/$/, "")}/`);
     const response = await fetchImpl(url.toString(), {
       method,
       headers: {
@@ -84,6 +82,13 @@ function createMockSdkAdapter(
       createJob: async () => { throw new Error("not implemented"); },
       getJob: async () => { throw new Error("not implemented"); },
       streamJob: async function* () { yield { error: "not implemented" }; throw new Error("not implemented"); },
+    },
+    documentAgent: {
+      query: async () => { throw new Error("not implemented"); },
+      createJob: async () => { throw new Error("not implemented"); },
+      getJob: async () => { throw new Error("not implemented"); },
+      streamJob: async function* () { yield { error: "not implemented" }; throw new Error("not implemented"); },
+      deleteJob: async () => { throw new Error("not implemented"); },
     },
     contexts: {
       create: async () => { throw new Error("not implemented"); },
@@ -169,12 +174,13 @@ describe("nia_manage_resource annotations integration", () => {
   it("creates, lists, and deletes annotations on a source", async () => {
     // First, we need to find or create a source to annotate
     // For this test, we'll try to list existing sources and use the first one
-    const listResponse = await fetch(new URL("/v2/sources?limit=1", BASE_URL).toString(), {
+    const listResponse = await fetch(new URL("/v2/repositories?limit=1", BASE_URL).toString(), {
       headers: { Authorization: `Bearer ${LIVE_CONFIG.apiKey}` },
     });
 
     expect(listResponse.status).toBe(200);
-    const sources = await listResponse.json() as Array<{ id: string; name: string }>;
+    const payload = await listResponse.json() as Array<{ id: string; name: string }> | { items?: Array<{ id: string; name: string }> };
+    const sources = Array.isArray(payload) ? payload : payload.items ?? [];
     expect(sources.length).toBeGreaterThan(0);
 
     const sourceId = sources[0].id;
@@ -193,10 +199,19 @@ describe("nia_manage_resource annotations integration", () => {
       createContext(),
     );
 
-    const createData = JSON.parse(createResult);
-    expect(createData).toHaveProperty("id");
-    expect(createData).toHaveProperty("content");
-    const annotationId = createData.id;
+    const createData = JSON.parse(createResult) as {
+      source_id: string;
+      annotations?: Array<{ id: string; content: string }>;
+    };
+    expect(createData.source_id).toBe(sourceId);
+    expect(Array.isArray(createData.annotations)).toBe(true);
+    const matchingAnnotations =
+      createData.annotations?.filter((annotation) => annotation.content === "Test annotation from integration test") ?? [];
+    const annotationId =
+      matchingAnnotations.length > 0
+        ? matchingAnnotations[matchingAnnotations.length - 1].id
+        : undefined;
+    expect(annotationId).toBeTruthy();
 
     // List annotations
     const listResult = await tool.execute(
@@ -223,8 +238,13 @@ describe("nia_manage_resource annotations integration", () => {
       createContext(),
     );
 
-    const deleteData = JSON.parse(deleteResult);
-    expect(deleteData).toHaveProperty("deleted", true);
+    const deleteData = JSON.parse(deleteResult) as {
+      source_id: string;
+      annotations?: Array<{ id: string }>;
+    };
+    expect(deleteData.source_id).toBe(sourceId);
+    expect(Array.isArray(deleteData.annotations)).toBe(true);
+    expect(deleteData.annotations?.some((ann) => ann.id === annotationId)).toBe(false);
 
     // Verify the calls were made
     const calls = requestLog.slice(start);

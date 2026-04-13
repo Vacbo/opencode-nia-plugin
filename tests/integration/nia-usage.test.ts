@@ -23,10 +23,8 @@ const LIVE_CONFIG = {
   maxPendingOps: 5,
   checkInterval: 15,
   tracerTimeout: 120,
-  debug: true,
-  triggersEnabled: true,
-  apiUrl: BASE_URL,
-  keywords: { enabled: true, customPatterns: [] },
+	debug: true,
+	apiUrl: BASE_URL,
 } as NiaConfig;
 
 const requestLog: { method: string; path: string; status: number }[] = [];
@@ -69,11 +67,10 @@ describe("nia_usage integration", () => {
     const result = await usageTool.execute({}, createContext());
 
     expect(result).toContain("# Nia Usage");
-    expect(result).toContain("## Quota Information");
-    expect(result).toContain("Plan:");
-    expect(result).toContain("Credits Used:");
-    expect(result).toContain("Credits Remaining:");
-    expect(result).toContain("Reset Date:");
+    expect(result).toContain("## Subscription");
+    expect(result).toContain("Tier:");
+    expect(result).toContain("Billing Period End:");
+    expect(result).toContain("## Usage");
 
     const calls = requestLog.slice(start);
     const usageCall = calls.find((entry) => entry.path === "/v2/usage");

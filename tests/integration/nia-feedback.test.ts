@@ -44,10 +44,8 @@ const LIVE_CONFIG = {
   maxPendingOps: 5,
   checkInterval: 15,
   tracerTimeout: 120,
-  debug: true,
-  triggersEnabled: true,
-  apiUrl: BASE_URL,
-  keywords: { enabled: true, customPatterns: [] },
+	debug: true,
+	apiUrl: BASE_URL,
 } as NiaConfig;
 
 const requestLog: RequestRecord[] = [];
@@ -149,7 +147,7 @@ describe("nia_feedback integration", () => {
       parseArgs(feedbackTool, {
         action: "interaction",
         interaction_id: "test-interaction-789",
-        feedback_type: "viewed",
+        feedback_type: "navigated",
       }),
       createContext()
     );

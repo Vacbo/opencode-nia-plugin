@@ -18,6 +18,8 @@ interface FeedbackArgs {
 	feedback_type?: string;
 	comment?: string;
 	metadata?: string;
+	chunk_id?: string;
+	signal?: string;
 }
 
 function parseMetadata(raw?: string): Record<string, unknown> | undefined {
@@ -32,6 +34,7 @@ function parseMetadata(raw?: string): Record<string, unknown> | undefined {
 async function handleAnswerFeedback(
 	client: SdkAdapter,
 	args: FeedbackArgs,
+	_context: ToolContext,
 ): Promise<string> {
 	if (!args.answer_id?.trim()) {
 		return "error: answer_id is required for answer feedback";
@@ -40,12 +43,14 @@ async function handleAnswerFeedback(
 		return "error: feedback_type is required (e.g., 'thumbs_up', 'thumbs_down')";
 	}
 
-	const body = {
+	const metadata = parseMetadata(args.metadata);
+	const body: Record<string, unknown> = {
 		answer_id: args.answer_id,
 		feedback_type: args.feedback_type,
-		comment: args.comment,
-		metadata: parseMetadata(args.metadata),
+		signal: args.signal?.trim() || args.feedback_type,
 	};
+	if (args.comment) body.comment = args.comment;
+	if (metadata) body.metadata = metadata;
 
 	await client.post("/feedback/answer", body);
 
@@ -55,6 +60,7 @@ async function handleAnswerFeedback(
 async function handleSourceFeedback(
 	client: SdkAdapter,
 	args: FeedbackArgs,
+	_context: ToolContext,
 ): Promise<string> {
 	if (!args.source_id?.trim()) {
 		return "error: source_id is required for source feedback";
@@ -63,12 +69,15 @@ async function handleSourceFeedback(
 		return "error: feedback_type is required (e.g., 'helpful', 'not_helpful', 'outdated')";
 	}
 
-	const body = {
+	const metadata = parseMetadata(args.metadata);
+	const body: Record<string, unknown> = {
 		source_id: args.source_id,
+		chunk_id: args.chunk_id?.trim() || args.source_id,
 		feedback_type: args.feedback_type,
-		comment: args.comment,
-		metadata: parseMetadata(args.metadata),
+		signal: args.signal?.trim() || args.feedback_type,
 	};
+	if (args.comment) body.comment = args.comment;
+	if (metadata) body.metadata = metadata;
 
 	await client.post("/feedback/source", body);
 
@@ -78,20 +87,24 @@ async function handleSourceFeedback(
 async function handleInteractionFeedback(
 	client: SdkAdapter,
 	args: FeedbackArgs,
+	_context: ToolContext,
 ): Promise<string> {
 	if (!args.interaction_id?.trim()) {
 		return "error: interaction_id is required for interaction feedback";
 	}
 	if (!args.feedback_type?.trim()) {
-		return "error: feedback_type is required (e.g., 'viewed', 'clicked', 'saved')";
+		return "error: feedback_type is required (e.g., 'expanded', 'copied', 'navigated', 'collapsed', 'dwelled')";
 	}
 
-	const body = {
+	const metadata = parseMetadata(args.metadata);
+	const body: Record<string, unknown> = {
 		interaction_id: args.interaction_id,
+		chunk_id: args.chunk_id?.trim() || args.interaction_id,
+		action: args.signal?.trim() || args.feedback_type,
 		feedback_type: args.feedback_type,
-		comment: args.comment,
-		metadata: parseMetadata(args.metadata),
 	};
+	if (args.comment) body.comment = args.comment;
+	if (metadata) body.metadata = metadata;
 
 	await client.post("/feedback/interaction", body);
 
@@ -100,7 +113,7 @@ async function handleInteractionFeedback(
 
 const ACTION_HANDLERS: Record<
 	FeedbackAction,
-	(client: SdkAdapter, args: FeedbackArgs) => Promise<string>
+	(client: SdkAdapter, args: FeedbackArgs, context: ToolContext) => Promise<string>
 > = {
 	answer: handleAnswerFeedback,
 	source: handleSourceFeedback,
@@ -139,6 +152,14 @@ export function createNiaFeedbackTool(client: SdkAdapter, config: NiaConfig) {
 				.string()
 				.optional()
 				.describe("Optional JSON metadata as a string"),
+			chunk_id: tool.schema
+				.string()
+				.optional()
+				.describe("Optional chunk identifier for source or interaction feedback"),
+			signal: tool.schema
+				.string()
+				.optional()
+				.describe("Optional API signal/action override; defaults to feedback_type"),
 		},
 		async execute(args, context) {
 			try {
@@ -160,7 +181,7 @@ export function createNiaFeedbackTool(client: SdkAdapter, config: NiaConfig) {
 				}
 
 				const handler = ACTION_HANDLERS[action];
-				return await handler(client, args as FeedbackArgs);
+				return await handler(client, args as FeedbackArgs, context);
 			} catch (error) {
 				return formatError(error, context.abort.aborted);
 			}

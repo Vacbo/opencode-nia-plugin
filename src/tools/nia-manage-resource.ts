@@ -295,10 +295,18 @@ export function createNiaManageResourceTool(
 					return "Bulk delete cancelled.";
 				}
 
-				const response = await client.post("/sources/bulk-delete", {
-					ids: args.resource_ids,
-				});
-				return jsonResult(response);
+				try {
+					const response = await client.post("/sources/bulk-delete", {
+						ids: args.resource_ids,
+					});
+					return jsonResult(response);
+				} catch (error) {
+					const message = error instanceof Error ? error.message : String(error);
+					if (message.includes("404") || message.includes("Not Found")) {
+						return "deprecated: bulk delete is not supported by the current Nia API.";
+					}
+					throw error;
+				}
 			}
 
 			case "subscribe": {

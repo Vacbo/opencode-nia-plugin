@@ -20,7 +20,6 @@ type TracerResultItem = {
 
 const ABORT_ERROR = "abort_error [nia_tracer]: request aborted";
 const formatError = createToolErrorFormatter("tracer");
-const DEFAULT_TIMEOUT_SECONDS = 120;
 const TERMINAL_STATUSES = new Set([
 	"completed",
 	"failed",
@@ -93,11 +92,6 @@ export function createNiaTracerTool(client: SdkAdapter, config: NiaConfig) {
 				if (!config.apiKey) {
 					return "config_error: NIA_API_KEY is not set";
 				}
-
-				const timeoutMs = Math.max(
-					1,
-					(config.tracerTimeout ?? DEFAULT_TIMEOUT_SECONDS) * 1000,
-				);
 
 				if (args.job_id) {
 					let response: TracerJobResponse | string;

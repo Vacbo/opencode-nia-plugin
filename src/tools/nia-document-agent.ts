@@ -206,7 +206,10 @@ export function createNiaDocumentAgentTool(
 					}
 
 					case "async_status": {
-						const jobId = args.job_id!;
+						const jobId = args.job_id;
+						if (!jobId) {
+							return 'validation_failed [422]: job_id is required for async_status action';
+						}
 						const response =
 							(await client.documentAgent.getJob(
 								jobId,
@@ -218,7 +221,10 @@ export function createNiaDocumentAgentTool(
 					}
 
 					case "async_stream": {
-						const jobId = args.job_id!;
+						const jobId = args.job_id;
+						if (!jobId) {
+							return 'validation_failed [422]: job_id is required for async_stream action';
+						}
 						jobManager.submitJob(
 							"document_agent",
 							jobId,
@@ -236,7 +242,10 @@ export function createNiaDocumentAgentTool(
 					}
 
 					case "async_delete": {
-						const jobId = args.job_id!;
+						const jobId = args.job_id;
+						if (!jobId) {
+							return 'validation_failed [422]: job_id is required for async_delete action';
+						}
 						const response =
 							(await jobManager.cancelJob(
 								jobId,

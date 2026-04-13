@@ -58,10 +58,8 @@ const LIVE_CONFIG = {
   maxPendingOps: 5,
   checkInterval: 15,
   tracerTimeout: 120,
-  debug: true,
-  triggersEnabled: true,
-  apiUrl: BASE_URL,
-  keywords: { enabled: true, customPatterns: [] },
+	debug: true,
+	apiUrl: BASE_URL,
 } as NiaConfig;
 
 const requestLog: RequestRecord[] = [];
@@ -142,16 +140,20 @@ function toResourceIds(value: unknown): Set<string> {
 }
 
 async function listDataSources(): Promise<DataSourceRecord[]> {
-  const response = await client.get<DataSourceRecord[]>("/data-sources");
+  const response = await client.get<{ items?: DataSourceRecord[] } | DataSourceRecord[]>("/sources", { type: "documentation" });
   if (typeof response === "string") {
     throw new Error(`Unable to list data sources before live test cleanup setup: ${response}`);
   }
 
-  if (!Array.isArray(response)) {
-    throw new Error("Live /data-sources response was not an array");
+  if (Array.isArray(response)) {
+    return response;
   }
 
-  return response;
+  if (Array.isArray(response.items)) {
+    return response.items;
+  }
+
+  throw new Error("Live /sources response did not contain an items array");
 }
 
 async function wait(ms: number): Promise<void> {
@@ -160,7 +162,7 @@ async function wait(ms: number): Promise<void> {
 
 async function pollDataSourceStatus(sourceId: string): Promise<DataSourceRecord> {
   for (let attempt = 0; attempt < 10; attempt += 1) {
-    const response = await client.get<DataSourceRecord>(`/data-sources/${encodeURIComponent(sourceId)}`);
+    const response = await client.get<DataSourceRecord | string>(`/sources/${encodeURIComponent(sourceId)}`);
     if (typeof response !== "string") {
       return response;
     }
@@ -216,7 +218,7 @@ describe("real Nia API integration", () => {
     expect(result).toContain("# Nia Search");
     expect(result).toContain("- Mode: `web`");
     expect(result).toContain("- Query: `Bun test documentation`");
-    expectSuccessfulCall(sliceNewRequests(start), "/v2/search/web");
+    expectSuccessfulCall(sliceNewRequests(start), "/v2/search");
   }, 60_000);
 
   it("calls nia_research quick mode against the live API", async () => {
@@ -234,38 +236,39 @@ describe("real Nia API integration", () => {
     expectNoClientError(result);
     expect(result).toContain("# Nia Research");
     expect(result).toContain("- Mode: `quick`");
-    expectSuccessfulCall(sliceNewRequests(start), "/v2/search/web");
+    expectSuccessfulCall(sliceNewRequests(start), "/v2/search");
   }, 60_000);
 
   it("calls nia_manage_resource list against the live API", async () => {
     const start = requestLog.length;
     const manageTool = createNiaManageResourceTool(client, LIVE_CONFIG);
     const result = await manageTool.execute(parseArgs(manageTool, { action: "list" }), createContext());
-    const parsed = parseJsonResult<{ repositories: unknown; data_sources: unknown }>(result);
+    const parsed = parseJsonResult<{ repositories: { items?: unknown[] }; data_sources: { items?: unknown[] } }>(result);
 
-    expect(Array.isArray(parsed.repositories)).toBe(true);
-    expect(Array.isArray(parsed.data_sources)).toBe(true);
+    expect(Array.isArray(parsed.repositories?.items)).toBe(true);
+    expect(Array.isArray(parsed.data_sources?.items)).toBe(true);
 
-    const calls = sliceNewRequests(start);
-    expectSuccessfulCall(calls, "/v2/repositories");
-    expectSuccessfulCall(calls, "/v2/data-sources");
+    const calls = sliceNewRequests(start).filter((entry) => entry.path === "/v2/sources");
+    expect(calls.length).toBeGreaterThanOrEqual(2);
+    expect(calls.every((entry) => ALLOWED_SUCCESS_STATUSES.has(entry.status))).toBe(true);
   }, 60_000);
 
-  it("surfaces the current nia_advisor live API contract mismatch", async () => {
+  it("calls nia_advisor against the live API with the current schema", async () => {
     const start = requestLog.length;
     const advisorTool = createNiaAdvisorTool(client, LIVE_CONFIG);
     const result = await advisorTool.execute(
       parseArgs(advisorTool, {
         query: "How should I validate live API integration tests for a TypeScript plugin?",
-        codebase: "opencode-nia-plugin",
+        codebase: { summary: "opencode-nia-plugin" },
         output_format: "checklist",
       }),
       createContext()
     );
 
-    expect(result).toContain("validation_failed [422]");
-    expect(result).toContain("codebase");
-    expectCallStatus(sliceNewRequests(start), "/v2/advisor", 422);
+    expectNoClientError(result);
+    expect(result).toContain("# Nia Advisor");
+    expect(result).toContain("## Advice");
+    expectSuccessfulCall(sliceNewRequests(start), "/v2/advisor");
   }, 60_000);
 
   it("calls nia_index and validates the indexed data source status", async () => {
@@ -282,7 +285,7 @@ describe("real Nia API integration", () => {
     expect(indexed.source_id).toBeTruthy();
     expect(indexed.source_type).toBe("data_source");
     expect(indexed.status).toBe("queued");
-    expectSuccessfulCall(sliceNewRequests(start), "/v2/data-sources");
+    expectSuccessfulCall(sliceNewRequests(start), "/v2/sources");
 
     if (!baselineDataSourceIds.has(indexed.source_id)) {
       cleanupDataSourceIds.add(indexed.source_id);
@@ -305,6 +308,6 @@ describe("real Nia API integration", () => {
 
     expect(parsedStatus.id).toBe(indexed.source_id);
     expect(typeof parsedStatus.status).toBe("string");
-    expectSuccessfulCall(sliceNewRequests(statusStart), `/v2/data-sources/${indexed.source_id}`);
+    expectSuccessfulCall(sliceNewRequests(statusStart), `/v2/sources/${indexed.source_id}`);
   }, 120_000);
 });

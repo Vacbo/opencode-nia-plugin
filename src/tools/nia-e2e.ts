@@ -227,7 +227,7 @@ export function createNiaE2ETool(client: SdkAdapter, config: NiaConfig) {
 					return `error: unknown action "${args.action}". Valid actions: ${VALID_ACTIONS.join(", ")}`;
 				}
 
-				return handler(client, args as E2EArgs, context);
+				return await handler(client, args as E2EArgs, context);
 			} catch (error) {
 				return formatError(error, context.abort.aborted);
 			}

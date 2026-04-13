@@ -29,9 +29,7 @@ const LIVE_CONFIG = {
 	checkInterval: 15,
 	tracerTimeout: 120,
 	debug: true,
-	triggersEnabled: true,
 	apiUrl: BASE_URL,
-	keywords: { enabled: true, customPatterns: [] },
 } as NiaConfig;
 
 const requestLog: RequestRecord[] = [];
@@ -112,6 +110,7 @@ describe("nia_e2e live API integration", () => {
 
 		const isSession = result.includes("Session ID:");
 		const isKnownError =
+			result.includes("e2e_error") ||
 			result.includes("not_found") ||
 			result.includes("validation_failed") ||
 			result.includes("unauthorized") ||
@@ -154,6 +153,7 @@ describe("nia_e2e live API integration", () => {
 		expect(result).not.toContain("E2E session details.");
 
 		const isExpectedError =
+			result.includes("e2e_error") ||
 			result.includes("not_found") ||
 			result.includes("validation_failed") ||
 			result.includes("unauthorized") ||

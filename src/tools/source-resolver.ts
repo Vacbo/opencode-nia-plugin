@@ -36,7 +36,7 @@ function normalizeResolvedType(sourceType: PluginSourceType): PluginSourceType {
 export async function resolveSource(
 	client: SdkAdapter,
 	args: ResolveSourceArgs,
-	signal?: AbortSignal,
+	_signal?: AbortSignal,
 ): Promise<ResolvedSource | string> {
 	if (args.source_id) {
 		if (!args.source_type) {

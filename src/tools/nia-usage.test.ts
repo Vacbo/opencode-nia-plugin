@@ -5,7 +5,7 @@ import type { SdkAdapter } from "../api/nia-sdk";
 import type { NiaConfig } from "../config";
 import { createNiaUsageTool } from "./nia-usage";
 
-const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, sandboxEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, annotationsEnabled: true, bulkDeleteEnabled: true, usageEnabled: true, feedbackEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] } } as NiaConfig;
+const TEST_CONFIG = { apiKey: "nk_test", searchEnabled: true, sandboxEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, annotationsEnabled: true, bulkDeleteEnabled: true, usageEnabled: true, feedbackEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, apiUrl: "https://apigcp.trynia.ai/v2" } as NiaConfig;
 
 function createContext(signal?: AbortSignal): ToolContext {
   const controller = new AbortController();
@@ -13,7 +13,7 @@ function createContext(signal?: AbortSignal): ToolContext {
 }
 
 describe("nia_usage tool", () => {
-  it("formats usage response as markdown", async () => {
+  it("formats legacy usage response as markdown", async () => {
     let capturedPath = "";
     const client = {
       get: async <T>(path: string) => {
@@ -32,6 +32,29 @@ describe("nia_usage tool", () => {
     expect(result).toContain("Reset Date:");
   });
 
+  it("formats live subscription usage response as markdown", async () => {
+    const client = {
+      get: async <T>() => ({
+        subscription_tier: "pro",
+        billing_period_start: "2026-04-01T00:00:00Z",
+        billing_period_end: "2026-05-01T00:00:00Z",
+        usage: {
+          queries: { used: 161, limit: 1000, unlimited: false },
+          package_search: { used: 45, limit: 0, unlimited: true },
+        },
+      } as T),
+    };
+    const niaUsageTool = createNiaUsageTool(client as unknown as SdkAdapter, TEST_CONFIG);
+    const result = await niaUsageTool.execute({}, createContext());
+    expect(result).toContain("# Nia Usage");
+    expect(result).toContain("## Subscription");
+    expect(result).toContain("Tier: `pro`");
+    expect(result).toContain("Billing Period End:");
+    expect(result).toContain("## Usage");
+    expect(result).toContain("`queries`: 161 / 1000");
+    expect(result).toContain("`package_search`: 45 / unlimited");
+  });
+
   it("formats date nicely", async () => {
     const client = {
       get: async <T>() => ({ credits_used: 0, credits_remaining: 1000, reset_date: "2026-12-25T00:00:00Z", plan: "free" } as T),
@@ -47,7 +70,7 @@ describe("nia_usage tool", () => {
     };
     const niaUsageTool = createNiaUsageTool(client as unknown as SdkAdapter, TEST_CONFIG);
     const result = await niaUsageTool.execute({}, createContext());
-    expect(result).toContain("Invalid Date");
+    expect(result).toContain("invalid-date");
   });
 
   for (const [status, text] of [["401", "bad key"], ["429", "slow down"], ["500", "upstream exploded"]] as const) {

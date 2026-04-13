@@ -51,7 +51,6 @@ const z = tool.schema;
 
 const ABORT_ERROR = "abort_error [nia_research]: request aborted";
 const MAX_NUM_RESULTS = 20;
-const ORACLE_TIMEOUT_MS = 60_000;
 const TERMINAL_STATUSES = new Set([
 	"completed",
 	"error",
