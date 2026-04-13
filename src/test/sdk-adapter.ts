@@ -16,10 +16,23 @@ export type ResponseHandler = (
 	init: RequestInit,
 ) => Response | Promise<Response>;
 
-function createRequestInit(method: string, body?: unknown): RequestInit {
+
+function createRequestInit(
+	method: string,
+	body?: unknown,
+	apiKey = process.env.NIA_API_KEY,
+): RequestInit {
+	const headers: Record<string, string> = {
+		"content-type": "application/json",
+	};
+
+	if (apiKey) {
+		headers.Authorization = `Bearer ${apiKey}`;
+	}
+
 	return {
 		method,
-		headers: { "content-type": "application/json" },
+		headers,
 		body: body === undefined ? undefined : JSON.stringify(body),
 	};
 }
@@ -79,13 +92,16 @@ export function createMockSdkAdapter(
 	responsesOrHandler: MockResponse[] | MockHandler,
 	baseUrl = "https://nia.test/v2",
 ): SdkAdapter {
+	const base = new URL(baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`);
+
 	const request = async <T>(
 		method: string,
 		path: string,
 		body?: unknown,
 		params?: Record<string, unknown>,
 	): Promise<T> => {
-		const url = new URL(path, baseUrl);
+		const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
+		const url = new URL(normalizedPath, base);
 		if (params) {
 			for (const [key, value] of Object.entries(params)) {
 				if (value !== undefined && value !== null) {
@@ -163,6 +179,11 @@ export function createMockSdkAdapter(
 		tracer: {
 			createJob: (body) => request("POST", "/github/tracer", body),
 			streamJob: (id) => streamFrom(`/github/tracer/${id}/stream`),
+		},
+		sandbox: {
+			createJob: (body) => request("POST", "/sandbox/search", body),
+			getJob: (id) => request("GET", `/sandbox/jobs/${id}`),
+			streamJob: (id) => streamFrom(`/sandbox/jobs/${id}/stream`),
 		},
 		contexts: {
 			create: (body) => request("POST", "/contexts", body),

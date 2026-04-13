@@ -18,6 +18,7 @@ type E2ESession = {
 const TEST_CONFIG = {
 	apiKey: "nk_test",
 	searchEnabled: true,
+	sandboxEnabled: true,
 	researchEnabled: true,
 	tracerEnabled: true,
 	advisorEnabled: true,

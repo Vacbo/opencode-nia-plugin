@@ -1,7 +1,7 @@
 import type { SdkAdapter } from "../api/nia-sdk.js";
 import { getOpencodeClient } from "../opencode-client.js";
 
-export type JobType = "oracle" | "tracer";
+export type JobType = "oracle" | "tracer" | "sandbox";
 
 interface PendingJob {
   jobId: string;
@@ -64,7 +64,9 @@ export class NiaJobManager {
 			const stream =
 				job.type === "oracle"
 					? client.oracle.streamJob(jobId)
-					: client.tracer.streamJob(jobId);
+					: job.type === "tracer"
+						? client.tracer.streamJob(jobId)
+						: client.sandbox.streamJob(jobId);
 			const events: Record<string, unknown>[] = [];
 
 			for await (const event of stream) {
@@ -115,11 +117,14 @@ export class NiaJobManager {
       abortControllers.delete(jobId);
     }
 
-    const job = jobs.get(jobId);
-    if (job) {
-      const path = job.type === "oracle"
-        ? `/oracle/jobs/${jobId}/stream`
-        : `/github/tracer/${jobId}/stream`;
+		const job = jobs.get(jobId);
+		if (job) {
+			const path =
+				job.type === "oracle"
+					? `/oracle/jobs/${jobId}/stream`
+					: job.type === "tracer"
+						? `/github/tracer/${jobId}/stream`
+						: `/sandbox/jobs/${jobId}/stream`;
 
       try {
         await client.delete(path);
@@ -137,8 +142,8 @@ export class NiaJobManager {
       return;
     }
 
-    const label = job.type === "oracle" ? "ORACLE" : "TRACER";
-    const notification = `<system-reminder>[NIA ${label} COMPLETE]\n${content}\n</system-reminder>`;
+		const label = getJobLabel(job.type);
+		const notification = `<system-reminder>[NIA ${label} COMPLETE]\n${content}\n</system-reminder>`;
 
     try {
       await opencodeClient.session.promptAsync({
@@ -160,8 +165,8 @@ export class NiaJobManager {
       return;
     }
 
-    const label = job.type === "oracle" ? "ORACLE" : "TRACER";
-    const notification = `<system-reminder>[NIA ${label} ERROR] ${error}\n</system-reminder>`;
+		const label = getJobLabel(job.type);
+		const notification = `<system-reminder>[NIA ${label} ERROR] ${error}\n</system-reminder>`;
 
     try {
       await opencodeClient.session.promptAsync({
@@ -176,6 +181,18 @@ export class NiaJobManager {
       // Ignore notification errors
     }
   }
+}
+
+function getJobLabel(type: JobType): string {
+	if (type === "oracle") {
+		return "ORACLE";
+	}
+
+	if (type === "tracer") {
+		return "TRACER";
+	}
+
+	return "SANDBOX";
 }
 
 export const jobManager = new NiaJobManager();

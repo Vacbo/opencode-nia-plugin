@@ -66,50 +66,57 @@ describe("NiaJobManager", () => {
     });
   });
 
-  describe("consumeSSE", () => {
-    it("does nothing if job not found", async () => {
-      const mockClient = {
-        stream: async function* () {},
-      };
+		describe("consumeSSE", () => {
+			it("does nothing if job not found", async () => {
+				const mockClient = {
+					oracle: { streamJob: async function* () {} },
+					tracer: { streamJob: async function* () {} },
+					sandbox: { streamJob: async function* () {} },
+				};
 
-		await manager.consumeSSE("nonexistent", mockClient as unknown as SdkAdapter);
-    });
+				await manager.consumeSSE("nonexistent", mockClient as unknown as SdkAdapter);
+			});
 
-    it("uses correct path for oracle jobs", async () => {
-      let capturedPath = "";
-      let capturedSignal: AbortSignal | undefined;
+			it("uses correct path for oracle jobs", async () => {
+				let capturedPath = "";
 
-      const mockClient = {
-        async *stream(path: string, _params: unknown, signal: AbortSignal) {
-          capturedPath = path;
-          capturedSignal = signal;
-          yield { done: true };
-        },
-      };
+				const mockClient = {
+					oracle: {
+						streamJob: async function* (jobId: string) {
+							capturedPath = `/oracle/jobs/${jobId}/stream`;
+							yield { type: "done", data: "done" };
+						},
+					},
+					tracer: { streamJob: async function* () {} },
+					sandbox: { streamJob: async function* () {} },
+				};
 
-      manager.submitJob("oracle", "job_oracle", "session_abc");
-		await manager.consumeSSE("job_oracle", mockClient as unknown as SdkAdapter);
+				manager.submitJob("oracle", "job_oracle", "session_abc");
+				await manager.consumeSSE("job_oracle", mockClient as unknown as SdkAdapter);
 
-      expect(capturedPath).toBe("/oracle/jobs/job_oracle/stream");
-      expect(capturedSignal).toBeDefined();
-    });
+				expect(capturedPath).toBe("/oracle/jobs/job_oracle/stream");
+			});
 
-    it("uses correct path for tracer jobs", async () => {
-      let capturedPath = "";
+			it("uses correct path for tracer jobs", async () => {
+				let capturedPath = "";
 
-      const mockClient = {
-        async *stream(path: string) {
-          capturedPath = path;
-          yield { done: true };
-        },
-      };
+				const mockClient = {
+					oracle: { streamJob: async function* () {} },
+					tracer: {
+						streamJob: async function* (jobId: string) {
+							capturedPath = `/github/tracer/${jobId}/stream`;
+							yield { type: "done", data: "done" };
+						},
+					},
+					sandbox: { streamJob: async function* () {} },
+				};
 
-      manager.submitJob("tracer", "job_tracer", "session_abc");
-		await manager.consumeSSE("job_tracer", mockClient as unknown as SdkAdapter);
+				manager.submitJob("tracer", "job_tracer", "session_abc");
+				await manager.consumeSSE("job_tracer", mockClient as unknown as SdkAdapter);
 
-      expect(capturedPath).toBe("/github/tracer/job_tracer/stream");
-    });
-  });
+				expect(capturedPath).toBe("/github/tracer/job_tracer/stream");
+			});
+		});
 
   describe("cancelJob", () => {
     it("calls delete on the Nia API for oracle", async () => {

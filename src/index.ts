@@ -28,6 +28,7 @@ import { createNiaPackageSearchTool } from "./tools/nia-package-search.js";
 import { createNiaReadTool } from "./tools/nia-read.js";
 import { createNiaResearchTool } from "./tools/nia-research.js";
 import { createNiaRmTool } from "./tools/nia-rm.js";
+import { createNiaSandboxTool } from "./tools/nia-sandbox.js";
 import { createNiaSearchTool } from "./tools/nia-search.js";
 import { createNiaTracerTool } from "./tools/nia-tracer.js";
 import { createNiaWriteTool } from "./tools/nia-write.js";
@@ -66,6 +67,9 @@ function createToolRegistry(config: NiaConfig, client: SdkAdapter) {
 			: {}),
 		nia_package_search: createNiaPackageSearchTool(client, config),
 		nia_auto_subscribe: createNiaAutoSubscribeTool(client, config),
+		...(config.sandboxEnabled
+			? { nia_sandbox: createNiaSandboxTool(client, config) }
+			: {}),
 		...(config.tracerEnabled
 			? { nia_tracer: createNiaTracerTool(client, config) }
 			: {}),

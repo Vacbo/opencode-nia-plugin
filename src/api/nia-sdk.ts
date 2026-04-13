@@ -28,6 +28,11 @@ export interface SdkAdapter {
 		createJob: (body: unknown) => Promise<unknown>;
 		streamJob: (id: string) => AsyncGenerator<Record<string, unknown>>;
 	};
+	sandbox: {
+		createJob: (body: unknown) => Promise<unknown>;
+		getJob: (id: string) => Promise<unknown>;
+		streamJob: (id: string) => AsyncGenerator<Record<string, unknown>>;
+	};
 	contexts: {
 		create: (body: unknown) => Promise<unknown>;
 		list: (params?: { limit?: number; offset?: number; tags?: string }) => Promise<unknown>;
@@ -75,6 +80,50 @@ export function createSdkAdapter(config: NiaConfig): SdkAdapter {
 		apiKey: config.apiKey ?? "",
 		baseUrl: config.apiUrl,
 	});
+
+	const streamEvents = async function* (
+		path: string,
+	): AsyncGenerator<Record<string, unknown>> {
+		const response = await fetch(new URL(path, config.apiUrl).toString(), {
+			headers: { Authorization: `Bearer ${config.apiKey}` },
+		});
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			throw new Error(`HTTP ${response.status}: ${errorText}`);
+		}
+
+		const reader = response.body?.getReader();
+		if (!reader) {
+			return;
+		}
+
+		const decoder = new TextDecoder();
+		let buffer = "";
+
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) {
+				break;
+			}
+
+			buffer += decoder.decode(value, { stream: true });
+			const lines = buffer.split("\n");
+			buffer = lines.pop() ?? "";
+
+			for (const line of lines) {
+				if (!line.startsWith("data: ")) {
+					continue;
+				}
+
+				try {
+					yield JSON.parse(line.slice(6)) as Record<string, unknown>;
+				} catch {
+					// Skip invalid JSON
+				}
+			}
+		}
+	};
 
 	// Low-level HTTP request helper
 	const request = async <T>(method: string, path: string, body?: unknown, params?: Record<string, unknown>, abort?: AbortSignal): Promise<T> => {
@@ -184,36 +233,12 @@ export function createSdkAdapter(config: NiaConfig): SdkAdapter {
 		},
 		tracer: {
 			createJob: async (body) => request("POST", "/github/tracer", body),
-			streamJob: async function* (id) {
-				const response = await fetch(`${config.apiUrl}/github/tracer/${id}/stream`, {
-					headers: { "Authorization": `Bearer ${config.apiKey}` },
-				});
-				const reader = response.body?.getReader();
-				if (!reader) return;
-				
-				const decoder = new TextDecoder();
-				let buffer = "";
-				
-				while (true) {
-					const { done, value } = await reader.read();
-					if (done) break;
-					
-					buffer += decoder.decode(value, { stream: true });
-					const lines = buffer.split("\n");
-					buffer = lines.pop() ?? "";
-					
-					for (const line of lines) {
-						if (line.startsWith("data: ")) {
-							try {
-								const data = JSON.parse(line.slice(6));
-								yield data;
-							} catch {
-								// Skip invalid JSON
-							}
-						}
-					}
-				}
-			},
+			streamJob: (id) => streamEvents(`/github/tracer/${id}/stream`),
+		},
+		sandbox: {
+			createJob: async (body) => request("POST", "/sandbox/search", body),
+			getJob: async (id) => request("GET", `/sandbox/jobs/${id}`),
+			streamJob: (id) => streamEvents(`/sandbox/jobs/${id}/stream`),
 		},
 		contexts: {
 			create: async (body) => request("POST", "/contexts", body),

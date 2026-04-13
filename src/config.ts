@@ -1,6 +1,7 @@
 export interface NiaConfig {
 	apiKey: string | undefined;
 	searchEnabled: boolean;
+	sandboxEnabled: boolean;
 	researchEnabled: boolean;
 	tracerEnabled: boolean;
 	advisorEnabled: boolean;
@@ -35,6 +36,7 @@ const MAX_CACHE_TTL_SECONDS = 86400;
 const DEFAULTS: NiaConfig = {
 	apiKey: undefined,
 	searchEnabled: true,
+	sandboxEnabled: true,
 	researchEnabled: true,
 	tracerEnabled: true,
 	advisorEnabled: true,
@@ -159,6 +161,10 @@ export function loadConfig(): NiaConfig {
 	const config: NiaConfig = {
 		apiKey: process.env.NIA_API_KEY,
 		searchEnabled: parseBoolean(process.env.NIA_SEARCH, DEFAULTS.searchEnabled),
+		sandboxEnabled: parseBoolean(
+			process.env.NIA_SANDBOX_ENABLED ?? process.env.NIA_SANDBOX,
+			DEFAULTS.sandboxEnabled,
+		),
 		researchEnabled: parseBoolean(
 			process.env.NIA_RESEARCH,
 			DEFAULTS.researchEnabled,
@@ -219,4 +225,3 @@ export function loadConfig(): NiaConfig {
 export function isConfigured(): boolean {
 	return !!loadConfig().apiKey;
 }
-

@@ -70,3 +70,9 @@
 - Removed the legacy NiaClient and the NIA_USE_SDK feature flag; plugin initialization now always creates the SDK adapter.
 - Tool tests migrate cleanly by mocking the SDK adapter surface instead of the deleted HTTP client class.
 - Shared API types now only keep plugin-internal contracts (source resolution, pending operations, SSE events, and error classification).
+
+## Phase 5 - nia_sandbox
+- `nia_sandbox` follows the async tracer pattern: create job, expose `job_id` polling, and hand queued jobs to `jobManager.consumeSSE()` for background completion notifications.
+- The SDK adapter now has a shared SSE helper for tracer + sandbox streams, which avoids duplicating the `data:` line parsing logic.
+- `createMockSdkAdapter()` must preserve base paths like `/v2` and forward `Authorization` from `NIA_API_KEY`; otherwise live integration tests silently hit the wrong URL or miss auth headers.
+- Adding a required `NiaConfig` flag (`sandboxEnabled`) means every typed test fixture casting to `NiaConfig` must be updated or the TypeScript build fails.

@@ -20,6 +20,7 @@ const ALL_TOOL_NAMES = [
   "nia_context",
   "nia_package_search",
   "nia_auto_subscribe",
+  "nia_sandbox",
   "nia_tracer",
   "nia_e2e",
 ] as const;
@@ -51,7 +52,7 @@ describe("Nia plugin entrypoint", () => {
     resetSessionStates();
   });
 
-  it("registers all 13 tools and hooks when configured", async () => {
+  it("registers all tools and hooks when configured", async () => {
     process.env.NIA_API_KEY = "test-key";
 
     const hooks = await NiaPlugin({ directory: "/tmp/project" } as never);
@@ -95,6 +96,7 @@ describe("Nia plugin entrypoint", () => {
     process.env.NIA_RESEARCH = "false";
     process.env.NIA_ADVISOR = "false";
     process.env.NIA_CONTEXT = "false";
+    process.env.NIA_SANDBOX_ENABLED = "false";
     process.env.NIA_TRACER = "false";
     process.env.NIA_E2E = "false";
 

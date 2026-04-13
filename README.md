@@ -92,6 +92,7 @@ Store your API key in `~/.config/opencode/nia.json`:
 | `nia_context` | Save, retrieve, search, and manage reusable context |
 | `nia_package_search` | Search npm, PyPI, crates.io, and Go package source code |
 | `nia_auto_subscribe` | Subscribe to dependency docs from project manifests |
+| `nia_sandbox` | Search a public repo through an ephemeral sandbox clone |
 | `nia_tracer` | Search GitHub repositories without indexing |
 | `nia_e2e` | Manage E2E encrypted local folder sessions |
 | `nia_write` | Create or update a file in an indexed source |

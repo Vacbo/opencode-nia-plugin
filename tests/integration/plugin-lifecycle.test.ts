@@ -19,11 +19,15 @@ import { createNiaIndexTool } from "../../src/tools/nia-index";
 import { createNiaManageResourceTool } from "../../src/tools/nia-manage-resource";
 import { createNiaSearchTool } from "../../src/tools/nia-search";
 
-const TEST_CONFIG = { apiKey: "test-key", searchEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] }, mcpServerName: "nia", mcpMaxRetries: 5, mcpReconnectBaseDelay: 100 } as NiaConfig;
+const TEST_CONFIG = { apiKey: "test-key", searchEnabled: true, sandboxEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] }, mcpServerName: "nia", mcpMaxRetries: 5, mcpReconnectBaseDelay: 100 } as NiaConfig;
 
 const ALL_TOOL_NAMES = [
   "nia_search",
   "nia_read",
+  "nia_write",
+  "nia_rm",
+  "nia_mv",
+  "nia_mkdir",
   "nia_grep",
   "nia_explore",
   "nia_index",
@@ -33,6 +37,7 @@ const ALL_TOOL_NAMES = [
   "nia_context",
   "nia_package_search",
   "nia_auto_subscribe",
+  "nia_sandbox",
   "nia_tracer",
   "nia_e2e",
 ] as const;
@@ -40,6 +45,10 @@ const ALL_TOOL_NAMES = [
 const ALWAYS_ON_TOOL_NAMES = [
   "nia_search",
   "nia_read",
+  "nia_write",
+  "nia_rm",
+  "nia_mv",
+  "nia_mkdir",
   "nia_grep",
   "nia_explore",
   "nia_index",
@@ -89,7 +98,7 @@ describe("plugin lifecycle integration", () => {
     resetSessionStates();
   });
 
-  it("registers all 13 tools and hooks when initialized with an API key", async () => {
+  it("registers all tools and hooks when initialized with an API key", async () => {
     process.env.NIA_API_KEY = "test-key";
 
     const hooks = await NiaPlugin({ directory: "/tmp/project" } as never);
@@ -113,6 +122,7 @@ describe("plugin lifecycle integration", () => {
     process.env.NIA_RESEARCH = "false";
     process.env.NIA_ADVISOR = "false";
     process.env.NIA_CONTEXT = "false";
+    process.env.NIA_SANDBOX_ENABLED = "false";
     process.env.NIA_TRACER = "false";
     process.env.NIA_E2E = "false";
 

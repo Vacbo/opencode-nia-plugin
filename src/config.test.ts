@@ -10,6 +10,7 @@ import {
 const VALID_CONFIG: NiaConfig = {
 	apiKey: "nk_test_key",
 	searchEnabled: true,
+	sandboxEnabled: true,
 	researchEnabled: true,
 	tracerEnabled: true,
 	advisorEnabled: true,
@@ -39,6 +40,7 @@ describe("loadConfig", () => {
 	it("should return defaults when no env vars set", () => {
 		delete process.env.NIA_API_KEY;
 		delete process.env.NIA_SEARCH;
+		delete process.env.NIA_SANDBOX_ENABLED;
 		delete process.env.NIA_RESEARCH;
 		delete process.env.NIA_TRACER;
 		delete process.env.NIA_ADVISOR;
@@ -56,6 +58,7 @@ describe("loadConfig", () => {
 
 		expect(config.apiKey).toBeUndefined();
 		expect(config.searchEnabled).toBe(true);
+		expect(config.sandboxEnabled).toBe(true);
 		expect(config.researchEnabled).toBe(true);
 		expect(config.tracerEnabled).toBe(true);
 		expect(config.advisorEnabled).toBe(true);
@@ -73,6 +76,7 @@ describe("loadConfig", () => {
 	it("should override defaults with env vars", () => {
 		process.env.NIA_API_KEY = "test-key-123";
 		process.env.NIA_SEARCH = "false";
+		process.env.NIA_SANDBOX_ENABLED = "false";
 		process.env.NIA_RESEARCH = "false";
 		process.env.NIA_TRACER = "false";
 		process.env.NIA_ADVISOR = "false";
@@ -90,6 +94,7 @@ describe("loadConfig", () => {
 
 		expect(config.apiKey).toBe("test-key-123");
 		expect(config.searchEnabled).toBe(false);
+		expect(config.sandboxEnabled).toBe(false);
 		expect(config.researchEnabled).toBe(false);
 		expect(config.tracerEnabled).toBe(false);
 		expect(config.advisorEnabled).toBe(false);
