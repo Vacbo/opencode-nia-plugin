@@ -24,9 +24,7 @@ const TEST_CONFIG = {
 	checkInterval: 15,
 	tracerTimeout: 120,
 	debug: false,
-	triggersEnabled: true,
 	apiUrl: "https://apigcp.trynia.ai/v2",
-	keywords: { enabled: true, customPatterns: [] },
 } as NiaConfig;
 
 function createContext(signal?: AbortSignal): ToolContext {

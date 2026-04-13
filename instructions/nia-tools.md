@@ -1,236 +1,409 @@
-# Nia Tools Reference Guide
+# Nia Tools Reference
 
-Nia provides native tools for indexing and searching external repositories, research papers, local folders, documentation, packages, and performing AI-powered research. Its primary goal is to reduce hallucinations in LLMs and provide up-to-date context for AI agents.
+Nia provides 21 native tools for indexing and searching external repositories, documentation, research papers, local folders, and performing AI-powered research. Use these tools to reduce hallucinations and provide up-to-date context for AI agents.
 
 ## CRITICAL: Nia-First Workflow
 
-**BEFORE using WebFetch or WebSearch, you MUST:**
+**Before using WebFetch or WebSearch:**
 
-1. **Check indexed sources first**: `manage_resource(action='list', query='relevant-keyword')` - Many sources may already be indexed
-2. **If source exists**: Use `search`, `nia_grep`, `nia_read`, `nia_explore` for targeted queries
-3. **If source doesn't exist but you know the URL**: Index it with `index` tool, then search
+1. **Check indexed sources first**: `nia_manage_resource(action='list', query='keyword')` — many sources may already be indexed
+2. **If source exists**: Use `nia_search`, `nia_grep`, `nia_read`, `nia_explore` for targeted queries
+3. **If source doesn't exist but you know the URL**: Index it with `nia_index`, then search
 4. **Only if source unknown**: Use `nia_research(mode='quick')` to discover URLs, then index
 
-**Why this matters**: Indexed sources provide more accurate, complete context than web fetches. WebFetch returns truncated/summarized content while Nia provides full source code and documentation.
+**Why**: Indexed sources provide more accurate, complete context than web fetches. WebFetch returns truncated content while Nia provides full source code and documentation.
 
 ## Deterministic Research Workflow
 
-1. Check if the source is already indexed using `manage_resource` (when listing sources, use targeted query to save tokens since users can have multiple sources indexed) or check any nia.md files for already indexed sources.
-2. If it is indexed, check the tree of the source or ls relevant directories.
-3. After getting the grasp of the structure (tree), use `search`, `nia_grep`, `nia_read` for targeted searches.
-4. If helpful, use the `context` tool to save your research findings to make them reusable for future conversations.
-5. Save your findings in an .md file to track: source indexed, used, its ID, and link so you won't have to list sources in the future and can get straight to work.
+1. Check if the source is already indexed using `nia_manage_resource` (use targeted `query` to save tokens)
+2. If indexed, explore the tree or list relevant directories
+3. After understanding structure, use `nia_search`, `nia_grep`, `nia_read` for targeted searches
+4. Use `nia_context` to save findings for reuse across sessions
+5. Track indexed sources in a local `.md` file to avoid repeated listing
 
-## Tool Reference (13 Tools)
+## Tool Reference (21 Tools)
 
-### 1. nia_search
+### Core Search & Retrieval
+
+#### nia_search
 Semantic search across indexed repos, docs, papers, and local folders.
 
-**Parameters:**
-- `query` (string, required): Search query
-- `repositories` (string[], optional): Repository identifiers to search within
-- `data_sources` (string[], optional): Data source IDs to search within
-- `search_mode` (enum, optional): "semantic" (default), "keyword", or "hybrid"
-- `max_tokens` (number, optional): Maximum tokens to return (default: 5000)
-- `include_sources` (boolean, optional): Include source metadata in results
-- `num_results` (number, optional): Number of results to return (default: 10)
-- `e2e_session_id` (string, optional): E2E session ID for scoped search
-- `local_folders` (string[], optional): Local folder paths to include in search
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `query` | string | Yes | Search query |
+| `repositories` | string[] | No | Repository identifiers to search |
+| `data_sources` | string[] | No | Data source IDs to search |
+| `search_mode` | enum | No | `"universal"` (default), `"query"`, `"web"`, `"deep"` |
+| `max_tokens` | number | No | Max tokens to return (default: 5000) |
+| `include_sources` | boolean | No | Include source metadata |
+| `num_results` | number | No | Number of results (default: 10, max: 20) |
+| `e2e_session_id` | string | No | E2E session ID for scoped search |
+| `local_folders` | string[] | No | Local folder paths to include |
 
-**When to use:** Primary search tool for finding relevant content across all indexed sources. Use semantic mode for conceptual queries, keyword for exact matches.
+**Use for**: Primary search tool. Semantic mode for conceptual queries.
 
 ---
 
-### 2. nia_read
+#### nia_read
 Read specific files from indexed sources.
 
-**Parameters:**
-- `source_type` + `identifier` (alternative): Type ("github", "docs", "arxiv", "local") + identifier
-- OR `source_id` (string, alternative): Direct source ID from manage_resource
-- `path` (string, required): File path within the source
-- `line_start` (number, optional): Starting line number (1-indexed)
-- `line_end` (number, optional): Ending line number (1-indexed)
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `source_type` + `identifier` | strings | Alternative | Type ("repository", "docs", "arxiv", "local_folder") + identifier |
+| `source_id` | string | Alternative | Direct source ID from manage_resource |
+| `path` | string | Yes | File path within the source |
+| `line_start` | number | No | Starting line (1-indexed) |
+| `line_end` | number | No | Ending line (1-indexed) |
 
-**When to use:** After finding a file via search/grep/explore, read its contents. Use line ranges for large files.
+**Use for**: Reading file contents after finding via search/grep/explore.
 
 ---
 
-### 3. nia_grep
+#### nia_grep
 Regex search across indexed codebases.
 
-**Parameters:**
-- `source_type` + `identifier` (alternative): Type + identifier
-- OR `source_id` (string, alternative): Direct source ID
-- `pattern` (string, required): Regex pattern to search
-- `context_lines` (number, optional): Lines of context around matches (default: 2)
-- `case_sensitive` (boolean, optional): Case-sensitive matching (default: false)
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `source_type` + `identifier` | strings | Alternative | Type + identifier |
+| `source_id` | string | Alternative | Direct source ID |
+| `pattern` | string | Yes | Regex pattern |
+| `context_lines` | number | No | Context lines around matches (default: 2) |
+| `case_sensitive` | boolean | No | Case-sensitive matching |
 
-**When to use:** Find exact patterns, function names, variable usage. More precise than semantic search for code patterns.
+**Use for**: Finding exact patterns, function names, variable usage.
 
 ---
 
-### 4. nia_explore
+#### nia_explore
 Browse file trees of indexed repos and docs.
 
-**Parameters:**
-- `source_type` + `identifier` (alternative): Type + identifier
-- OR `source_id` (string, alternative): Direct source ID
-- `path` (string, optional): Subdirectory path to explore (default: root)
-- `max_depth` (number, optional): Maximum depth to traverse (default: 3)
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `source_type` + `identifier` | strings | Alternative | Type + identifier |
+| `source_id` | string | Alternative | Direct source ID |
+| `path` | string | No | Subdirectory to explore (default: root) |
+| `max_depth` | number | No | Max depth to traverse (default: 3) |
 
-**When to use:** Understand project structure, find relevant directories, discover available files before searching.
+**Use for**: Understanding project structure, discovering files before searching.
 
 ---
 
-### 5. nia_index
+### Source Management
+
+#### nia_index
 Index new GitHub repos, documentation sites, arXiv papers, or local folders.
 
-**Parameters:**
-- `url` (string, required): URL to index (GitHub repo, docs site, arXiv paper, or local folder path)
-- `source_type` (enum, optional): "github", "docs", "arxiv", "local" - auto-detected if not specified
-- `name` (string, optional): Custom name for the indexed source
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `url` | string | Yes | URL to index (GitHub, docs, arXiv, or local path) |
+| `source_type` | enum | No | `"repository"`, `"docs"`, `"arxiv"`, `"local_folder"` — auto-detected if omitted |
+| `name` | string | No | Custom name for the source |
 
-**When to use:** Source isn't indexed but you know the URL. For docs, always index the root URL (e.g., docs.stripe.com) to capture all pages.
-
-**Important:** Indexing takes 1-5 minutes. The tool returns immediately but processing continues asynchronously. Check status with `manage_resource`.
+**Returns**: `source_id` immediately with `queued` status. Progress tracked via OpsTracker (not JobManager). Check completion with `nia_manage_resource(action='status', source_id=...)`. Indexing takes 1-5 minutes.
 
 ---
 
-### 6. nia_manage_resource
+#### nia_manage_resource
 List, check status, and manage indexed sources.
 
-**Parameters:**
-- `action` (enum, required): 
-  - `list`: List all indexed sources
-  - `status`: Check status of specific source
-  - `rename`: Rename a source
-  - `delete`: Remove a source
-  - `subscribe`: Subscribe to updates
-  - `category_list`: List categories
-  - `category_create`: Create category
-  - `category_delete`: Delete category
-- `query` (string, optional): Filter sources by keyword (use with list)
-- `source_id` (string, optional): Source ID for status/rename/delete actions
-- `new_name` (string, optional): New name for rename action
-- `category` (string, optional): Category for organize actions
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `action` | enum | Yes | `"list"`, `"status"`, `"rename"`, `"delete"`, `"subscribe"`, `"category_list"`, `"category_create"`, `"category_delete"` |
+| `query` | string | No | Filter sources by keyword (use with list) |
+| `source_id` | string | No | Source ID for status/rename/delete actions |
+| `new_name` | string | No | New name for rename action |
+| `category` | string | No | Category for organize actions |
+| `description` | string | No | Description for category_create |
+| `name` | string | No | Name for category_create |
 
-**When to use:** First step in any Nia workflow. Check what's indexed before searching. Use `query` parameter to filter large source lists.
+**Use for**: First step in any Nia workflow. Always use `query` to filter large source lists.
 
 ---
 
-### 7. nia_research
+### Research & Analysis
+
+#### nia_research
 Web search and AI-powered deep research.
 
-**Parameters:**
-- `query` (string, required): Research query
-- `mode` (enum, optional): 
-  - `quick`: Fast web search (default)
-  - `deep`: Comprehensive research with synthesis
-  - `oracle`: Expert-level analysis with citations
-- `job_id` (string, optional): For checking status of oracle research (rarely needed — results auto-deliver)
-- `num_results` (number, optional): Number of sources to analyze (default: 5)
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `query` | string | Yes* | Research query (*required unless using job_id) |
+| `mode` | enum | No | `"quick"` (default), `"deep"`, `"oracle"` |
+| `job_id` | string | No | Check status of oracle research |
+| `num_results` | number | No | Sources to analyze (default: 5, max: 20) |
 
-**When to use:** 
-- `quick`: Discover URLs for indexing, fast fact-checking
-- `deep`: Comprehensive topic research when indexed sources insufficient
-- `oracle`: Complex analysis requiring expert synthesis
+**Modes**:
+- `quick`: Fast web search for discovering URLs
+- `deep`: Comprehensive research with synthesis
+- `oracle`: Expert-level analysis (async, see below)
 
-**Non-blocking (oracle mode):** Oracle returns immediately with a Job ID. Results are delivered automatically via a system reminder when the SSE stream completes — no polling needed. Continue with other work while oracle processes.
+**Async (oracle mode)**: Returns immediately with Job ID. Results delivered via system reminder when SSE stream completes. Continue with other work while processing.
 
 ---
 
-### 8. nia_advisor
+#### nia_advisor
 Get AI-powered advice based on indexed codebases.
 
-**Parameters:**
-- `query` (string, required): Question or advice request
-- `codebase` (string, optional): Specific codebase to analyze
-- `search_scope` (enum, optional): "narrow" (specific files), "broad" (full codebase), "auto" (default)
-- `output_format` (enum, optional): "concise", "detailed", "structured" (default: detailed)
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `query` | string | Yes | Question or advice request |
+| `codebase` | object | No | `{ summary, dependencies, file_tree, files, focus_paths, git_diff }` |
+| `search_scope` | object | No | `{ repositories, data_sources }` |
+| `output_format` | enum | No | `"explanation"`, `"checklist"`, `"diff"`, `"structured"` |
 
-**When to use:** Need implementation advice, pattern recommendations, or best practices based on real code examples from indexed sources.
-
----
-
-### 9. nia_context
-Save, load, and manage cross-agent research context.
-
-**Parameters:**
-- `action` (enum, required):
-  - `save`: Save current context
-  - `list`: List saved contexts
-  - `retrieve`: Load saved context
-  - `search`: Search within saved contexts
-  - `update`: Update existing context
-  - `delete`: Remove saved context
-- `context_id` (string, optional): Unique identifier for the context
-- `content` (string, optional): Content to save (for save/update)
-- `tags` (string[], optional): Tags for organization
-- `query` (string, optional): Search query (for search action)
-
-**When to use:** Save research findings for reuse across sessions. Tag contexts by topic for easy retrieval. Essential for multi-agent workflows.
+**Use for**: Implementation advice, pattern recommendations, best practices from real code.
 
 ---
 
-### 10. nia_package_search
-Search package registries (npm, PyPI, crates.io, etc.).
-
-**Parameters:**
-- `registry` (enum, required): "npm", "pypi", "crates", "maven", "go", "nuget"
-- `package_name` (string, optional): Exact package name to look up
-- `semantic_queries` (string[], optional): Natural language queries for discovery
-- `pattern` (string, optional): Regex pattern for package name matching
-
-**When to use:** Find packages by functionality (semantic_queries) or exact name. Great for discovering libraries that solve specific problems.
-
----
-
-### 11. nia_auto_subscribe
-Automatically subscribe to relevant sources based on project manifest.
-
-**Parameters:**
-- `manifest_content` (string, required): Content of package.json, requirements.txt, Cargo.toml, etc.
-- `manifest_type` (enum, required): "package.json", "requirements.txt", "Cargo.toml", "go.mod", "pom.xml", etc.
-- `dry_run` (boolean, optional): Preview subscriptions without applying (default: false)
-
-**When to use:** New project setup. Automatically identifies and subscribes to relevant documentation and source repositories based on dependencies.
-
----
-
-### 12. nia_tracer
+#### nia_tracer
 Deep code analysis and tracing across repositories.
 
-**Parameters:**
-- `query` (string, required): Tracing query (e.g., "find all usages of function X", "trace data flow from Y to Z")
-- `repositories` (string[], optional): Repositories to trace within
-- `tracer_mode` (enum, optional):
-  - `tracer-fast`: Quick analysis (default)
-  - `tracer-deep`: Comprehensive cross-repo tracing
-- `job_id` (string, optional): For checking status of deep traces (rarely needed — results auto-deliver)
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `query` | string | Yes* | Tracing query (*required unless using job_id) |
+| `repositories` | string[] | No | Repositories to trace within |
+| `tracer_mode` | enum | No | `"tracer-fast"` (default), `"tracer-deep"` |
+| `job_id` | string | No | Check status of deep traces |
 
-**When to use:** Complex code analysis requiring understanding relationships across files/repos. Find all call sites, trace data flow, analyze dependencies.
+**Modes**:
+- `tracer-fast`: Quick analysis, returns inline
+- `tracer-deep`: Comprehensive cross-repo tracing (async, see below)
 
-**Non-blocking (tracer-deep):** Tracer-deep returns immediately with a Job ID. Results are delivered automatically via a system reminder when the SSE stream completes — no polling needed. Continue with other work while tracer processes.
+**Async (tracer-deep)**: Returns immediately with Job ID. Results delivered via system reminder when SSE stream completes.
 
 ---
 
-### 13. nia_e2e
-End-to-end session management for complex multi-step research.
+#### nia_sandbox
+Search a public repo through an ephemeral sandbox clone.
 
-**Parameters:**
-- `action` (enum, required):
-  - `create_session`: Start new E2E session
-  - `get_session`: Retrieve session status/results
-  - `purge`: Clear session data
-  - `sync`: Synchronize session across agents
-- `local_folder_id` (string, optional): Associate local folder with session
-- `source_id` (string, optional): Source to include in session
-- `session_id` (string, optional): Existing session ID (for get_session, purge, sync)
-- `ttl_seconds` (number, optional): Session TTL (default: 3600)
-- `max_chunks` (number, optional): Max chunks to process
-- `allowed_operations` (string[], optional): Restrict operations in session
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `repository` | string | Yes* | Repository (owner/repo format) |
+| `ref` | string | No | Branch/tag (default: "main") |
+| `query` | string | Yes* | Search query |
+| `job_id` | string | No | Check status of async job |
 
-**When to use:** Complex research tasks spanning multiple tools and steps. Maintains state across operations. Essential for orchestrated multi-agent research.
+**Async behavior**: Small repos may return inline results. Large repos submit a job and return immediately with Job ID. Results delivered via system reminder.
+
+---
+
+#### nia_document_agent
+Analyze indexed PDF documents with AI agent.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `action` | enum | Yes | `"sync"`, `"async_submit"`, `"async_status"`, `"async_stream"`, `"async_delete"` |
+| `source_id` | string | No | Single source ID (for sync/async_submit) |
+| `source_ids` | string[] | No | Multiple source IDs (max 10, for sync/async_submit) |
+| `query` | string | No | Query (required for sync/async_submit) |
+| `job_id` | string | No | Job ID (required for async_status/async_stream/async_delete) |
+| `json_schema` | string | No | JSON schema for structured output |
+| `model` | string | No | Model override |
+| `thinking_enabled` | boolean | No | Enable thinking mode |
+| `thinking_budget` | number | No | Thinking budget (1000-50000) |
+
+**Actions**:
+- `sync`: Synchronous query, returns immediately
+- `async_submit`: Submit async job (returns Job ID, results delivered via SSE)
+- `async_status`: Check job status
+- `async_stream`: Start/resume SSE stream for existing job
+- `async_delete`: Cancel job
+
+---
+
+### Context & Utilities
+
+#### nia_context
+Save, load, and manage cross-agent research context.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `action` | enum | Yes | `"save"`, `"list"`, `"retrieve"`, `"search"`, `"update"`, `"delete"` |
+| `id` | string | No | Context identifier |
+| `content` | string | No | Content to save |
+| `title` | string | No | Context title |
+| `summary` | string | No | Brief summary |
+| `tags` | string | No | Comma-separated tags |
+| `query` | string | No | Search query (for search action) |
+| `limit` | string | No | Result limit |
+
+**Use for**: Saving research findings for reuse across sessions. Tag contexts by topic.
+
+---
+
+#### nia_package_search
+Search package registries (npm, PyPI, crates.io, Go).
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `registry` | enum | Yes | `"npm"`, `"pypi"`, `"crates"`, `"go"` |
+| `package_name` | string | No | Exact package name |
+| `semantic_queries` | string | No | Natural language queries (comma-separated) |
+| `pattern` | string | No | Regex pattern for package name matching |
+
+**Use for**: Finding packages by functionality or exact name.
+
+---
+
+#### nia_auto_subscribe
+Subscribe to docs from project manifests.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `manifest_content` | string | Yes | Content of package.json, requirements.txt, etc. |
+| `manifest_type` | string | Yes | Manifest type identifier |
+| `dry_run` | string | No | `"true"` to preview without applying |
+
+**Use for**: New project setup. Auto-identifies relevant documentation from dependencies.
+
+---
+
+#### nia_e2e
+End-to-end encrypted local folder sessions.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `action` | enum | Yes | `"create_session"`, `"get_session"`, `"purge"`, `"sync"` |
+| `local_folder_id` | string | No | Associate local folder |
+| `source_id` | string | No | Source to include |
+| `session_id` | string | No | Existing session ID |
+| `ttl_seconds` | number | No | Session TTL (default: 3600) |
+| `max_chunks` | number | No | Max chunks to process |
+| `allowed_operations` | string[] | No | Restrict operations |
+
+**Use for**: Complex research on encrypted local folders.
+
+---
+
+#### nia_usage
+Retrieve Nia API quota and usage information.
+
+**No parameters**
+
+**Returns**: Plan, credits used, credits remaining, reset date.
+
+---
+
+#### nia_feedback
+Submit feedback on answers, sources, or interactions.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `action` | enum | Yes | `"answer"`, `"source"`, `"interaction"` |
+| `answer_id` | string | No | Answer ID (for answer feedback) |
+| `source_id` | string | No | Source ID (for source feedback) |
+| `interaction_id` | string | No | Interaction ID (for interaction feedback) |
+| `feedback_type` | string | No | Type (e.g., "thumbs_up", "helpful", "viewed") |
+| `comment` | string | No | Optional comment |
+| `metadata` | string | No | Optional JSON metadata |
+
+**Use for**: Improving Nia results over time with thumbs up/down feedback.
+
+---
+
+### Filesystem Operations (Indexed Sources)
+
+#### nia_write
+Create or update a file in an indexed source.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `source_id` | string | Alternative | Direct source ID |
+| `source_type` + `identifier` | strings | Alternative | Type + identifier |
+| `path` | string | Yes | File path |
+| `body` | string | Yes | File content |
+| `encoding` | enum | No | `"utf8"` (default), `"base64"` |
+| `language` | string | No | Programming language hint |
+| `headers` | object | No | Metadata headers |
+
+---
+
+#### nia_rm
+Delete a file from an indexed source.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `source_id` | string | Alternative | Direct source ID |
+| `source_type` + `identifier` | strings | Alternative | Type + identifier |
+| `path` | string | Yes | File path to delete |
+
+---
+
+#### nia_mv
+Move or rename a file in an indexed source.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `source_id` | string | Alternative | Direct source ID |
+| `source_type` + `identifier` | strings | Alternative | Type + identifier |
+| `old_path` | string | Yes | Current file path |
+| `new_path` | string | Yes | New file path |
+
+---
+
+#### nia_mkdir
+Create a directory in an indexed source.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `source_id` | string | Alternative | Direct source ID |
+| `source_type` + `identifier` | strings | Alternative | Type + identifier |
+| `path` | string | Yes | Directory path to create |
+
+---
+
+## Async/Non-Blocking Operations
+
+Four tools use the JobManager with SSE streaming for long-running operations:
+
+| Tool | Trigger | JobType | Delivery |
+|------|---------|---------|----------|
+| `nia_research(mode='oracle')` | oracle mode | `oracle` | System reminder |
+| `nia_tracer(tracer_mode='tracer-deep')` | deep mode | `tracer` | System reminder |
+| `nia_sandbox` | large repos | `sandbox` | System reminder |
+| `nia_document_agent(action='async_submit')` | async_submit | `document_agent` | System reminder |
+
+### How It Works
+
+1. Tool submits job to Nia API, starts SSE stream in background
+2. Tool returns **immediately**: `"Oracle research started. Job ID: abc-123"`
+3. Agent continues with other work
+4. SSE stream completes in background
+5. Results delivered via system reminder:
+
+```
+<system-reminder>[NIA ORACLE COMPLETE]
+... full results ...
+</system-reminder>
+```
+
+### Pending Job Awareness
+
+While async operations run, the system prompt includes:
+
+```
+⏳ Waiting for Nia operations to complete:
+- Oracle research (Job ID: oracle-1)
+- Tracer analysis (Job ID: tracer-1)
+```
+
+This prevents premature session completion.
+
+### Best Practices
+
+1. **Fire early, use later** — start oracle/tracer-deep at the beginning, use results when they arrive
+2. **Parallel is free** — multiple deep calls run simultaneously
+3. **Don't poll** — results arrive automatically; manual `job_id` checks are rarely needed
+4. **Continue working** — proceed with synchronous tasks while deep operations run
+
+### nia_index (Different Pattern)
+
+`nia_index` uses OpsTracker (not JobManager):
+
+1. Call `nia_index(url="...")` → returns immediately with `source_id`
+2. Status tracked via `experimental.chat.system.transform`
+3. Completion notified via system prompt: `"Background completions: ..."`
+4. Check status with `nia_manage_resource(action='status', source_id=...)`
 
 ---
 
@@ -259,199 +432,193 @@ START: Need information about X
 │   └─→ nia_advisor
 │
 ├─→ Complex cross-repo code analysis?
-│   └─→ nia_tracer
+│   └─→ nia_tracer (tracer-deep for async)
+│
+├─→ Search public repo without indexing?
+│   └─→ nia_sandbox
+│
+├─→ Analyze PDF documents?
+│   └─→ nia_document_agent
 │
 ├─→ Multi-step research session?
-│   └─→ nia_e2e (create_session) → other tools → nia_e2e (get_session)
+│   └─→ nia_e2e
 │
-└─→ Save findings for later?
-    └─→ nia_context (save)
+├─→ Save findings for later?
+│   └─→ nia_context
+│
+└─→ Check quota or submit feedback?
+    ├─→ nia_usage
+    └─→ nia_feedback
 ```
+
+---
 
 ## Pre-WebFetch Checklist
 
 Before ANY WebFetch or WebSearch call, verify:
-- [ ] Ran `manage_resource(action='list', query='...')` for relevant keywords
-- [ ] Checked nia-sources.md or nia.md files for previously indexed sources
+- [ ] Ran `nia_manage_resource(action='list', query='...')` for relevant keywords
+- [ ] Checked local `.md` files for previously indexed sources
 - [ ] Confirmed no indexed source covers this information
 - [ ] For GitHub/npm/PyPI URLs: These should ALWAYS be indexed, not fetched
 
-## Agent-Specific Soft Routing Guidance
+---
+
+## Agent-Specific Soft Routing
 
 ### Research Agents (oracle, librarian, explore)
-- **Primary tools**: nia_search, nia_research, nia_tracer
-- **Secondary**: nia_context (save findings), nia_advisor (for recommendations)
-- **Pattern**: Start with manage_resource(list) → search/research → context(save)
+- **Primary**: `nia_search`, `nia_research`, `nia_tracer`
+- **Secondary**: `nia_context` (save), `nia_advisor` (recommendations)
+- **Pattern**: `manage_resource(list)` → search/research → `context(save)`
 
 ### Build Agents (implementer, coder)
-- **Primary tools**: nia_search, nia_grep, nia_read
-- **Secondary**: nia_advisor (implementation patterns), nia_package_search (dependencies)
-- **Pattern**: manage_resource → explore (structure) → grep/read (specifics) → implement
+- **Primary**: `nia_search`, `nia_grep`, `nia_read`
+- **Secondary**: `nia_advisor` (patterns), `nia_package_search` (dependencies)
+- **Pattern**: `manage_resource` → `explore` → grep/read → implement
 
 ### Planning Agents (architect, planner)
-- **Primary tools**: nia_search, nia_advisor, nia_package_search
-- **Secondary**: nia_research (deep/oracle for comprehensive analysis)
+- **Primary**: `nia_search`, `nia_advisor`, `nia_package_search`
+- **Secondary**: `nia_research` (deep/oracle)
 - **Pattern**: research → advisor → package_search → context(save plan)
 
 ### Review Agents (reviewer, auditor)
-- **Primary tools**: nia_search, nia_grep, nia_tracer
-- **Secondary**: nia_advisor (best practice comparison)
-- **Pattern**: grep (find patterns) → tracer (analyze flow) → advisor (validate)
+- **Primary**: `nia_search`, `nia_grep`, `nia_tracer`
+- **Secondary**: `nia_advisor` (best practice comparison)
+- **Pattern**: grep → tracer → advisor
 
-## Deep-First Non-Blocking Operations
+---
 
-Oracle research and tracer-deep use a **fire-and-forget** pattern. The tool returns immediately, and results are delivered automatically when ready — no polling loop needed.
+## Anti-Patterns
 
-### How It Works
-
-```
-1. Agent calls tool (oracle or tracer-deep)
-2. Tool submits job to Nia API, starts SSE stream in background
-3. Tool returns IMMEDIATELY: "Oracle research started. Job ID: abc-123"
-4. Agent continues with other work
-5. SSE stream completes in background
-6. Results delivered automatically via system reminder:
-   <system-reminder>[NIA ORACLE COMPLETE]
-   ... full results ...
-   </system-reminder>
-```
-
-### Parallel Deep Calls
-
-Agents can fire multiple deep operations simultaneously:
-
-```
-# These all return immediately — no blocking
-nia_research(query="Map the authentication flow", mode="oracle")
-→ "Oracle research started. Job ID: oracle-1"
-
-nia_tracer(query="Trace auth token refresh", tracer_mode="tracer-deep", repositories=["acme/app"])
-→ "Deep tracer analysis started. Job ID: tracer-1"
-
-nia_research(query="Compare JWT vs session tokens", mode="oracle")
-→ "Oracle research started. Job ID: oracle-2"
-
-# Agent continues working immediately
-# Results arrive via system reminders as each completes
-```
-
-### Pending Job Awareness
-
-While deep operations are running, the system prompt automatically includes a pending job hint:
-
-```
-⏳ Waiting for Nia operations to complete:
-- Oracle research (Job ID: oracle-1)
-- Tracer analysis (Job ID: tracer-1)
-- Oracle research (Job ID: oracle-2)
-
-Results will be delivered via promptAsync when ready.
-```
-
-This hint appears on every turn while jobs are active, preventing premature session completion.
-
-### nia_index (Tracked via OpsTracker)
-
-Index operations are tracked separately and their status appears in system prompts as pending background work:
-
-```
-1. Call: nia_index(url="...") → returns immediately with source_id
-2. Status checked automatically via system.transform
-3. Completion notified via system prompt: "Background completions: ..."
-```
-
-### Best Practices for Deep Operations
-
-1. **Fire early, use results later** — start oracle/tracer-deep at the beginning of a task, use results when they arrive
-2. **Parallel is free** — multiple deep calls run simultaneously with no overhead
-3. **Don't poll** — results arrive automatically; checking job_id manually is rarely needed
-4. **Continue working** — the agent should proceed with synchronous tasks while deep operations run
-
-## Anti-Patterns and Common Mistakes
-
-### ❌ NEVER Do These
+### Never Do These
 
 1. **WebFetch before checking Nia**
-   - Wrong: `webfetch(url="https://docs.example.com/api")` without checking if docs are indexed
-   - Right: `manage_resource(action="list", query="example docs")` first
+   - Wrong: `webfetch(url="https://docs.example.com")` without checking indexed sources
+   - Right: `nia_manage_resource(action='list', query='example')` first
 
 2. **Indexing without checking first**
    - Wrong: Immediately `nia_index` on every request
-   - Right: Check `manage_resource(list)` - source may already be indexed
+   - Right: Check `manage_resource(list)` — source may already exist
 
-3. **Polling for deep operation results**
-   - Wrong: Calling `nia_research(mode="oracle")` then immediately polling with `job_id`
-   - Right: Results auto-deliver via system reminder. Continue with other work while waiting.
+3. **Polling for async results**
+   - Wrong: Calling `nia_research(mode='oracle')` then immediately polling with `job_id`
+   - Right: Results auto-deliver. Continue with other work.
 
 4. **Using wrong search mode**
-   - Wrong: `nia_search(query="function handleError", search_mode="semantic")` for exact symbol
-   - Right: `nia_grep(pattern="handleError")` for exact code patterns
+   - Wrong: `nia_search(query='function handleError')` for exact symbols
+   - Right: `nia_grep(pattern='handleError')` for code patterns
 
 5. **Not saving research context**
-   - Wrong: Re-researching the same sources in every conversation
-   - Right: `nia_context(action="save", context_id="project-research", ...)` for reuse
+   - Wrong: Re-researching the same sources every conversation
+   - Right: `nia_context(action='save', id='project-research', ...)`
 
 6. **Deep research for simple lookups**
-   - Wrong: `nia_research(mode="oracle", query="what is the latest version of React")`
-   - Right: `nia_package_search(registry="npm", package_name="react")` or `nia_search`
+   - Wrong: `nia_research(mode='oracle', query='latest React version')`
+   - Right: `nia_package_search(registry='npm', package_name='react')`
 
 7. **Not using query filter on manage_resource**
-   - Wrong: `manage_resource(action="list")` with 100+ sources, wasting tokens
-   - Right: `manage_resource(action="list", query="react")` to filter relevant sources
+   - Wrong: `manage_resource(action='list')` with 100+ sources
+   - Right: `manage_resource(action='list', query='react')` to filter
 
-### ✅ Always Do These
+### Always Do These
 
-1. **Check indexed sources first** - Every. Single. Time.
-2. **Use targeted queries** - Filter source lists and searches
-3. **Save context** - Make research reusable across sessions
-4. **Fire deep operations early** - Start oracle/tracer-deep first, results auto-deliver later
-5. **Index strategically** - Root URLs for docs, not individual pages
-6. **Match tool to task** - grep for patterns, search for semantics, read for content
+1. Check indexed sources first — every time
+2. Use targeted queries — filter source lists and searches
+3. Save context — make research reusable
+4. Fire deep operations early — start oracle/tracer-deep first
+5. Index strategically — root URLs for docs, not individual pages
+6. Match tool to task — grep for patterns, search for semantics, read for content
 
-## Condensed Routing Hints (For System Prompts)
-
-```
-NIA ROUTING (memorize this):
-┌─────────────────────────────────────────────────────────────┐
-│  CHECK FIRST: manage_resource(list, query='...')            │
-├─────────────────────────────────────────────────────────────┤
-│  SEMANTIC SEARCH  → nia_search                              │
-│  EXACT PATTERN    → nia_grep                                │
-│  READ FILE        → nia_read                                │
-│  BROWSE STRUCTURE → nia_explore                             │
-│  INDEX SOURCE     → nia_index                               │
-│  DEEP RESEARCH    → nia_research(mode='deep/oracle')        │
-│  CODE ADVICE      → nia_advisor                             │
-│  SAVE CONTEXT     → nia_context                             │
-│  FIND PACKAGES    → nia_package_search                      │
-│  AUTO-SUBSCRIBE   → nia_auto_subscribe                      │
-│  CODE TRACING     → nia_tracer                              │
-│  E2E SESSION      → nia_e2e                                 │
-├─────────────────────────────────────────────────────────────┤
-│  DEEP OPS: Fire-and-forget. Results auto-deliver.           │
-│  WEBFETCH LAST: Only after Nia sources exhausted            │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## Quick Reference: Tool Selection by Task
-
-| Task | Primary Tool | Secondary Tool |
-|------|--------------|----------------|
-| Find code examples | nia_search | nia_grep |
-| Read implementation | nia_read | nia_explore |
-| Discover packages | nia_package_search | nia_search |
-| Get best practices | nia_advisor | nia_search |
-| Trace code flow | nia_tracer | nia_grep |
-| Research new topic | nia_research | nia_index |
-| Save findings | nia_context | - |
-| Project setup | nia_auto_subscribe | nia_index |
-| Complex analysis | nia_e2e | nia_tracer |
+---
 
 ## Environment Configuration
 
-Nia tools use environment variables for configuration (do not reference nia.json):
-- `NIA_API_KEY`: Authentication key
-- `NIA_ENDPOINT`: API endpoint URL
-- `NIA_DEFAULT_TOKENS`: Default max_tokens for searches
+The plugin reads **only** `process.env.*` at runtime. No `nia.json` file is read.
 
-These are configured at the system level and do not require per-project configuration files.
+### Required
+
+| Variable | Description |
+|----------|-------------|
+| `NIA_API_KEY` | Your Nia API key (from app.trynia.ai) |
+
+### Connection
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NIA_API_URL` | `https://apigcp.trynia.ai/v2` | Nia API endpoint |
+
+### Feature Toggles
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NIA_SEARCH` | `true` | Enable search/read/grep/explore/write/rm/mv/mkdir |
+| `NIA_RESEARCH` | `true` | Enable nia_research |
+| `NIA_TRACER` | `true` | Enable nia_tracer |
+| `NIA_ADVISOR` | `true` | Enable nia_advisor |
+| `NIA_CONTEXT` | `true` | Enable nia_context |
+| `NIA_E2E` | `true` | Enable nia_e2e |
+| `NIA_SANDBOX_ENABLED` | `true` | Enable nia_sandbox |
+| `NIA_USAGE_ENABLED` | `true` | Enable nia_usage |
+| `NIA_FEEDBACK_ENABLED` | `true` | Enable nia_feedback |
+| `NIA_DOCUMENT_AGENT_ENABLED` | `true` | Enable nia_document_agent |
+| `NIA_ANNOTATIONS_ENABLED` | `true` | Enable resource annotations |
+| `NIA_BULK_DELETE_ENABLED` | `true` | Enable bulk delete operations |
+
+### Tuning
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NIA_CACHE_TTL` | `300` | Cache TTL in seconds |
+| `NIA_MAX_PENDING_OPS` | `5` | Max pending background operations |
+| `NIA_CHECK_INTERVAL` | `15` | Status check interval in seconds |
+| `NIA_TRACER_TIMEOUT` | `120` | Tracer timeout in seconds |
+| `NIA_DEBUG` | `false` | Enable debug logging |
+
+---
+
+## Quick Reference Table
+
+| Task | Primary Tool | Secondary Tool |
+|------|--------------|----------------|
+| Find code examples | `nia_search` | `nia_grep` |
+| Read implementation | `nia_read` | `nia_explore` |
+| Discover packages | `nia_package_search` | `nia_search` |
+| Get best practices | `nia_advisor` | `nia_search` |
+| Trace code flow | `nia_tracer` | `nia_grep` |
+| Research new topic | `nia_research` | `nia_index` |
+| Search public repo (no index) | `nia_sandbox` | — |
+| Analyze PDFs | `nia_document_agent` | — |
+| Save findings | `nia_context` | — |
+| Project setup | `nia_auto_subscribe` | `nia_index` |
+| Complex analysis | `nia_e2e` | `nia_tracer` |
+| Check quota | `nia_usage` | — |
+| Submit feedback | `nia_feedback` | — |
+| Write file to source | `nia_write` | — |
+| Delete source file | `nia_rm` | — |
+| Move source file | `nia_mv` | — |
+| Create source directory | `nia_mkdir` | — |
+
+---
+
+## Installation
+
+The plugin is a native OpenCode plugin registered via `@opencode-ai/plugin` SDK.
+
+```bash
+# Install the skill
+npx skills add nozomio-labs/nia-skill -g -a opencode -y
+```
+
+Add to `opencode.json`:
+
+```json
+{
+  "plugin": ["@vacbo/opencode-nia-plugin@latest"]
+}
+```
+
+Store your API key:
+
+```bash
+mkdir -p ~/.config/nia
+echo "nk_your_api_key" > ~/.config/nia/api_key
+```

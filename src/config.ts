@@ -17,12 +17,7 @@ export interface NiaConfig {
 	checkInterval: number;
 	tracerTimeout: number;
 	debug: boolean;
-	triggersEnabled: boolean;
 	apiUrl: string;
-	keywords: {
-		enabled: boolean;
-		customPatterns: string[];
-	};
 }
 
 export interface ValidationWarning {
@@ -57,12 +52,7 @@ const DEFAULTS: NiaConfig = {
 	checkInterval: 15,
 	tracerTimeout: 120,
 	debug: false,
-	triggersEnabled: true,
 	apiUrl: "https://apigcp.trynia.ai/v2",
-	keywords: {
-		enabled: true,
-		customPatterns: [],
-	},
 };
 
 function parseBoolean(
@@ -211,22 +201,7 @@ export function loadConfig(): NiaConfig {
 			DEFAULTS.tracerTimeout,
 		),
 		debug: parseBoolean(process.env.NIA_DEBUG, DEFAULTS.debug),
-		triggersEnabled: parseBoolean(
-			process.env.NIA_TRIGGERS,
-			DEFAULTS.triggersEnabled,
-		),
 		apiUrl: process.env.NIA_API_URL ?? DEFAULTS.apiUrl,
-		keywords: {
-			enabled: parseBoolean(
-				process.env.NIA_KEYWORDS_ENABLED,
-				DEFAULTS.keywords.enabled,
-			),
-			customPatterns: process.env.NIA_KEYWORDS_PATTERNS
-				? process.env.NIA_KEYWORDS_PATTERNS.split(",")
-						.map((p) => p.trim())
-						.filter(Boolean)
-				: DEFAULTS.keywords.customPatterns,
-		},
 	};
 
 	if (!configValidated) {

@@ -1,18 +1,12 @@
 import type { Plugin, PluginInput } from "@opencode-ai/plugin";
-import type { Part } from "@opencode-ai/sdk";
 
 import { createSdkAdapter, type SdkAdapter } from "./api/nia-sdk.js";
 import { setOpencodeClient } from "./opencode-client.js";
 
 import { isConfigured, loadConfig, type NiaConfig } from "./config.js";
 import { OpsTracker } from "./state/ops-tracker.js";
-import {
-  detectTrigger,
-  NIA_NUDGE_MESSAGE,
-  NIA_SAVE_NUDGE_MESSAGE,
-  NIA_URL_NUDGE_MESSAGE,
-} from "./hooks/smart-triggers.js";
 import { log } from "./services/logger.js";
+import { transformSystemPrompt } from "./hooks/system-transform.js";
 import { getSessionState, removeSessionState, resetSessionStates } from "./state/session.js";
 import { createNiaAdvisorTool } from "./tools/nia-advisor.js";
 import { createNiaAutoSubscribeTool } from "./tools/nia-auto-subscribe.js";
@@ -121,81 +115,16 @@ export const NiaPlugin: Plugin = async ({ client, directory }: PluginInput) => {
 			sessionState.toolExecuteAfterCount += 1;
 			void opsTracker.getAllOperations();
 		},
-		"experimental.chat.system.transform": async (input) => {
+		"experimental.chat.system.transform": async (input, output) => {
 			const sessionState = getSessionState(input.sessionID ?? "__system__");
 			sessionState.systemTransformCount += 1;
 			void opsTracker.getAllOperations();
-		},
-		"chat.message": async (input, output) => {
-			if (!config.triggersEnabled) {
-				return;
-			}
 
-			const start = Date.now();
-
-			try {
-				const sessionState = getSessionState(input.sessionID);
-				const textParts = output.parts.filter(
-					(part): part is Part & { type: "text"; text: string } =>
-						part.type === "text",
-				);
-
-				if (textParts.length === 0) {
-					log("chat.message: no text parts found");
-					return;
-				}
-
-				const userMessage = textParts.map((part) => part.text).join("\n");
-
-				if (!userMessage.trim()) {
-					log("chat.message: empty message, skipping");
-					return;
-				}
-
-				log("chat.message: processing", {
-					messagePreview: userMessage.slice(0, 100),
-					partsCount: output.parts.length,
-				});
-
-				const { type, match, deduplicated } = detectTrigger(
-					userMessage,
-					sessionState.triggerSession,
-				);
-
-				if (deduplicated) {
-					log("chat.message: trigger deduplicated", { match });
-					return;
-				}
-
-				if (!type) {
-					return;
-				}
-
-				const nudgeText =
-					type === "save"
-						? NIA_SAVE_NUDGE_MESSAGE
-						: type === "url"
-							? NIA_URL_NUDGE_MESSAGE
-							: NIA_NUDGE_MESSAGE;
-
-				log(`chat.message: ${type} trigger detected`, { match });
-
-				output.parts.push({
-					id: `prt_nia_${type}_nudge_${Date.now()}`,
-					sessionID: input.sessionID,
-					messageID: output.message.id,
-					type: "text",
-					text: nudgeText,
-					synthetic: true,
-				});
-
-				log(`chat.message: ${type} nudge injected`, {
-					duration: Date.now() - start,
-					match,
-				});
-			} catch (error) {
-				log("chat.message: ERROR", { error: String(error) });
-			}
+			const transformed = await transformSystemPrompt(output.system, {
+				sessionID: input.sessionID,
+				directory,
+			});
+			output.system.splice(0, output.system.length, ...transformed);
 		},
 	};
 };

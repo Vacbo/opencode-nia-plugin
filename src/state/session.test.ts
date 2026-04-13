@@ -30,7 +30,6 @@ describe("getSessionState", () => {
 			type: "oracle",
 			name: "Alpha research",
 		});
-		alpha.triggerSession.triggeredTypes.add("research");
 		alpha.toolExecuteAfterCount += 1;
 		alpha.systemTransformCount += 1;
 		alpha.cache.set("call-1", {
@@ -50,7 +49,6 @@ describe("getSessionState", () => {
 		expect(beta.searchDedup.get("query:repo")).toBeUndefined();
 		expect(beta.projectContext.get("cwd")).toBeUndefined();
 		expect(beta.pendingOps.getOperation("op-1")).toBeUndefined();
-		expect(beta.triggerSession.triggeredTypes.has("research")).toBe(false);
 		expect(beta.toolExecuteAfterCount).toBe(0);
 		expect(beta.systemTransformCount).toBe(0);
 		expect(beta.cache.get("call-1")).toBeUndefined();
@@ -62,14 +60,12 @@ describe("getSessionState", () => {
 	it("removes a session so the next lookup gets fresh state", () => {
 		const original = getSessionState("session-cleanup");
 		original.toolExecuteAfterCount = 9;
-		original.triggerSession.triggeredTypes.add("save");
 
 		removeSessionState("session-cleanup");
 
 		const recreated = getSessionState("session-cleanup");
 		expect(recreated).not.toBe(original);
 		expect(recreated.toolExecuteAfterCount).toBe(0);
-		expect(recreated.triggerSession.triggeredTypes.size).toBe(0);
 	});
 
 	it("evicts the least recently used session once the store exceeds 100 sessions", () => {

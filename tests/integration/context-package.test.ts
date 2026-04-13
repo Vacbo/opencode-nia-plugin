@@ -40,9 +40,7 @@ const LIVE_CONFIG = {
 	checkInterval: 15,
 	tracerTimeout: 120,
 	debug: true,
-	triggersEnabled: true,
 	apiUrl: BASE_URL,
-	keywords: { enabled: true, customPatterns: [] },
 } as NiaConfig;
 
 const requestLog: RequestRecord[] = [];

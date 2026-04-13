@@ -2,9 +2,7 @@
 import { Command } from "commander";
 import { storeApiKeyNiaSkill } from "./cli/api-key.js";
 import {
-	cleanupAgentsMd,
 	removeInstructionsFromConfig,
-	removeNiaConfig,
 	removePluginFromConfig,
 } from "./cli/cleanup.js";
 import { findOpencodeConfig } from "./cli/config.js";
@@ -78,10 +76,6 @@ async function install(options: InstallOptions): Promise<number> {
 		console.log(`  { "plugin": ["${PLUGIN_NAME}"] }`);
 	}
 
-	// ── Step 5: Cleanup legacy artifacts ───────────────────────────────────
-	console.log("\nStep 5: Clean Up Legacy Config");
-	cleanupAgentsMd();
-
 	// ── Summary ───────────────────────────────────────────────────────────
 	console.log(`\n${"-".repeat(50)}`);
 	console.log("\n Setup Complete!\n");
@@ -141,14 +135,6 @@ async function uninstall(options: { tui: boolean }): Promise<number> {
 	} else {
 		console.log("  No OpenCode config found");
 	}
-
-	// Remove AGENTS.md content
-	console.log("\nStep 3: Clean AGENTS.md");
-	cleanupAgentsMd();
-
-	// Remove Nia config files
-	console.log("\nStep 4: Remove Nia Config Files");
-	removeNiaConfig();
 
 	console.log(`\n${"-".repeat(50)}`);
 	console.log("\n Nia has been uninstalled.\n");

@@ -82,10 +82,9 @@
     "instructions": {
       "path": "instructions",
       "purpose": null,
-      "fileCount": 2,
+      "fileCount": 1,
       "lastAccessed": 1774072637576,
       "keyFiles": [
-        "nia-mcp-instructions.md",
         "nia-tools.md"
       ]
     },

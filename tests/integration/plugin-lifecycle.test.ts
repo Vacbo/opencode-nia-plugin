@@ -6,7 +6,6 @@ import { z } from "zod";
 
 import type { SdkAdapter } from "../../src/api/nia-sdk";
 import NiaPlugin from "../../src/index";
-import { NIA_NUDGE_MESSAGE } from "../../src/hooks/smart-triggers";
 import { OpsTracker } from "../../src/state/ops-tracker";
 import { resetSessionStates } from "../../src/state/session";
 import type { NiaConfig } from "../../src/config";
@@ -19,7 +18,7 @@ import { createNiaIndexTool } from "../../src/tools/nia-index";
 import { createNiaManageResourceTool } from "../../src/tools/nia-manage-resource";
 import { createNiaSearchTool } from "../../src/tools/nia-search";
 
-const TEST_CONFIG = { apiKey: "test-key", searchEnabled: true, sandboxEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, annotationsEnabled: true, bulkDeleteEnabled: true, usageEnabled: true, feedbackEnabled: true, documentAgentEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, triggersEnabled: true, apiUrl: "https://apigcp.trynia.ai/v2", keywords: { enabled: true, customPatterns: [] }, mcpServerName: "nia", mcpMaxRetries: 5, mcpReconnectBaseDelay: 100 } as NiaConfig;
+const TEST_CONFIG = { apiKey: "test-key", searchEnabled: true, sandboxEnabled: true, researchEnabled: true, tracerEnabled: true, advisorEnabled: true, contextEnabled: true, e2eEnabled: true, annotationsEnabled: true, bulkDeleteEnabled: true, usageEnabled: true, feedbackEnabled: true, documentAgentEnabled: true, cacheTTL: 300, maxPendingOps: 5, checkInterval: 15, tracerTimeout: 120, debug: false, apiUrl: "https://apigcp.trynia.ai/v2" } as NiaConfig;
 
 const ALL_TOOL_NAMES = [
   "nia_search",
@@ -82,13 +81,6 @@ function createMockClient(responsesOrHandler: MockResponse[] | MockHandler): Sdk
 	return createMockSdkAdapter(responsesOrHandler, "https://nia.test/v2");
 }
 
-function createChatOutput(messageID: string, text: string) {
-  return {
-    message: { id: messageID },
-    parts: [{ type: "text", text }],
-  };
-}
-
 describe("plugin lifecycle integration", () => {
   let originalEnv: NodeJS.ProcessEnv;
 
@@ -107,7 +99,6 @@ describe("plugin lifecycle integration", () => {
     const hooks = await NiaPlugin({ directory: "/tmp/project" } as never);
 
     expect(Object.keys(hooks.tool ?? {}).sort()).toEqual([...ALL_TOOL_NAMES].sort());
-    expect(typeof hooks["chat.message"]).toBe("function");
     expect(typeof hooks["tool.execute.after"]).toBe("function");
     expect(typeof hooks["experimental.chat.system.transform"]).toBe("function");
   });
@@ -211,61 +202,6 @@ describe("plugin lifecycle integration", () => {
 				},
       ])
     );
-  });
-
-  it("fires smart triggers on research keywords", async () => {
-    process.env.NIA_API_KEY = "test-key";
-
-    const hooks = await NiaPlugin({ directory: "/tmp/project" } as never);
-    const output = createChatOutput("message-1", "please research the bun test docs");
-
-    await hooks["chat.message"]?.({ sessionID: "session-1" } as never, output as never);
-
-    expect(output.parts).toHaveLength(2);
-    expect(output.parts[1]).toMatchObject({
-      type: "text",
-      text: NIA_NUDGE_MESSAGE,
-      synthetic: true,
-      sessionID: "session-1",
-      messageID: "message-1",
-    });
-  });
-
-  it("does not fire smart triggers for keywords inside code blocks", async () => {
-    process.env.NIA_API_KEY = "test-key";
-
-    const hooks = await NiaPlugin({ directory: "/tmp/project" } as never);
-    const output = createChatOutput(
-      "message-2",
-      "Here is code only:\n```ts\nresearch this library\nsearch for docs\n```"
-    );
-
-    await hooks["chat.message"]?.({ sessionID: "session-1" } as never, output as never);
-
-    expect(output.parts).toHaveLength(1);
-  });
-
-  it("keeps session trigger state isolated between sessions", async () => {
-    process.env.NIA_API_KEY = "test-key";
-
-    const hooks = await NiaPlugin({ directory: "/tmp/project" } as never);
-    const sessionOneFirst = createChatOutput("message-3", "research this library");
-    const sessionOneSecond = createChatOutput("message-4", "search for more docs");
-    const sessionTwoFirst = createChatOutput("message-5", "research this library");
-
-    await hooks["chat.message"]?.({ sessionID: "session-1" } as never, sessionOneFirst as never);
-    await hooks["chat.message"]?.({ sessionID: "session-1" } as never, sessionOneSecond as never);
-    await hooks["chat.message"]?.({ sessionID: "session-2" } as never, sessionTwoFirst as never);
-
-    expect(sessionOneFirst.parts).toHaveLength(2);
-    expect(sessionOneSecond.parts).toHaveLength(1);
-    expect(sessionTwoFirst.parts).toHaveLength(2);
-    expect(sessionTwoFirst.parts[1]).toMatchObject({
-      type: "text",
-      text: NIA_NUDGE_MESSAGE,
-      sessionID: "session-2",
-      messageID: "message-5",
-    });
   });
 
   it("drives async notification flow through OpsTracker with an injected client", async () => {

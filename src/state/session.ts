@@ -1,8 +1,4 @@
 import { loadConfig } from "../config.js";
-import {
-	createTriggerSession,
-	type TriggerSession,
-} from "../hooks/smart-triggers.js";
 
 import { BoundedMap, TTLCache } from "./cache.js";
 import { OpsTracker } from "./ops-tracker.js";
@@ -37,7 +33,6 @@ export class NiaSessionState {
 	readonly searchDedup: TTLCache<string, boolean>;
 	readonly pendingOps: OpsTracker;
 	readonly projectContext = new BoundedMap<string, unknown>(100);
-	readonly triggerSession: TriggerSession;
 	readonly cache = new BoundedMap<string, CachedToolResult>(500);
 	readonly usage: UsageStats = {
 		totalCalls: 0,
@@ -54,7 +49,6 @@ export class NiaSessionState {
 		this.sourceCache = new TTLCache<string, unknown>({ ttl: ttlMs });
 		this.searchDedup = new TTLCache<string, boolean>({ ttl: ttlMs });
 		this.pendingOps = new OpsTracker({ checkInterval: config.checkInterval });
-		this.triggerSession = createTriggerSession();
 	}
 }
 

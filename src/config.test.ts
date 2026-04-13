@@ -26,9 +26,7 @@ const VALID_CONFIG: NiaConfig = {
 	checkInterval: 15,
 	tracerTimeout: 120,
 	debug: false,
-	triggersEnabled: true,
 	apiUrl: "https://apigcp.trynia.ai/v2",
-	keywords: { enabled: true, customPatterns: [] },
 };
 
 describe("loadConfig", () => {
@@ -57,7 +55,6 @@ describe("loadConfig", () => {
 		delete process.env.NIA_CHECK_INTERVAL;
 		delete process.env.NIA_TRACER_TIMEOUT;
 		delete process.env.NIA_DEBUG;
-		delete process.env.NIA_TRIGGERS;
 		delete process.env.NIA_API_URL;
 
 		const config = loadConfig();
@@ -76,7 +73,6 @@ describe("loadConfig", () => {
 		expect(config.checkInterval).toBe(15);
 		expect(config.tracerTimeout).toBe(120);
 		expect(config.debug).toBe(false);
-		expect(config.triggersEnabled).toBe(true);
 		expect(config.apiUrl).toBe("https://apigcp.trynia.ai/v2");
 	});
 
@@ -95,7 +91,6 @@ describe("loadConfig", () => {
 		process.env.NIA_CHECK_INTERVAL = "30";
 		process.env.NIA_TRACER_TIMEOUT = "240";
 		process.env.NIA_DEBUG = "true";
-		process.env.NIA_TRIGGERS = "false";
 		process.env.NIA_API_URL = "https://custom.api.example.com/v2";
 
 		const config = loadConfig();
@@ -114,7 +109,6 @@ describe("loadConfig", () => {
 		expect(config.checkInterval).toBe(30);
 		expect(config.tracerTimeout).toBe(240);
 		expect(config.debug).toBe(true);
-		expect(config.triggersEnabled).toBe(false);
 		expect(config.apiUrl).toBe("https://custom.api.example.com/v2");
 	});
 

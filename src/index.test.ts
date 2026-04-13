@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
 import NiaPlugin from "./index";
-import { NIA_NUDGE_MESSAGE } from "./hooks/smart-triggers";
+import { jobManager } from "./state/job-manager";
 import { getSessionState, resetSessionStates } from "./state/session";
 
 const ALL_TOOL_NAMES = [
@@ -55,6 +55,7 @@ describe("Nia plugin entrypoint", () => {
   afterEach(() => {
     process.env = originalEnv;
     resetSessionStates();
+    jobManager.clearJobs();
   });
 
   it("registers all tools and hooks when configured", async () => {
@@ -64,7 +65,6 @@ describe("Nia plugin entrypoint", () => {
 
     expect(Object.keys(hooks.tool ?? {}).sort()).toEqual([...ALL_TOOL_NAMES].sort());
     expect(typeof hooks.event).toBe("function");
-    expect(typeof hooks["chat.message"]).toBe("function");
     expect(typeof hooks["tool.execute.after"]).toBe("function");
     expect(typeof hooks["experimental.chat.system.transform"]).toBe("function");
   });
@@ -111,25 +111,26 @@ describe("Nia plugin entrypoint", () => {
     expect(Object.keys(hooks.tool ?? {}).sort()).toEqual([...ALWAYS_ON_TOOL_NAMES].sort());
   });
 
-  it("keeps keyword detection in the chat.message hook", async () => {
+  it("wires transformSystemPrompt into the chat.system.transform hook", async () => {
     process.env.NIA_API_KEY = "test-key";
 
     const hooks = await NiaPlugin({ directory: "/tmp/project" } as never);
-    const chatMessageHook = hooks["chat.message"];
-    const output = {
-      message: { id: "message-1" },
-      parts: [{ type: "text", text: "please research the bun test docs" }],
-    };
+    const transformHook = hooks["experimental.chat.system.transform"];
+    expect(transformHook).toBeDefined();
 
-    await chatMessageHook?.({ sessionID: "session-1" } as never, output as never);
+    jobManager.submitJob("oracle", "test-job-sysprompt", "session-sysprompt");
 
-    expect(output.parts).toHaveLength(2);
-    expect(output.parts[1]).toMatchObject({
-      type: "text",
-      text: NIA_NUDGE_MESSAGE,
-      synthetic: true,
-      sessionID: "session-1",
-      messageID: "message-1",
-    });
+    const output = { system: ["Base system prompt"] };
+    await transformHook?.(
+      { sessionID: "session-sysprompt", model: {} as never },
+      output as never,
+    );
+
+    expect(output.system).toContain("Base system prompt");
+    expect(output.system.some((line) => line.includes("Nia tools available"))).toBe(true);
+    expect(
+      output.system.some((line) => line.includes("Waiting for Nia operations to complete")),
+    ).toBe(true);
+    expect(output.system.some((line) => line.includes("test-job-sysprompt"))).toBe(true);
   });
 });

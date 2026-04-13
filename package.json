@@ -53,10 +53,7 @@
 		"vitest": "^4.1.0"
 	},
 	"opencode": {
-		"type": "plugin",
-		"hooks": [
-			"chat.message"
-		]
+		"type": "plugin"
 	},
 	"files": [
 		"dist",

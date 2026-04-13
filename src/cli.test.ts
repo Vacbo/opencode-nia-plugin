@@ -4,9 +4,7 @@ vi.mock("./cli/api-key.js", () => ({
 	storeApiKeyNiaSkill: vi.fn(),
 }));
 vi.mock("./cli/cleanup.js", () => ({
-	cleanupAgentsMd: vi.fn(),
 	removeInstructionsFromConfig: vi.fn(),
-	removeNiaConfig: vi.fn(),
 	removePluginFromConfig: vi.fn(),
 }));
 vi.mock("./cli/config.js", () => ({
