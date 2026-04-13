@@ -45,7 +45,6 @@ jobs:
           # Node 22+ required for npm OIDC Trusted Publishing.
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
-          always-auth: true
 
       - name: Verify tag matches package.json version
         if: startsWith(github.ref, 'refs/tags/v')
